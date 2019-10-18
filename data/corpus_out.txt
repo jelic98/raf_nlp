@@ -1,0 +1,3 @@
+these two vectors 32 provide no useful infor45mation regarding the relationships that may exist between the agama and reptile
+in other words the similarity between words is not captured by the onehot encoding
+loosely speaking onehot encoding does not enable the system making conclusions about the word agama given the word reptile for example such that agama is a coldblooded animal

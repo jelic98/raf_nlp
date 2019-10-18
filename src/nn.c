@@ -1,5 +1,7 @@
-#include "../include/nn.h"
+#include "include/nn.h"
 
+// TODO Disable activation function and only use matrix dot product
+// TODO Use softmax function to compute probabilities
 // TODO Optimize calculations by reusing calculated expessions
 
 static clock_t elapsed; 
@@ -151,12 +153,12 @@ static void update_weights() {
 	// Update weights from input to hidden layer
 	for(j = 1; j <= HIDDEN_MAX; j++) {
 		// Apply delta rule on bias
-		delta_weight_ih[0][j] = LEARNING_RATE * delta_h[j] + MOMENTUM * delta_weight_ih[0][j];
+		delta_weight_ih[0][j] = LEARNING_RATE * delta_h[j] + MOMENTUM_RATE * delta_weight_ih[0][j];
 		weight_ih[0][j] += delta_weight_ih[0][j];
 
 		// Apply delta rule on neurons
 		for(i = 1; i <= INPUT_MAX; i++) {
-			delta_weight_ih[i][j] = LEARNING_RATE * input[p][i] * delta_h[j] + MOMENTUM * delta_weight_ih[i][j];
+			delta_weight_ih[i][j] = LEARNING_RATE * input[p][i] * delta_h[j] + MOMENTUM_RATE * delta_weight_ih[i][j];
 			weight_ih[i][j] += delta_weight_ih[i][j];
 		}
 	}
@@ -164,12 +166,12 @@ static void update_weights() {
 	// Update weights from hidden to output layer
 	for(k = 1; k <= OUTPUT_MAX; k++) {
 		// Apply delta rule on bias
-		delta_weight_ho[0][k] = LEARNING_RATE * delta_o[k] + MOMENTUM * delta_weight_ho[0][k];
+		delta_weight_ho[0][k] = LEARNING_RATE * delta_o[k] + MOMENTUM_RATE * delta_weight_ho[0][k];
 		weight_ho[0][k] += delta_weight_ho[0][k];
 
 		// Apply delta rule on neurons
 		for(j = 1; j <= HIDDEN_MAX; j++) {
-			delta_weight_ho[j][k] = LEARNING_RATE * hidden[p][j] * delta_o[k] + MOMENTUM * delta_weight_ho[j][k];
+			delta_weight_ho[j][k] = LEARNING_RATE * hidden[p][j] * delta_o[k] + MOMENTUM_RATE * delta_weight_ho[j][k];
 			weight_ho[j][k] += delta_weight_ho[j][k];
 		}
 	}
@@ -177,40 +179,40 @@ static void update_weights() {
 
 static void log_epoch() {
 	if(epoch % LOG_PERIOD == 0) {
-		fprintf(OUT, "Epoch %-*d\t:\tError = %f\n", EPOCH_MAX_DIGITS, epoch, error);
+		fprintf(LOG_FILE, "Epoch %-*d\t:\tError = %f\n", EPOCH_MAX_DIGITS, epoch, error);
 	}
 } 
 
 static void log_network() {
-	fprintf(OUT, "\nNetwork data (Epoch %d)\n\n#\t", epoch);
+	fprintf(LOG_FILE, "\nNetwork data (Epoch %d)\n\n#\t", epoch);
   
 	for(i = 1; i <= INPUT_MAX; i++) {
-    	fprintf(OUT, "Input %-4d\t", i);
+		fprintf(LOG_FILE, "Input %-4d\t", i);
 	}
 	
 	for(k = 1; k <= OUTPUT_MAX; k++) {
-    	fprintf(OUT, "Target %-4d\tOutput %-4d\t", k, k);
+		fprintf(LOG_FILE, "Target %-4d\tOutput %-4d\t", k, k);
 	}
 	
 	for(p = 1; p <= PATTERN_MAX; p++) {
-		fprintf(OUT, "\n%d\t", p);
+		fprintf(LOG_FILE, "\n%d\t", p);
 		
 		for(i = 1; i <= INPUT_MAX; i++) {
-			fprintf(OUT, "%f\t", input[p][i]);
+			fprintf(LOG_FILE, "%f\t", input[p][i]);
 		}
 		
 		for(k = 1; k <= OUTPUT_MAX; k++) {
-			fprintf(OUT, "%f\t%f\t", target[p][k], output[p][k]);
+			fprintf(LOG_FILE, "%f\t%f\t", target[p][k], output[p][k]);
 		}
 	}
 
-	fprintf(OUT, "\n\nElapsed time: %f sec\n", (double) elapsed / CLOCKS_PER_SEC);
+	fprintf(LOG_FILE, "\n\nElapsed time: %f sec\n", (double) elapsed / CLOCKS_PER_SEC);
 }
 
 void start_training() {
 	srand(time(0));
 
-    elapsed = clock();
+	elapsed = clock();
 
 	initialize_training();	
 	initialize_weights();	

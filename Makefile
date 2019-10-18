@@ -1,5 +1,5 @@
 CC = gcc
-IN = main.c src/nn.c
+IN = main.c src/data.c src/nn.c
 OUT = main.out
 CFLAGS = -Wall
 LFLAGS = -lm
@@ -10,7 +10,7 @@ IFLAGS = -I. -I./include
 clean:
 	rm -f $(OUT)
 
-build: $(IN) include/nn.h
+build: $(IN) include/main.h include/data.h include/nn.h
 	$(CC) $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)

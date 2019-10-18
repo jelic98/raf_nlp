@@ -1,0 +1,4 @@
+These     two  vectors 32 provide no useful infor45mation regarding the relationships that may exist between the "agama" and "reptile". In other words, the similarity between words is not captured by the one-hot encoding.
+
+
+Loosely speaking, one-hot encoding does not enable the system making conclusions about the word "agama" given the word "reptile" (for example, such that agama is a cold-blooded animal).
