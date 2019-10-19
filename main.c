@@ -4,6 +4,7 @@
 
 int main() {
 	text_to_sentences();
+	sentences_to_matrix();
 	sentences_to_words();
 	words_to_onehot();
 //	start_training();
