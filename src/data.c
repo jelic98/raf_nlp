@@ -2,20 +2,8 @@
 
 // TODO Make vector using array index just before putting it into network
 
-typedef struct xWord {
-	char word[WORD_MAX];
-	unsigned int count;
-	struct xWord* left;
-	struct xWord* right;
-} xWord;
-
-typedef struct xBit {
-	unsigned int on : 1;
-} xBit;
-
-static char sentences[SENTENCES_MAX][SENTENCE_MAX][WORD_MAX];
+static char sentences[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static int dict_size;
-static xWord* word_arr[WORDS_MAX];
 static xWord* root = NULL;
 
 static xWord* bst_insert(xWord* node, const char* word) {
@@ -41,13 +29,13 @@ static xWord* bst_insert(xWord* node, const char* word) {
 	return node;
 }
 
-static void bst_to_matrix(xWord* node) {
+static void bst_to_matrix(xWord* node, xWord** words) {
 	if(node) {
-		bst_to_matrix(node->left);
+		bst_to_matrix(node->left, words);
 
-		word_arr[dict_size++] = node;
+		words[dict_size++] = node;
 
-		bst_to_matrix(node->right);
+		bst_to_matrix(node->right, words);
 	}
 }
 
@@ -67,9 +55,9 @@ static void bst_clear(xWord* node) {
 	}
 }
 
-void text_to_sentences() {
-	FILE* fin = fopen(CORPUS_IN_FILE, "r");
-	FILE* fout = fopen(CORPUS_OUT_FILE, "w");
+static void file_cleanup() {
+	FILE* fin = fopen(CORPUS_FILE, "r");
+	FILE* fout = fopen(CORPUS_CLEAN_FILE, "w");
 
 	if(!fin || !fout) {
 		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
@@ -108,15 +96,17 @@ void text_to_sentences() {
 	}
 }
 
-void sentences_to_matrix() {
-	FILE* fin = fopen(CORPUS_OUT_FILE, "r");
+void prepare_data(xWord** words) {
+	file_cleanup();
+
+	FILE* fin = fopen(CORPUS_CLEAN_FILE, "r");
 
 	if(!fin) {
 		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
 		return;
 	}
 
-	char line[SENTENCE_MAX];
+	char line[WORD_MAX * CHARACTER_MAX];
 	char* pl;
 	char sep[] = " ";
 	char dot[] = "\n";
@@ -146,6 +136,8 @@ void sentences_to_matrix() {
 		while(sentences[i][j][0]) {
 			printf("%s: ", sentences[i][j]);
 			
+			root = bst_insert(root, sentences[i][j]);
+			
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !sentences[i][k][0]) {
 					continue;
@@ -163,40 +155,15 @@ void sentences_to_matrix() {
 	if(fclose(fin) == EOF) {
 		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
 	}
-}
 
-void sentences_to_words() {
-	FILE* fin = fopen(CORPUS_OUT_FILE, "r");
-
-	if(!fin) {
-		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
-		return;
-	}
-
-	char word[WORD_MAX];
-
-	while(fscanf(fin, "%s", word) != EOF) {
-		root = bst_insert(root, word);
-	}
-
-	if(fclose(fin) == EOF) {
-		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
-	}
-}
-
-void words_to_onehot() {
-	bst_to_matrix(root);
+	bst_to_matrix(root, words);
 
 	xBit onehot[dict_size][dict_size];
 	memset(onehot, 0, sizeof(onehot));
 	
-	int i, j;
-	
 	for(i = 0; i < dict_size; i++) {
 		onehot[i][i].on = 1;
 	}
-
-	return;
 
 	for(i = 0; i < dict_size; i++) {	
 		printf("%d.\t", i + 1);
@@ -205,7 +172,7 @@ void words_to_onehot() {
 			printf("%d", onehot[i][j].on);
 		}
 		
-		printf(" : %s (%d)\n", word_arr[i]->word, word_arr[i]->count);
+		printf(" : %s (%d)\n", words[i]->word, words[i]->count);
 	}
 
 	bst_clear(root);

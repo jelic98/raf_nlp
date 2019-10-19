@@ -3,10 +3,9 @@
 #include "include/nn.h"
 
 int main() {
-	text_to_sentences();
-	sentences_to_matrix();
-	sentences_to_words();
-	words_to_onehot();
+	xWord* words[SENTENCE_MAX * WORD_MAX];
+
+	prepare_data(words);
 //	start_training();
 	
 	return 0;
