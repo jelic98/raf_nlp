@@ -3,9 +3,7 @@
 #include "include/nn.h"
 
 int main() {
-	xWord* words[SENTENCE_MAX * WORD_MAX];
-
-	prepare_data(words);
+	prepare_data();
 //	start_training();
 	
 	return 0;
