@@ -1,7 +1,5 @@
 #include "include/data.h"
 
-// TODO Make vector using array index just before putting it into network
-
 static int dict_size, sent_count;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];

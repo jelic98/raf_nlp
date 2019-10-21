@@ -3,8 +3,8 @@
 #include "include/nn.h"
 
 int main() {
-	prepare_data();
-//	start_training();
+//	prepare_data();
+	start_training();
 	
 	return 0;
 }

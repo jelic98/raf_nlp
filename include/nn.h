@@ -13,12 +13,10 @@
 #define WINDOW_MAX 2
 
 #define LEARNING_RATE 0.5
-#define MOMENTUM_RATE 0.9
 #define INITIAL_WEIGHT_MAX 0.5
 
 #define EPOCH_MAX 10000
-#define EPOCH_MAX_DIGITS 5
-#define ERROR_MAX 0.0002
+#define LOSS_MAX 0.0002
 
 #define LOG_PERIOD 100
 

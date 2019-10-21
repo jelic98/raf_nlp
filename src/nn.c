@@ -1,7 +1,5 @@
 #include "include/nn.h"
 
-// TODO Disable activation function and only use matrix dot product
-// TODO Use softmax function to compute probabilities
 // TODO Optimize calculations by reusing calculated expessions
 
 static clock_t elapsed; 
@@ -18,72 +16,64 @@ static int k;
 // Pattern indices
 static int p, p1, p2;
 
-static int training[PATTERN_MAX + 1], epoch;
+static int training[PATTERN_MAX], epoch;
 
-static double sum_squares, error;
+// Softmax variables
+static double max, sum, offset;
 
-static double input[PATTERN_MAX + 1][INPUT_MAX + 1] = {
-	{0, 0, 0},
-	{0, 0, 0},
-	{0, 1, 0},
-	{0, 0, 1},
-	{0, 1, 1}
-};
+static double delta, loss;
 
-static double target[PATTERN_MAX + 1][OUTPUT_MAX + 1] = {
-	{0, 0},
+static double input[PATTERN_MAX][INPUT_MAX] = {
 	{0, 0},
 	{0, 1},
-	{0, 1},
-	{0, 0}
+	{1, 0},
+	{1, 1}
 };
 
-static double sum_hidden[PATTERN_MAX + 1][HIDDEN_MAX + 1],
-	weight_ih[INPUT_MAX + 1][HIDDEN_MAX + 1],
-	hidden[PATTERN_MAX + 1][HIDDEN_MAX + 1];
+static double target[PATTERN_MAX][OUTPUT_MAX] = {
+	{0},
+	{1},
+	{1},
+	{0}
+};
 
-static double sum_output[PATTERN_MAX + 1][OUTPUT_MAX + 1],
-	weight_ho[HIDDEN_MAX + 1][OUTPUT_MAX + 1],
-	output[PATTERN_MAX + 1][OUTPUT_MAX + 1];
+static double weight_ih[INPUT_MAX][HIDDEN_MAX],
+	hidden[PATTERN_MAX][HIDDEN_MAX];
 
-static double sum_delta[HIDDEN_MAX + 1],
-	delta_h[HIDDEN_MAX + 1],
-	delta_o[OUTPUT_MAX + 1];
+static double weight_ho[HIDDEN_MAX][OUTPUT_MAX],
+	output[PATTERN_MAX][OUTPUT_MAX];
 
-static double delta_weight_ih[INPUT_MAX + 1][HIDDEN_MAX + 1],
-	delta_weight_ho[HIDDEN_MAX + 1][OUTPUT_MAX + 1];
+static double error[OUTPUT_MAX];
 
 static void initialize_training() {
 	// Initialize training set
-	for(p = 1; p <= PATTERN_MAX; p++) {
+	for(p = 0; p < PATTERN_MAX; p++) {
 		training[p] = p;
 	}
 }
 
 static void initialize_weights() {
 	// Initialize weights from input to hidden layer
-	for(j = 1; j <= HIDDEN_MAX; j++) {
-		for(i = 0; i <= INPUT_MAX; i++) {
-			delta_weight_ih[i][j] = 0.0;
+	for(j = 0; j < HIDDEN_MAX; j++) {
+		for(i = 0; i < INPUT_MAX; i++) {
 			weight_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 
 	// Initialize weights from hidden to output layer
-	for(k = 1; k <= OUTPUT_MAX; k++) {
-		for(j = 0; j <= HIDDEN_MAX; j++) {
-			delta_weight_ho[j][k] = 0.0;
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		for(j = 0; j < HIDDEN_MAX; j++) {
 			weight_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 }
 
 static void initialize_epoch() {
-	error = 0.0;
-	
+	loss = 0.0;
+
 	// Randomize order inside training set
-	for(p = 1; p <= PATTERN_MAX; p++) {
-		p1 = p + random() * (PATTERN_MAX + 1 - p);
+	for(p = 0; p < PATTERN_MAX; p++) {
+		p1 = p + random() * (PATTERN_MAX - p);
 		
 		p2 = training[p];
 		training[p] = training[p1];
@@ -92,116 +82,118 @@ static void initialize_epoch() {
 }
 
 static void forward_propagate_input_layer() {
-	// Compute hidden layer activations
-	for(j = 1; j <= HIDDEN_MAX; j++) {
-		// Add bias
-		sum_hidden[p][j] = weight_ih[0][j];
-			
+	// Compute hidden layer
+	for(j = 0; j < HIDDEN_MAX; j++) {
+		hidden[p][j] = 0.0;
+		
 		// Sum outputs from input layer
-		for(i = 1; i <= INPUT_MAX; i++) {
-			sum_hidden[p][j] += input[p][i] * weight_ih[i][j];
+		for(i = 0; i < INPUT_MAX; i++) {
+			hidden[p][j] += input[p][i] * weight_ih[i][j];
 		}
-
-		// Compute sigmoid function
-		hidden[p][j] = 1.0 / (1.0 + exp(-sum_hidden[p][j]));
 	}
 }
 
 static void forward_propagate_hidden_layer() {
-	sum_squares = 0.0;
-
-	// Compute output layer activations and deltas
-	for(k = 1; k <= OUTPUT_MAX; k++) {
-		// Add bias
-		sum_output[p][k] = weight_ho[0][k];
-
+	// Compute output layer
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		output[p][k] = 0.0;
+		
 		// Sum outputs from hidden layer
-		for(j = 1; j <= HIDDEN_MAX; j++) {
-			sum_output[p][k] += hidden[p][j] * weight_ho[j][k];
+		for(j = 0; j < HIDDEN_MAX; j++) {
+			output[p][k] += hidden[p][j] * weight_ho[j][k];
 		}
-
-		// Compute sigmoid function
-		output[p][k] = 1.0 / (1.0 + exp(-sum_output[p][k]));
-		
-		// Compute output layer delta
-		delta_o[k] = (target[p][k] - output[p][k]) * output[p][k] * (1.0 - output[p][k]);
-
-		// Compute sum of squared Euclidean distance
-		sum_squares += pow((target[p][k] - output[p][k]), 2);
 	}
-
-	// Compute mean squared error
-	error = 0.5 * sum_squares / OUTPUT_MAX;
 }
 
-static void back_propagate_error() {
-	// Compute hidden layer deltas
-	for(j = 1; j <= HIDDEN_MAX; j++) {
-		sum_delta[j] = 0.0;
-		
-		// Sum products of output layer deltas and weights from hidden to output layer
-		for(k = 1; k <= OUTPUT_MAX; k++) {
-			sum_delta[j] += delta_o[k] * weight_ho[j][k];
-		}
-		
-		// Compute hidden layer delta
-		delta_h[j] = sum_delta[j] * hidden[p][j] * (1.0 - hidden[p][j]);
-	}	
-}
+static void normalize_output_layer() {
+	// Run softmax function through output layer to normalize it into probability distribution
+	max = output[p][k];
 
-static void update_weights() {
-	// Update weights from input to hidden layer
-	for(j = 1; j <= HIDDEN_MAX; j++) {
-		// Apply delta rule on bias
-		delta_weight_ih[0][j] = LEARNING_RATE * delta_h[j] + MOMENTUM_RATE * delta_weight_ih[0][j];
-		weight_ih[0][j] += delta_weight_ih[0][j];
-
-		// Apply delta rule on neurons
-		for(i = 1; i <= INPUT_MAX; i++) {
-			delta_weight_ih[i][j] = LEARNING_RATE * input[p][i] * delta_h[j] + MOMENTUM_RATE * delta_weight_ih[i][j];
-			weight_ih[i][j] += delta_weight_ih[i][j];
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		if(output[p][k] > max) {
+			max = output[p][k];
 		}
 	}
 
+	sum = 0.0;
+	
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		sum += expf(output[p][k] - max);
+	}
+	
+	offset = max + log(sum);
+
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		output[p][k] = exp(output[p][k] - offset);
+	}
+}
+
+static void calculate_error() {
+	// Calculate error based on targets and probabilities at output layer
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		error[k] = output[p][k] - target[p][k];
+	}
+}
+
+static void calculate_loss() {
+// Part 1: -ve sum of all the output +
+// Part 2: length of context words * log of sum for all elements (exponential-ed) in the output layer before softmax (u)
+// Note: word.index(1) returns the index in the context word vector with value 1
+// Note: u[word.index(1)] returns the value of the output layer before softmax
+// self.loss += -np.sum([u[word.index(1)] for word in w_c]) + len(w_c) * np.log(np.sum(np.exp(u)))
+}
+
+static void update_hidden_layer_weights() {
 	// Update weights from hidden to output layer
-	for(k = 1; k <= OUTPUT_MAX; k++) {
-		// Apply delta rule on bias
-		delta_weight_ho[0][k] = LEARNING_RATE * delta_o[k] + MOMENTUM_RATE * delta_weight_ho[0][k];
-		weight_ho[0][k] += delta_weight_ho[0][k];
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		// Apply delta rule
+		for(j = 0; j < HIDDEN_MAX; j++) {
+			weight_ho[j][k] -= LEARNING_RATE * hidden[p][j] * error[k];
+		}
+	}
+}
 
-		// Apply delta rule on neurons
-		for(j = 1; j <= HIDDEN_MAX; j++) {
-			delta_weight_ho[j][k] = LEARNING_RATE * hidden[p][j] * delta_o[k] + MOMENTUM_RATE * delta_weight_ho[j][k];
-			weight_ho[j][k] += delta_weight_ho[j][k];
+static void update_input_layer_weights() {
+	// Update weights from input to hidden layer
+	for(i = 0; i < INPUT_MAX; i++) {
+		// Apply delta rule
+		for(j = 0; j < HIDDEN_MAX; j++) {
+			delta = 0.0;
+
+			for(k = 0; k < OUTPUT_MAX; k++) {
+				delta += hidden[p][j] * error[k];
+			}
+			
+			weight_ih[i][j] -= LEARNING_RATE * delta;
 		}
 	}
 }
 
 static void log_epoch() {
 	if(epoch % LOG_PERIOD == 0) {
-		fprintf(LOG_FILE, "Epoch %-*d\t:\tError = %f\n", EPOCH_MAX_DIGITS, epoch, error);
+		fprintf(LOG_FILE, "Epoch %d\t:\tLoss = %f\n", epoch, loss);
 	}
 } 
 
 static void log_network() {
 	fprintf(LOG_FILE, "\nNetwork data (Epoch %d)\n\n#\t", epoch);
   
-	for(i = 1; i <= INPUT_MAX; i++) {
+	for(i = 0; i < INPUT_MAX; i++) {
 		fprintf(LOG_FILE, "Input %-4d\t", i);
 	}
 	
-	for(k = 1; k <= OUTPUT_MAX; k++) {
+	for(k = 0; k < OUTPUT_MAX; k++) {
 		fprintf(LOG_FILE, "Target %-4d\tOutput %-4d\t", k, k);
 	}
 	
-	for(p = 1; p <= PATTERN_MAX; p++) {
+	for(p = 0; p < PATTERN_MAX; p++) {
 		fprintf(LOG_FILE, "\n%d\t", p);
 		
-		for(i = 1; i <= INPUT_MAX; i++) {
+		for(i = 0; i < INPUT_MAX; i++) {
 			fprintf(LOG_FILE, "%f\t", input[p][i]);
 		}
 		
-		for(k = 1; k <= OUTPUT_MAX; k++) {
+		for(k = 0; k < OUTPUT_MAX; k++) {
 			fprintf(LOG_FILE, "%f\t%f\t", target[p][k], output[p][k]);
 		}
 	}
@@ -220,18 +212,21 @@ void start_training() {
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 		initialize_epoch();
 
-		for(p1 = 1; p1 <= PATTERN_MAX; p1++) {
+		for(p1 = 0; p1 < PATTERN_MAX; p1++) {
 			p = training[p1];
 
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
-			back_propagate_error();
-			update_weights();
+			normalize_output_layer();
+			calculate_error();
+			calculate_loss();
+			update_hidden_layer_weights();
+			update_input_layer_weights();
 		}
 		
 		log_epoch();
 		
-		if(error < ERROR_MAX) {
+		if(loss < LOSS_MAX) {
 			break;
 		}
 	}
