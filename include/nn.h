@@ -1,5 +1,3 @@
-// http://www.cs.bham.ac.uk/~jxb/INC/nn.html
-
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
@@ -20,7 +18,33 @@
 
 #define LOG_PERIOD 100
 
+#define LOG_FILE stdout
+
+#define CORPUS_FILE "data/corpus.txt"
+
+#define FILE_ERROR_MESSAGE "File error occurred\n"
+
+// Number of sentences in file
+#define SENTENCE_MAX 10
+
+// Number of words in sentence
+#define WORD_MAX 100
+
+// Number of characters in word
+#define CHARACTER_MAX 50
+
 #define random() ((double)rand() / ((double) RAND_MAX + 1))
+
+typedef struct xWord {
+	char word[CHARACTER_MAX];
+	unsigned int count;
+	struct xWord* left;
+	struct xWord* right;
+} xWord;
+
+typedef struct xBit {
+	unsigned int on : 1;
+} xBit;
 
 void start_training();
 
