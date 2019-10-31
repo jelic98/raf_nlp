@@ -16,14 +16,14 @@ static int k;
 // Pattern indices
 static int p, p1, p2;
 
-static int training[PATTERN_MAX], epoch, dict_size, sent_count;
+static int training[PATTERN_MAX], epoch;
 
 // Softmax variables
 static double max, sum, offset;
 
 static double delta, loss;
 
-static double input[PATTERN_MAX][INPUT_MAX],
+static xBit input[PATTERN_MAX][INPUT_MAX],
 	target[PATTERN_MAX][OUTPUT_MAX];
 
 static double weight_ih[INPUT_MAX][HIDDEN_MAX],
@@ -61,11 +61,11 @@ static xWord* bst_insert(xWord* node, const char* word) {
 	return node;
 }
 
-static void bst_to_matrix(xWord* node) {
+static void bst_to_matrix(xWord* node, int* index) {
 	if(node) {
-		bst_to_matrix(node->left);
-		words[dict_size++] = node;
-		bst_to_matrix(node->right);
+		bst_to_matrix(node->left, index);
+		words[(*index)++] = node;
+		bst_to_matrix(node->right, index);
 	}
 }
 
@@ -82,7 +82,7 @@ static void bst_clear(xWord* node) {
 	}
 }
 
-static void read_file() {
+static void parse_corpus_file() {
 	FILE* fin = fopen(CORPUS_FILE, "r");
 
 	if(!fin) {
@@ -102,7 +102,7 @@ static void read_file() {
 			root = bst_insert(root, word);
 			memset(pw = word, 0, sizeof(word));
 		}else if(c == '.') {
-			sent_count = ++i, j = 0;
+			++i, j = 0;
 		}	
 	}
 
@@ -111,17 +111,17 @@ static void read_file() {
 	}
 }
 
-static void build_onehots() {
-	int i;
-
-	bst_to_matrix(root);
-
-	for(i = 0; i < dict_size; i++) {
+static void initialize_training() {
+	// Run inorder traversal on binary search tree to extract words in alphabetical order
+	int input_max = 0;
+	
+	bst_to_matrix(root, &input_max);
+	
+	// Build onehot vector for every word in corpus
+	for(i = 0; i < input_max; i++) {
 		onehot[i][i].on = 1;
 	}
-}
 
-static void initialize_training() {
 	// Initialize training set
 	for(p = 0; p < PATTERN_MAX; p++) {
 		training[p] = p;
@@ -164,7 +164,7 @@ static void forward_propagate_input_layer() {
 		
 		// Sum outputs from input layer
 		for(i = 0; i < INPUT_MAX; i++) {
-			hidden[p][j] += input[p][i] * weight_ih[i][j];
+			hidden[p][j] += input[p][i].on * weight_ih[i][j];
 		}
 	}
 }
@@ -207,7 +207,7 @@ static void normalize_output_layer() {
 static void calculate_error() {
 	// Calculate error based on targets and probabilities at output layer
 	for(k = 0; k < OUTPUT_MAX; k++) {
-		error[k] = output[p][k] - target[p][k];
+		error[k] = output[p][k] - target[p][k].on;
 	}
 }
 
@@ -217,6 +217,11 @@ static void calculate_loss() {
 // Note: word.index(1) returns the index in the context word vector with value 1
 // Note: u[word.index(1)] returns the value of the output layer before softmax
 // self.loss += -np.sum([u[word.index(1)] for word in w_c]) + len(w_c) * np.log(np.sum(np.exp(u)))
+	sum = 0;
+
+	for(k = 0; k < OUTPUT_MAX; k++) {
+		sum += output[p][k];
+	}
 }
 
 static void update_hidden_layer_weights() {
@@ -266,11 +271,11 @@ static void log_network() {
 		fprintf(LOG_FILE, "\n%d\t", p);
 		
 		for(i = 0; i < INPUT_MAX; i++) {
-			fprintf(LOG_FILE, "%f\t", input[p][i]);
+			fprintf(LOG_FILE, "%d\t", input[p][i].on);
 		}
 		
 		for(k = 0; k < OUTPUT_MAX; k++) {
-			fprintf(LOG_FILE, "%f\t%f\t", target[p][k], output[p][k]);
+			fprintf(LOG_FILE, "%d\t%f\t", target[p][k].on, output[p][k]);
 		}
 	}
 
@@ -280,8 +285,7 @@ static void log_network() {
 void start_training() {
 	srand(time(0));
 
-	read_file();
-	build_onehots();
+	parse_corpus_file();
 	
 	initialize_training();	
 	initialize_weights();	
