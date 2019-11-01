@@ -3,24 +3,24 @@
 
 #include "include/main.h"
 
-#define PATTERN_MAX 4
-#define INPUT_MAX 2
-#define HIDDEN_MAX 2
-#define OUTPUT_MAX 1
+#define PATTERN_MAX 50
+#define INPUT_MAX 50
+#define HIDDEN_MAX 5
+#define OUTPUT_MAX 50
 
 #define WINDOW_MAX 2
 
 #define LEARNING_RATE 0.5
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 10000
-#define LOSS_MAX 0.0002
+#define EPOCH_MAX 1
+#define LOSS_MAX 0.1
 
 #define LOG_PERIOD 100
 
 #define LOG_FILE stdout
 
-#define CORPUS_FILE "data/corpus.txt"
+#define CORPUS_FILE "res/corpus.txt"
 
 #define FILE_ERROR_MESSAGE "File error occurred\n"
 
@@ -33,6 +33,8 @@
 // Number of characters in word
 #define CHARACTER_MAX 50
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
 #define random() ((double)rand() / ((double) RAND_MAX + 1))
 
 typedef struct xWord {
@@ -42,7 +44,7 @@ typedef struct xWord {
 	struct xWord* right;
 } xWord;
 
-typedef struct xBit {
+typedef union xBit {
 	unsigned int on : 1;
 } xBit;
 

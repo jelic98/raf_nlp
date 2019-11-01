@@ -8,5 +8,6 @@
 #include <math.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <limits.h>
 
 #endif

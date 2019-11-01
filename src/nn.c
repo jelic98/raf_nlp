@@ -1,7 +1,5 @@
 #include "include/nn.h"
 
-// TODO Use map instead of tree to remove duplicate words and form onehot encodings
-
 static clock_t elapsed; 
 
 // Input layer index
@@ -35,9 +33,19 @@ static double weight_ho[HIDDEN_MAX][OUTPUT_MAX],
 static double error[OUTPUT_MAX];
 
 static xWord* root = NULL;
-static xWord* words[SENTENCE_MAX * WORD_MAX];
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
+
+static xBit* map_get(const char* word) {
+	unsigned int hash = 0, c;
+
+	for(size_t i = 0; word[i]; i++) {
+		c = (unsigned char) word[i];
+		hash = (hash << 3) + (hash >> (sizeof(hash) * CHAR_BIT - 3)) + c;
+	}
+
+	return onehot[hash % (SENTENCE_MAX * WORD_MAX)];
+}
 
 static xWord* bst_insert(xWord* node, const char* word) {
 	if(!node) {
@@ -61,11 +69,11 @@ static xWord* bst_insert(xWord* node, const char* word) {
 	return node;
 }
 
-static void bst_to_matrix(xWord* node, int* index) {
+static void bst_to_map(xWord* node, int* index) {
 	if(node) {
-		bst_to_matrix(node->left, index);
-		words[(*index)++] = node;
-		bst_to_matrix(node->right, index);
+		bst_to_map(node->left, index);
+		map_get(node->word)[(*index)++].on = 1;
+		bst_to_map(node->right, index);
 	}
 }
 
@@ -112,14 +120,40 @@ static void parse_corpus_file() {
 }
 
 static void initialize_training() {
-	// Run inorder traversal on binary search tree to extract words in alphabetical order
-	int input_max = 0;
+	parse_corpus_file();
 	
-	bst_to_matrix(root, &input_max);
-	
-	// Build onehot vector for every word in corpus
-	for(i = 0; i < input_max; i++) {
-		onehot[i][i].on = 1;
+	int index = 0;
+
+	// Convert binary search tree to map
+	bst_to_map(root, &index);
+
+	// Initialize input layer and target outputs
+	for(i = 0; i < SENTENCE_MAX; i++) {
+		for(j = 0; j < WORD_MAX; j++) {
+			if(!context[i][j][0]) {
+				continue;
+			}
+			
+			xBit* word = map_get(context[i][k]);
+
+			for(index = 0; index < INPUT_MAX && !word[index].on; index++);
+			
+			input[index][index].on = 1;
+
+			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
+				if(k == j || k < 0 || !context[i][k][0]) {
+					continue;
+				}
+			
+				word = map_get(context[i][k]);
+
+				int pom;
+
+				for(pom = 0; pom < INPUT_MAX; pom++) {
+					target[index][pom].on |= word[pom].on;
+				}
+			}
+		}	
 	}
 
 	// Initialize training set
@@ -161,7 +195,7 @@ static void forward_propagate_input_layer() {
 	// Compute hidden layer
 	for(j = 0; j < HIDDEN_MAX; j++) {
 		hidden[p][j] = 0.0;
-		
+
 		// Sum outputs from input layer
 		for(i = 0; i < INPUT_MAX; i++) {
 			hidden[p][j] += input[p][i].on * weight_ih[i][j];
@@ -217,11 +251,11 @@ static void calculate_loss() {
 // Note: word.index(1) returns the index in the context word vector with value 1
 // Note: u[word.index(1)] returns the value of the output layer before softmax
 // self.loss += -np.sum([u[word.index(1)] for word in w_c]) + len(w_c) * np.log(np.sum(np.exp(u)))
-	sum = 0;
+/* sum = 0; */
 
-	for(k = 0; k < OUTPUT_MAX; k++) {
-		sum += output[p][k];
-	}
+/* for(k = 0; k < OUTPUT_MAX; k++) { */
+/* sum += output[p][k]; */
+/* } */
 }
 
 static void update_hidden_layer_weights() {
@@ -244,54 +278,36 @@ static void update_input_layer_weights() {
 			for(k = 0; k < OUTPUT_MAX; k++) {
 				delta += hidden[p][j] * error[k];
 			}
-			
+	
 			weight_ih[i][j] -= LEARNING_RATE * delta;
 		}
 	}
 }
 
-static void log_epoch() {
-	if(epoch % LOG_PERIOD == 0) {
-		fprintf(LOG_FILE, "Epoch %d\t:\tLoss = %f\n", epoch, loss);
-	}
-} 
-
 static void log_network() {
-	fprintf(LOG_FILE, "\nNetwork data (Epoch %d)\n\n#\t", epoch);
-  
-	for(i = 0; i < INPUT_MAX; i++) {
-		fprintf(LOG_FILE, "Input %-4d\t", i);
-	}
-	
-	for(k = 0; k < OUTPUT_MAX; k++) {
-		fprintf(LOG_FILE, "Target %-4d\tOutput %-4d\t", k, k);
-	}
-	
-	for(p = 0; p < PATTERN_MAX; p++) {
-		fprintf(LOG_FILE, "\n%d\t", p);
-		
-		for(i = 0; i < INPUT_MAX; i++) {
-			fprintf(LOG_FILE, "%d\t", input[p][i].on);
-		}
-		
-		for(k = 0; k < OUTPUT_MAX; k++) {
-			fprintf(LOG_FILE, "%d\t%f\t", target[p][k].on, output[p][k]);
-		}
+	if(epoch % LOG_PERIOD ) {
+		return;
 	}
 
-	fprintf(LOG_FILE, "\n\nElapsed time: %f sec\n", (double) elapsed / CLOCKS_PER_SEC);
+	fprintf(LOG_FILE, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch);
+	fprintf(LOG_FILE, "Loss\t%lf\n", loss);
+	fprintf(LOG_FILE, "Input\tOutput\t\tTarget\n");
+		
+	for(i = 0; i < INPUT_MAX; i++) {
+		fprintf(LOG_FILE, "%d\t%lf\t%d\n", input[p][i].on, output[p][i], target[p][i].on);
+	}
+
+	fprintf(LOG_FILE, "\nElapsed time: %f sec\n", (double) elapsed / CLOCKS_PER_SEC);
 }
 
 void start_training() {
 	srand(time(0));
 
-	parse_corpus_file();
-	
 	initialize_training();	
 	initialize_weights();	
 
 	elapsed = clock();
-	
+
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 		initialize_epoch();
 
@@ -307,7 +323,7 @@ void start_training() {
 			update_input_layer_weights();
 		}
 		
-		log_epoch();
+//		log_network();
 		
 		if(loss < LOSS_MAX) {
 			break;
@@ -315,8 +331,6 @@ void start_training() {
 	}
     
 	elapsed = clock() - elapsed; 
-	
-	log_network();
 
 	bst_clear(root);
 }
