@@ -1,26 +1,26 @@
+// https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python
+
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
 #include "include/main.h"
 
-#define PATTERN_MAX 50
-#define INPUT_MAX 50
 #define HIDDEN_MAX 5
-#define OUTPUT_MAX 50
-
 #define WINDOW_MAX 2
 
 #define LEARNING_RATE 0.5
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 1
+#define EPOCH_MAX 125
 #define LOSS_MAX 0.1
 
+#define LOG_EPOCH 1
 #define LOG_PERIOD 100
+#define LOG_FILE flog
 
-#define LOG_FILE stdout
-
-#define CORPUS_FILE "res/corpus.txt"
+#define CORPUS_PATH "res/corpus.txt"
+#define OUTPUT_PATH "out/output.txt"
+#define LOG_PATH "out/log.txt"
 
 #define FILE_ERROR_MESSAGE "File error occurred\n"
 
