@@ -1,5 +1,3 @@
-// https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python
-
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
@@ -8,14 +6,13 @@
 #define HIDDEN_MAX 5
 #define WINDOW_MAX 2
 
-#define LEARNING_RATE 0.5
+#define LEARNING_RATE 0.05
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 125
-#define LOSS_MAX 0.1
+#define EPOCH_MAX 10
 
 #define LOG_EPOCH 1
-#define LOG_PERIOD 100
+#define LOG_PERIOD 1
 #define LOG_FILE flog
 
 #define CORPUS_PATH "res/corpus.txt"
