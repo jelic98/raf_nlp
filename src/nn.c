@@ -7,7 +7,7 @@ static int i, j, k;
 static int p, p1, p2;
 
 static double max, sum, offset, error;
-static int epoch, count;
+static int epoch, count, initialized;
 
 static xBit** input;
 static xBit** target;
@@ -18,7 +18,7 @@ static double** weight_ho;
 static int* training;
 static double* error_d;
 
-static xWord* root = NULL;
+static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
 
@@ -42,6 +42,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		strcpy(node->word, word);
 		node->left = node->right = NULL;
 		node->count = 1;
+		node->prob = 0.0;
 		*success = 1;
 		return node;
 	}
@@ -79,6 +80,30 @@ static void bst_free(xWord* node) {
 	}
 }
 
+static xWord* bst_get(xWord* node, int* index) {	
+	if(node) {
+		xWord* word;
+		
+		word = bst_get(node->left, index);
+		
+		if(word) {
+			return word;
+		}
+
+		if(!(*index)--) {
+			return node;
+		}
+		
+		word = bst_get(node->right, index);
+	
+		if(word) {
+			return word;
+		}
+	}
+
+	return NULL;
+}
+
 static void parse_corpus_file() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
@@ -92,9 +117,9 @@ static void parse_corpus_file() {
 	char* pw = word;
 
 	while((c = fgetc(fin)) != EOF) {
-		if(isalnum(c)) {
+		if(isalnum(c) || c == '-') {
 			*pw++ = tolower(c);
-		} else if(!isalnum(c) && word[0]) {
+		} else if(!(isalnum(c) || c == '-') && word[0]) {
 			strcpy(context[i][j++], word);
 			success = 0;
 			root = bst_insert(root, word, &success);
@@ -168,7 +193,7 @@ static void free_layers() {
 static void initialize_training() {
 	parse_corpus_file();
 	allocate_layers();
-
+	
 	int index = 0;
 
 	bst_to_map(root, &index);
@@ -213,6 +238,10 @@ static void initialize_training() {
 }
 
 static void initialize_weights() {
+	if(initialized) {
+		return;
+	}
+
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			weight_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
@@ -379,21 +408,10 @@ static void save_output() {
 	}
 }
 
-static void finish_training() {
-	bst_free(root);
-	free_layers();
-	fclose(fout);
-	fclose(flog);
-}
-
-static int cmp_double(const void* a, const void* b) {
-	if(*(double*) a > *(double*) b) {
-		return 1;
-	}else if(*(double*) a < *(double*) b) {
-		return -1;
-	}else {
-		return 0;
-	}
+static int cmp_words(const void* a, const void* b) {
+	double diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
+	
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
 void start_training() {
@@ -427,28 +445,56 @@ void start_training() {
 	}
 
 	save_output();
-	finish_training();
 }
 
-// TODO Save weights in file
-// TODO Load weights from file
+void finish_training() {
+	bst_free(root);
+	free_layers();
+	fclose(fout);
+	fclose(flog);
+}
 
 void get_predictions(const char* word, int count) {
 	xBit* onehot = map_get(word);
+
+	p = 0;
+
+	for(i = 0; i < input_max; i++) {
+		input[p][k].on = onehot[i].on;
+	}
+
+	forward_propagate_input_layer();
+	forward_propagate_hidden_layer();
+	normalize_output_layer();
 	
-	// TODO Value of p?
-	
-	double* pred[output_max];
+	xWord pred[output_max];
 
 	for(k = 0; k < output_max; k++) {
-		pred = output[p][k];
+		int index = k;
+		pred[k] = *bst_get(root, &index);
+		pred[k].prob = output[p][k];
 	}
-
-	// TODO Get pred_word from output
-
-	qsort(pred, output_max, sizeof(double), cmp_double);
 	
-	for(k = 0; k < count; k++) {
-		printf("#%d\t%s\t%lf\n", k, pred_word, pred[k]);
+	qsort(pred, output_max, sizeof(xWord), cmp_words);
+	
+	int index;
+
+	for(index = 1, k = 0; k < count; k++) {
+		if(!strcmp(pred[k].word, word)) {
+			count++;
+			continue;
+		}
+
+		printf("#%d\t%s\t%lf\n", index++, pred[k].word, pred[k].prob);
 	}
+}
+
+void save_weights() {
+	// TODO Save weights in file
+}
+
+void load_weights() {
+	// TODO Load weights from file
+	
+	initialized = 1;
 }

@@ -6,19 +6,19 @@
 
 #include "include/main.h"
 
-#define HIDDEN_MAX 50
+#define HIDDEN_MAX 25
 #define WINDOW_MAX 2
 
-#define LEARNING_RATE 0.01
+#define LEARNING_RATE 0.05
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 20
+#define EPOCH_MAX 10
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
 #define LOG_FILE flog
 
-#define CORPUS_PATH "res/corpus-big.txt"
+#define CORPUS_PATH "res/corpus-medium.txt"
 #define OUTPUT_PATH "out/output.txt"
 #define LOG_PATH "out/log.txt"
 
@@ -40,6 +40,7 @@
 typedef struct xWord {
 	char word[CHARACTER_MAX];
 	unsigned int count;
+	double prob;
 	struct xWord* left;
 	struct xWord* right;
 } xWord;
@@ -49,6 +50,9 @@ typedef union xBit {
 } xBit;
 
 void start_training();
-void get_predictions(char*, int);
+void finish_training();
+void get_predictions(const char*, int);
+void load_weights();
+void save_weights();
 
 #endif

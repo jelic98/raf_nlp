@@ -3,7 +3,8 @@
 
 int main() {
 	start_training();
-	get_predictions("burned", 5);
+	get_predictions("shadows", 10);
+	finish_training();
 
 	return 0;
 }
