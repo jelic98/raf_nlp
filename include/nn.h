@@ -1,28 +1,31 @@
+// https://www.geeksforgeeks.org/implement-your-own-word2vecskip-gram-model-in-python
+// https://github.com/chrisjmccormick/word2vec_commented/blob/master/word2vec.c
+
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
 #include "include/main.h"
 
-#define HIDDEN_MAX 5
+#define HIDDEN_MAX 50
 #define WINDOW_MAX 2
 
-#define LEARNING_RATE 0.05
+#define LEARNING_RATE 0.01
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 10
+#define EPOCH_MAX 20
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
 #define LOG_FILE flog
 
-#define CORPUS_PATH "res/corpus.txt"
+#define CORPUS_PATH "res/corpus-big.txt"
 #define OUTPUT_PATH "out/output.txt"
 #define LOG_PATH "out/log.txt"
 
 #define FILE_ERROR_MESSAGE "File error occurred\n"
 
 // Number of sentences in file
-#define SENTENCE_MAX 10
+#define SENTENCE_MAX 100
 
 // Number of words in sentence
 #define WORD_MAX 100
@@ -46,5 +49,6 @@ typedef union xBit {
 } xBit;
 
 void start_training();
+void get_predictions(char*, int);
 
 #endif

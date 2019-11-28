@@ -178,17 +178,11 @@ static void initialize_training() {
 			if(!context[i][j][0]) {
 				continue;
 			}
-
+			
 			xBit* word = map_get(context[i][j]);
 
 			for(index = 0; index < input_max && !word[index].on; index++)
 				;
-
-			if(input[index][index].on) {
-				continue;
-			}
-
-			input[index][index].on = 1;
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
@@ -208,6 +202,10 @@ static void initialize_training() {
 
 	for(p = 0; p < pattern_max; p++) {
 		training[p] = p;
+	}
+
+	for(i = 0; i < input_max; i++) {
+		input[i][i].on = 1;
 	}
 
 	fout = fopen(OUTPUT_PATH, "w");
@@ -388,6 +386,16 @@ static void finish_training() {
 	fclose(flog);
 }
 
+static int cmp_double(const void* a, const void* b) {
+	if(*(double*) a > *(double*) b) {
+		return 1;
+	}else if(*(double*) a < *(double*) b) {
+		return -1;
+	}else {
+		return 0;
+	}
+}
+
 void start_training() {
 	srand(time(0));
 
@@ -397,6 +405,8 @@ void start_training() {
 	elapsed = clock();
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+		printf("Epoch %d / %d\n", epoch + 1, EPOCH_MAX);
+
 		initialize_epoch();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
@@ -417,6 +427,28 @@ void start_training() {
 	}
 
 	save_output();
-
 	finish_training();
+}
+
+// TODO Save weights in file
+// TODO Load weights from file
+
+void get_predictions(const char* word, int count) {
+	xBit* onehot = map_get(word);
+	
+	// TODO Value of p?
+	
+	double* pred[output_max];
+
+	for(k = 0; k < output_max; k++) {
+		pred = output[p][k];
+	}
+
+	// TODO Get pred_word from output
+
+	qsort(pred, output_max, sizeof(double), cmp_double);
+	
+	for(k = 0; k < count; k++) {
+		printf("#%d\t%s\t%lf\n", k, pred_word, pred[k]);
+	}
 }
