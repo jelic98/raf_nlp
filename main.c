@@ -1,10 +1,9 @@
 #include "include/main.h"
-#include "include/data.h"
 #include "include/nn.h"
 
 int main() {
-	prepare_data();
-//	start_training();
-	
+	start_training();
+	get_predictions("burned", 5);
+
 	return 0;
 }
