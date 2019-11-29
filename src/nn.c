@@ -17,6 +17,7 @@ static double** weight_ih;
 static double** weight_ho;
 static int* training;
 static double* error_d;
+static int** context_target;
 
 static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
@@ -142,11 +143,14 @@ static void parse_corpus_file() {
 static void allocate_layers() {
 	input = (xBit**) calloc(pattern_max, sizeof(xBit*));
 	target = (xBit**) calloc(pattern_max, sizeof(xBit*));
+	context_target = (int**) calloc(pattern_max, sizeof(int*));
 	hidden = (double**) calloc(pattern_max, sizeof(double*));
 	output = (double**) calloc(pattern_max, sizeof(double*));
 	for(p = 0; p < pattern_max; p++) {
 		input[p] = (xBit*) calloc(input_max, sizeof(xBit));
 		target[p] = (xBit*) calloc(output_max, sizeof(xBit));
+		// TODO realloc (fill context_target with -1)
+		context_target[p] = (int*) calloc(output_max, sizeof(int));
 		hidden[p] = (double*) calloc(hidden_max, sizeof(double));
 		output[p] = (double*) calloc(output_max, sizeof(double));
 	}
@@ -169,11 +173,13 @@ static void free_layers() {
 	for(p = 0; p < pattern_max; p++) {
 		free(input[p]);
 		free(target[p]);
+		free(context_target[p]);
 		free(hidden[p]);
 		free(output[p]);
 	}
 	free(input);
 	free(target);
+	free(context_target);
 	free(hidden);
 	free(output);
 
@@ -206,9 +212,15 @@ static void initialize_training() {
 			}
 			
 			xBit* word = map_get(context[i][j]);
-			
-			for(index = 0; index < pattern_max && !word[index].on; index++);
 
+			for(index = 0; index < pattern_max && !word[index].on; index++);
+		
+			for(k = 0; k < output_max; k++) {
+				context_target[index][k] = -1;
+			}
+
+			int count = 0;
+			
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
 					continue;
@@ -219,6 +231,10 @@ static void initialize_training() {
 				int pom;
 
 				for(pom = 0; pom < output_max; pom++) {
+					if(word[pom].on) {
+						context_target[index][count++] = pom;
+					}
+					
 					target[index][pom].on |= word[pom].on;
 				}
 			}
@@ -242,36 +258,23 @@ static void initialize_test() {
 	
 	xBit* onehot = map_get(test_word);
 
+	int index = 0;
+	int curr = 0;
 	p = 0;
+	count = 0;
 
 	for(i = 0; i < input_max; i++) {
 		input[p][k].on = onehot[i].on;
-	}
-	
-	for(i = 0; i < SENTENCE_MAX; i++) {
-		for(j = 0; j < WORD_MAX; j++) {
-			if(strcmp(context[i][j], test_word)) {
-				continue;
-			}
-			
-			xBit* word = map_get(context[i][j]);
 
-			for(count = 1, k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
-				if(k == j || k < 0 || !context[i][k][0]) {
-					continue;
-				}
-
-				word = map_get(context[i][k]);
-				printf("Context #%d:\t%s\n", count++, context[i][k]);
-				int pom;
-
-				for(pom = 0; pom < output_max; pom++) {
-					target[p][pom].on |= word[pom].on;
-				}
-			}
-		}
+		index += onehot[i].on * i;
 	}
 
+	for(k = -1; (curr = context_target[index][++k]) >= 0;) {
+		xWord* context = bst_get(root, &curr);
+
+		printf("Context #%d:\t%s\n", count++, context->word);
+	}
+		
 	printf("\n");
 }
 
@@ -401,7 +404,7 @@ static void update_input_layer_weights() {
 			sum = 0.0;
 			
 			for(k = 0; k < output_max; k++) {
-				sum += error_context * weight_ho[j][k] * input[p][i];
+				sum += error_context * weight_ho[j][k] * input[p][i].on;
 			}
 			
 			weight_ih[i][j] -= LEARNING_RATE * sum;
