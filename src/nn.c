@@ -258,19 +258,18 @@ static void initialize_test() {
 	
 	xBit* onehot = map_get(test_word);
 
-	int index = 0;
-	int curr = 0;
+	int index, curr = 0;
 	p = 0;
 	count = 0;
 
 	for(i = 0; i < input_max; i++) {
 		input[p][k].on = onehot[i].on;
 
-		index += onehot[i].on * i;
+		curr += onehot[i].on * i;
 	}
 
-	for(k = -1; (curr = context_target[index][++k]) >= 0;) {
-		xWord* context = bst_get(root, &curr);
+	for(k = -1; (index = context_target[curr][++k]) >= 0;) {
+		xWord* context = bst_get(root, &index);
 
 		printf("Context #%d:\t%s\n", count++, context->word);
 	}
@@ -349,6 +348,20 @@ static void calculate_error() {
 	error += count * log(sum);
 }
 
+static void calculate_error_derivative() {
+	for(k = 0; k < output_max; k++) {
+		error_d[k] = 0.0;
+	}
+
+	int index;
+
+	for(j = -1; (index = context_target[p][++j]) >= 0;) {
+		for(k = 0; k < output_max; k++) {
+			error_d[k] += output[p][k] - target[index][k].on;
+		}	
+	}
+}
+
 static void normalize_output_layer() {
 	max = output[p][0];
 
@@ -369,45 +382,28 @@ static void normalize_output_layer() {
 	}
 }
 
-static void calculate_error_derivative() {
-	for(k = 0; k < output_max; k++) {
-		error_d[k] = output[p][k] - target[p][k].on;
-	}
-}
-
-// TODO Target should contain just single digit one !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// Should iteratie training for every context word in window
-
 static void update_hidden_layer_weights() {
-	sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += target[p][k].on * error_d[k];
-	}
-	
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= LEARNING_RATE * sum * hidden[p][j];
+			weight_ho[j][k] -= LEARNING_RATE * hidden[p][j] * error_d[j];
 		}
 	}
 }
 
 static void update_input_layer_weights() {
-	int error_context = 0.0;
+	double error_c[output_max];
 
-	for(k = 0; k < output_max; k++) {
-		error_context += target[p][k].on * error_d[k];
+	for(j = 0; j < hidden_max; j++) {
+		error_c[j] = 0.0;
+
+		for(k = 0; k < output_max; k++) {
+			error_c[j] += weight_ho[j][k] * error_d[k];
+		}
 	}
-	
+
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			sum = 0.0;
-			
-			for(k = 0; k < output_max; k++) {
-				sum += error_context * weight_ho[j][k] * input[p][i].on;
-			}
-			
-			weight_ih[i][j] -= LEARNING_RATE * sum;
+			weight_ih[i][j] -= LEARNING_RATE * input[p][i].on * error_c[k];
 		}
 	}
 }

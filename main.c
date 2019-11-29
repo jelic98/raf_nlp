@@ -3,7 +3,7 @@
 
 int main() {
 	start_training();
-	get_predictions("animal", 10);
+	get_predictions("information", 10);
 	finish_training();
 
 	return 0;
