@@ -6,10 +6,10 @@
 
 #include "include/main.h"
 
-#define HIDDEN_MAX 25
+#define HIDDEN_MAX 10
 #define WINDOW_MAX 2
 
-#define LEARNING_RATE 0.05
+#define LEARNING_RATE 0.1
 #define INITIAL_WEIGHT_MAX 0.5
 
 #define EPOCH_MAX 10
@@ -18,8 +18,10 @@
 #define LOG_PERIOD 1
 #define LOG_FILE flog
 
-#define CORPUS_PATH "res/corpus-medium.txt"
+#define CORPUS_PATH "res/corpus-tiny.txt"
 #define OUTPUT_PATH "out/output.txt"
+#define WEIGHTS_IH_PATH "out/weights-ih.txt"
+#define WEIGHTS_HO_PATH "out/weights-ho.txt"
 #define LOG_PATH "out/log.txt"
 
 #define FILE_ERROR_MESSAGE "File error occurred\n"
@@ -51,7 +53,7 @@ typedef union xBit {
 
 void start_training();
 void finish_training();
-void get_predictions(const char*, int);
+void get_predictions(char*, int);
 void load_weights();
 void save_weights();
 

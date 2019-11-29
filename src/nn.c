@@ -21,6 +21,7 @@ static double* error_d;
 static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
+static char* test_word;
 
 static FILE* fout;
 static FILE* flog;
@@ -197,7 +198,7 @@ static void initialize_training() {
 	int index = 0;
 
 	bst_to_map(root, &index);
-
+	
 	for(i = 0; i < SENTENCE_MAX; i++) {
 		for(j = 0; j < WORD_MAX; j++) {
 			if(!context[i][j][0]) {
@@ -205,9 +206,8 @@ static void initialize_training() {
 			}
 			
 			xBit* word = map_get(context[i][j]);
-
-			for(index = 0; index < input_max && !word[index].on; index++)
-				;
+			
+			for(index = 0; index < pattern_max && !word[index].on; index++);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
@@ -235,6 +235,44 @@ static void initialize_training() {
 
 	fout = fopen(OUTPUT_PATH, "w");
 	flog = fopen(LOG_PATH, "w");
+}
+
+static void initialize_test() {
+	printf("\nCenter:\t\t%s\n", test_word);
+	
+	xBit* onehot = map_get(test_word);
+
+	p = 0;
+
+	for(i = 0; i < input_max; i++) {
+		input[p][k].on = onehot[i].on;
+	}
+	
+	for(i = 0; i < SENTENCE_MAX; i++) {
+		for(j = 0; j < WORD_MAX; j++) {
+			if(strcmp(context[i][j], test_word)) {
+				continue;
+			}
+			
+			xBit* word = map_get(context[i][j]);
+
+			for(count = 1, k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
+				if(k == j || k < 0 || !context[i][k][0]) {
+					continue;
+				}
+
+				word = map_get(context[i][k]);
+				printf("Context #%d:\t%s\n", count++, context[i][k]);
+				int pom;
+
+				for(pom = 0; pom < output_max; pom++) {
+					target[p][pom].on |= word[pom].on;
+				}
+			}
+		}
+	}
+
+	printf("\n");
 }
 
 static void initialize_weights() {
@@ -295,6 +333,9 @@ static void calculate_error() {
 		count += target[p][k].on;
 	}
 
+	// TODO Should be count<=2*WINDOW_MAX but its not
+	// Take a look at initialize_training()
+
 	error -= sum;
 	sum = 0.0;
 
@@ -331,20 +372,39 @@ static void calculate_error_derivative() {
 	}
 }
 
+// TODO Target should contain just single digit one !!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Should iteratie training for every context word in window
+
 static void update_hidden_layer_weights() {
+	sum = 0.0;
+
+	for(k = 0; k < output_max; k++) {
+		sum += target[p][k].on * error_d[k];
+	}
+	
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= hidden[p][j] * error_d[k] * LEARNING_RATE;
+			weight_ho[j][k] -= LEARNING_RATE * sum * hidden[p][j];
 		}
 	}
 }
 
 static void update_input_layer_weights() {
+	int error_context = 0.0;
+
+	for(k = 0; k < output_max; k++) {
+		error_context += target[p][k].on * error_d[k];
+	}
+	
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
+			sum = 0.0;
+			
 			for(k = 0; k < output_max; k++) {
-				weight_ih[i][j] -= input[p][i].on * weight_ho[j][k] * error_d[k] * LEARNING_RATE;
+				sum += error_context * weight_ho[j][k] * input[p][i];
 			}
+			
+			weight_ih[i][j] -= LEARNING_RATE * sum;
 		}
 	}
 }
@@ -423,7 +483,7 @@ void start_training() {
 	elapsed = clock();
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
-		printf("Epoch %d / %d\n", epoch + 1, EPOCH_MAX);
+		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
 
 		initialize_epoch();
 
@@ -432,8 +492,8 @@ void start_training() {
 
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
-			calculate_error();
 			normalize_output_layer();
+			calculate_error();
 			calculate_error_derivative();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
@@ -454,15 +514,10 @@ void finish_training() {
 	fclose(flog);
 }
 
-void get_predictions(const char* word, int count) {
-	xBit* onehot = map_get(word);
+void get_predictions(char* word, int count) {
+	test_word = word;
 
-	p = 0;
-
-	for(i = 0; i < input_max; i++) {
-		input[p][k].on = onehot[i].on;
-	}
-
+	initialize_test();
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
 	normalize_output_layer();
@@ -485,7 +540,7 @@ void get_predictions(const char* word, int count) {
 			continue;
 		}
 
-		printf("#%d\t%s\t%lf\n", index++, pred[k].word, pred[k].prob);
+		printf("#%d\t%lf\t%s\n", index++, pred[k].prob, pred[k].word);
 	}
 }
 
