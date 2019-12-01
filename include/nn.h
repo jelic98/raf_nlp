@@ -7,7 +7,7 @@
 
 #include "include/main.h"
 
-#define HIDDEN_MAX 10
+#define HIDDEN_MAX 20
 #define WINDOW_MAX 2
 
 #define LEARNING_RATE 0.1
@@ -17,10 +17,8 @@
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
-#define LOG_FILE flog
 
 #define CORPUS_PATH "res/corpus-tiny.txt"
-#define OUTPUT_PATH "out/output.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
 #define LOG_PATH "out/log.txt"

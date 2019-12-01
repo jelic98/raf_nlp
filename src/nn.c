@@ -24,7 +24,6 @@ static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
 static char* test_word;
 
-static FILE* fout;
 static FILE* flog;
 
 static xBit* map_get(const char* word) {
@@ -110,7 +109,7 @@ static void parse_corpus_file() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
 	if(!fin) {
-		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
+		fprintf(flog, FILE_ERROR_MESSAGE);
 		return;
 	}
 
@@ -136,7 +135,7 @@ static void parse_corpus_file() {
 	}
 
 	if(fclose(fin) == EOF) {
-		fprintf(LOG_FILE, FILE_ERROR_MESSAGE);
+		fprintf(flog, FILE_ERROR_MESSAGE);
 	}
 }
 
@@ -149,8 +148,14 @@ static void allocate_layers() {
 	for(p = 0; p < pattern_max; p++) {
 		input[p] = (xBit*) calloc(input_max, sizeof(xBit));
 		target[p] = (xBit*) calloc(output_max, sizeof(xBit));
-		// TODO realloc (fill context_target with -1)
+
 		context_target[p] = (int*) calloc(output_max, sizeof(int));
+
+		// TODO realloc (fill context_target with -1)
+		for(k = 0; k < output_max; k++) {
+			context_target[p][k] = -1;
+		}
+
 		hidden[p] = (double*) calloc(hidden_max, sizeof(double));
 		output[p] = (double*) calloc(output_max, sizeof(double));
 	}
@@ -214,11 +219,7 @@ static void initialize_training() {
 			xBit* word = map_get(context[i][j]);
 
 			for(index = 0; index < pattern_max && !word[index].on; index++);
-		
-			for(k = 0; k < output_max; k++) {
-				context_target[index][k] = -1;
-			}
-
+	
 			int count = 0;
 			
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
@@ -249,7 +250,6 @@ static void initialize_training() {
 		input[i][i].on = 1;
 	}
 
-	fout = fopen(OUTPUT_PATH, "w");
 	flog = fopen(LOG_PATH, "w");
 }
 
@@ -335,9 +335,6 @@ static void calculate_error() {
 		count += target[p][k].on;
 	}
 
-	// TODO Should be count<=2*WINDOW_MAX but its not
-	// Take a look at initialize_training()
-
 	error -= sum;
 	sum = 0.0;
 
@@ -358,7 +355,7 @@ static void calculate_error_derivative() {
 	for(j = -1; (index = context_target[p][++j]) >= 0;) {
 		for(k = 0; k < output_max; k++) {
 			error_d[k] += output[p][k] - target[index][k].on;
-		}	
+		}
 	}
 }
 
@@ -413,57 +410,13 @@ static void log_epoch() {
 		return;
 	}
 
-	fprintf(LOG_FILE, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch + 1);
-	fprintf(LOG_FILE, "Error\t%lf\n", error);
-	fprintf(LOG_FILE, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
-	fprintf(LOG_FILE, "Input\tTarget\t\tOutput\t\tError\n");
+	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch + 1);
+	fprintf(flog, "Error\t%lf\n", error);
+	fprintf(flog, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
+	fprintf(flog, "Input\tTarget\t\tOutput\t\tError\n");
 
 	for(i = 0; i < input_max; i++) {
-		fprintf(LOG_FILE, "%d\t%d\t\t%lf\t%lf\n", input[p][i].on, target[p][i].on, output[p][i], error_d[i]);
-	}
-}
-
-static void save_output() {
-	for(p = 0; p < pattern_max; p++) {
-		if(!p) {
-			fprintf(fout, "%2d:", p);
-
-			for(k = 0; k < output_max; k++) {
-				fprintf(fout, "%3d", k);
-			}
-
-			fprintf(fout, "\n");
-		}
-
-		fprintf(fout, "%2d:", p);
-
-		for(k = 0; k < output_max; k++) {
-			fprintf(fout, "%3d", target[p][k].on);
-		}
-
-		fprintf(fout, "\n");
-	}
-
-	fprintf(fout, "\n");
-
-	for(p = 0; p < pattern_max; p++) {
-		if(!p) {
-			fprintf(fout, "%2d:", p);
-
-			for(k = 0; k < output_max; k++) {
-				fprintf(fout, "%7d", k);
-			}
-
-			fprintf(fout, "\n");
-		}
-
-		fprintf(fout, "%2d:", p);
-
-		for(k = 0; k < output_max; k++) {
-			fprintf(fout, "%7.3lf", output[p][k]);
-		}
-
-		fprintf(fout, "\n");
+		fprintf(flog, "%d\t%d\t\t%lf\t%lf\n", input[p][i].on, target[p][i].on, output[p][i], error_d[i]);
 	}
 }
 
@@ -502,14 +455,11 @@ void start_training() {
 			log_epoch();
 		}
 	}
-
-	save_output();
 }
 
 void finish_training() {
 	bst_free(root);
 	free_layers();
-	fclose(fout);
 	fclose(flog);
 }
 
@@ -544,11 +494,57 @@ void get_predictions(char* word, int count) {
 }
 
 void save_weights() {
-	// TODO Save weights in file
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
+
+	if(!fwih || !fwho) {
+		fprintf(flog, FILE_ERROR_MESSAGE);
+		return;
+	}
+
+	for(i = 0; i < input_max; i++) {
+		for(j = 0; j < hidden_max; j++) {
+			fprintf(fwih, "%s%lf", j ? " " : "", weight_ih[i][j]);
+		}
+		
+		fprintf(fwih, "\n");
+	}
+
+	for(j = 0; j < hidden_max; j++) {
+		for(k = 0; k < output_max; k++) {
+			fprintf(fwho, "%s%lf", k ? " " : "", weight_ho[j][k]);
+		}
+		
+		fprintf(fwho, "\n");
+	}
+
+	fclose(fwih);
+	fclose(fwho);
 }
 
 void load_weights() {
-	// TODO Load weights from file
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
+
+	if(!fwih || !fwho) {
+		fprintf(flog, FILE_ERROR_MESSAGE);
+		return;
+	}
+	
+	for(i = 0; i < input_max; i++) {
+		for(j = 0; j < hidden_max; j++) {
+			fscanf(fwih, "%lf", &weight_ih[i][j]);
+		}
+	}
+
+	for(j = 0; j < hidden_max; j++) {
+		for(k = 0; k < output_max; k++) {
+			fscanf(fwho, "%lf", &weight_ho[j][k]);
+		}
+	}
+	
+	fclose(fwih);
+	fclose(fwho);
 	
 	initialized = 1;
 }
