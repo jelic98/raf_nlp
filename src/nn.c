@@ -6,7 +6,7 @@ static int pattern_max, input_max, hidden_max, output_max;
 static int i, j, k;
 static int p, p1, p2;
 
-static double max, sum, offset, error;
+static double sum, error;
 static int epoch, count, initialized;
 
 static xBit** input;
@@ -150,11 +150,7 @@ static void allocate_layers() {
 		target[p] = (xBit*) calloc(output_max, sizeof(xBit));
 
 		context_target[p] = (int*) calloc(output_max, sizeof(int));
-
-		// TODO realloc (fill context_target with -1)
-		for(k = 0; k < output_max; k++) {
-			context_target[p][k] = -1;
-		}
+		memset(context_target[p], -1, output_max);
 
 		hidden[p] = (double*) calloc(hidden_max, sizeof(double));
 		output[p] = (double*) calloc(output_max, sizeof(double));
@@ -325,14 +321,28 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
+static void normalize_output_layer() {
+	sum = 0.0;
+
+	for(k = 0; k < output_max; k++) {
+		sum += exp(output[p][k]);
+	}
+
+	for(k = 0; k < output_max; k++) {
+		output[p][k] = exp(output[p][k]) / sum;
+	}
+}
+
 static void calculate_error() {
 	error = 0.0;
 	sum = 0.0;
 	count = 0;
 
-	for(k = 0; k < output_max; k++) {
-		sum += target[p][k].on * output[p][k];
-		count += target[p][k].on;
+	int index;
+
+	for(j = -1; (index = context_target[p][++j]) >= 0;) {
+		sum += output[p][index];
+		count++;
 	}
 
 	error -= sum;
@@ -359,26 +369,6 @@ static void calculate_error_derivative() {
 	}
 }
 
-static void normalize_output_layer() {
-	max = output[p][0];
-
-	for(k = 0; k < output_max; k++) {
-		max = (output[p][k] > max) ? output[p][k] : max;
-	}
-
-	sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += exp(output[p][k] - max);
-	}
-
-	offset = max + log(sum);
-
-	for(k = 0; k < output_max; k++) {
-		output[p][k] = exp(output[p][k] - offset);
-	}
-}
-
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
@@ -394,13 +384,13 @@ static void update_input_layer_weights() {
 		error_c[j] = 0.0;
 
 		for(k = 0; k < output_max; k++) {
-			error_c[j] += weight_ho[j][k] * error_d[k];
+			error_c[j] += error_d[k] * weight_ho[j][k] * input[p][k].on;
 		}
 	}
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= LEARNING_RATE * input[p][i].on * error_c[k];
+			weight_ih[i][j] -= LEARNING_RATE * error_c[k];
 		}
 	}
 }
