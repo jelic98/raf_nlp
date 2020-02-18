@@ -327,9 +327,10 @@ static void normalize_output_layer() {
 	for(k = 0; k < output_max; k++) {
 		sum += exp(output[p][k]);
 	}
-
+	
 	for(k = 0; k < output_max; k++) {
-		output[p][k] = exp(output[p][k]) / sum;
+		double e = exp(output[p][k]);
+		output[p][k] = e / sum;
 	}
 }
 
@@ -372,7 +373,7 @@ static void calculate_error_derivative() {
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= LEARNING_RATE * hidden[p][j] * error_d[j];
+			weight_ho[j][k] -= LEARNING_RATE * hidden[p][j] * error_d[k];
 		}
 	}
 }
@@ -384,13 +385,13 @@ static void update_input_layer_weights() {
 		error_c[j] = 0.0;
 
 		for(k = 0; k < output_max; k++) {
-			error_c[j] += error_d[k] * weight_ho[j][k] * input[p][k].on;
+			error_c[j] += error_d[k] * weight_ho[j][k];
 		}
 	}
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= LEARNING_RATE * error_c[k];
+			weight_ih[i][j] -= LEARNING_RATE * input[p][k].on * error_c[j];
 		}
 	}
 }
@@ -428,7 +429,7 @@ void start_training() {
 		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
 
 		initialize_epoch();
-
+		
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			p = training[p1];
 
