@@ -12,12 +12,13 @@
 #define LEARNING_RATE 0.1
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 10
+#define EPOCH_MAX 5
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
 
-#define CORPUS_PATH "res/corpus-tiny.txt"
+#define CORPUS_PATH "res/corpus-large.txt"
+#define FILTER_PATH "res/filter.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
 #define LOG_PATH "out/log.txt"

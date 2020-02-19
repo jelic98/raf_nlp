@@ -81,12 +81,12 @@ static void bst_free(xWord* node) {
 	}
 }
 
-static xWord* bst_get(xWord* node, int* index) {	
+static xWord* bst_get(xWord* node, int* index) {
 	if(node) {
 		xWord* word;
-		
+
 		word = bst_get(node->left, index);
-		
+
 		if(word) {
 			return word;
 		}
@@ -94,15 +94,44 @@ static xWord* bst_get(xWord* node, int* index) {
 		if(!(*index)--) {
 			return node;
 		}
-		
+
 		word = bst_get(node->right, index);
-	
+
 		if(word) {
 			return word;
 		}
 	}
 
 	return NULL;
+}
+
+static int filter_word(char* word) {
+	if(strlen(word) < 2) {
+		return 1;
+	}
+
+	FILE* fp = fopen(FILTER_PATH, "r");
+
+	if(!fp) {
+		printf("Filter error\n");
+		return 0;
+	}
+
+	char line[CHARACTER_MAX];
+
+	while(fgets(line, CHARACTER_MAX, fp)) {
+		line[strlen(line) - 1] = '\0';
+
+		if(!strcmp(line, word)) {
+			return 1;
+		}
+	}
+
+	if(fclose(fp) == EOF) {
+		printf("Filter error\n");
+	}
+
+	return 0;
 }
 
 static void parse_corpus_file() {
@@ -121,13 +150,17 @@ static void parse_corpus_file() {
 		if(isalnum(c) || c == '-') {
 			*pw++ = tolower(c);
 		} else if(!(isalnum(c) || c == '-') && word[0]) {
-			strcpy(context[i][j++], word);
-			success = 0;
-			root = bst_insert(root, word, &success);
-			if(success) {
-				pattern_max = input_max = ++output_max;
-				hidden_max = HIDDEN_MAX;
+			if(!filter_word(word)) {
+				strcpy(context[i][j++], word);
+				success = 0;
+				root = bst_insert(root, word, &success);
+
+				if(success) {
+					pattern_max = input_max = ++output_max;
+					hidden_max = HIDDEN_MAX;
+				}
 			}
+
 			memset(pw = word, 0, sizeof(word));
 		} else if(c == '.') {
 			++i, j = 0;
@@ -201,23 +234,24 @@ static void free_layers() {
 static void initialize_training() {
 	parse_corpus_file();
 	allocate_layers();
-	
+
 	int index = 0;
 
 	bst_to_map(root, &index);
-	
+
 	for(i = 0; i < SENTENCE_MAX; i++) {
 		for(j = 0; j < WORD_MAX; j++) {
 			if(!context[i][j][0]) {
 				continue;
 			}
-			
+
 			xBit* word = map_get(context[i][j]);
 
-			for(index = 0; index < pattern_max && !word[index].on; index++);
-	
+			for(index = 0; index < pattern_max && !word[index].on; index++)
+				;
+
 			int count = 0;
-			
+
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
 					continue;
@@ -231,7 +265,7 @@ static void initialize_training() {
 					if(word[pom].on) {
 						context_target[index][count++] = pom;
 					}
-					
+
 					target[index][pom].on |= word[pom].on;
 				}
 			}
@@ -250,8 +284,8 @@ static void initialize_training() {
 }
 
 static void initialize_test() {
-	printf("\nCenter:\t\t%s\n", test_word);
-	
+	printf("\nCenter:\t\t%s\n\n", test_word);
+
 	xBit* onehot = map_get(test_word);
 
 	int index, curr = 0;
@@ -264,13 +298,20 @@ static void initialize_test() {
 		curr += onehot[i].on * i;
 	}
 
-	for(k = -1; (index = context_target[curr][++k]) >= 0;) {
+	for(k = -1; (index = context_target[curr][++k]) >= 0; count++) {
 		xWord* context = bst_get(root, &index);
 
-		printf("Context #%d:\t%s\n", count++, context->word);
+		printf("Context #%d:\t%s\n", count, context->word);
+		printf("Vector #%d:\t", count);
+
+		xBit* vec = map_get(context->word);
+
+		for(i = 0; i < input_max; i++) {
+			printf("%d", vec[i].on);
+		}
+
+		printf("\n\n");
 	}
-		
-	printf("\n");
 }
 
 static void initialize_weights() {
@@ -327,10 +368,9 @@ static void normalize_output_layer() {
 	for(k = 0; k < output_max; k++) {
 		sum += exp(output[p][k]);
 	}
-	
+
 	for(k = 0; k < output_max; k++) {
-		double e = exp(output[p][k]);
-		output[p][k] = e / sum;
+		output[p][k] = exp(output[p][k]) / sum;
 	}
 }
 
@@ -407,13 +447,13 @@ static void log_epoch() {
 	fprintf(flog, "Input\tTarget\t\tOutput\t\tError\n");
 
 	for(i = 0; i < input_max; i++) {
-		fprintf(flog, "%d\t%d\t\t%lf\t%lf\n", input[p][i].on, target[p][i].on, output[p][i], error_d[i]);
+		fprintf(flog, "%d\t%d\t\t%lf\t%lf\n", input[0][i].on, target[0][i].on, output[0][i], error_d[i]);
 	}
 }
 
 static int cmp_words(const void* a, const void* b) {
 	double diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
-	
+
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
@@ -429,7 +469,7 @@ void start_training() {
 		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
 
 		initialize_epoch();
-		
+
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			p = training[p1];
 
@@ -461,7 +501,7 @@ void get_predictions(char* word, int count) {
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
 	normalize_output_layer();
-	
+
 	xWord pred[output_max];
 
 	for(k = 0; k < output_max; k++) {
@@ -469,18 +509,18 @@ void get_predictions(char* word, int count) {
 		pred[k] = *bst_get(root, &index);
 		pred[k].prob = output[p][k];
 	}
-	
+
 	qsort(pred, output_max, sizeof(xWord), cmp_words);
-	
+
 	int index;
 
-	for(index = 1, k = 0; k < count; k++) {
+	for(index = 1, k = 0; k < count; k++, index++) {
 		if(!strcmp(pred[k].word, word)) {
 			count++;
 			continue;
 		}
 
-		printf("#%d\t%lf\t%s\n", index++, pred[k].prob, pred[k].word);
+		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
 	}
 }
 
@@ -497,7 +537,7 @@ void save_weights() {
 		for(j = 0; j < hidden_max; j++) {
 			fprintf(fwih, "%s%lf", j ? " " : "", weight_ih[i][j]);
 		}
-		
+
 		fprintf(fwih, "\n");
 	}
 
@@ -505,7 +545,7 @@ void save_weights() {
 		for(k = 0; k < output_max; k++) {
 			fprintf(fwho, "%s%lf", k ? " " : "", weight_ho[j][k]);
 		}
-		
+
 		fprintf(fwho, "\n");
 	}
 
@@ -521,7 +561,7 @@ void load_weights() {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 		return;
 	}
-	
+
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			fscanf(fwih, "%lf", &weight_ih[i][j]);
@@ -533,9 +573,9 @@ void load_weights() {
 			fscanf(fwho, "%lf", &weight_ho[j][k]);
 		}
 	}
-	
+
 	fclose(fwih);
 	fclose(fwho);
-	
+
 	initialized = 1;
 }
