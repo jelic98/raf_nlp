@@ -7,12 +7,12 @@
 #include "include/main.h"
 
 #define HIDDEN_MAX 20
-#define WINDOW_MAX 2
+#define WINDOW_MAX 1
 
 #define LEARNING_RATE 0.1
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 10
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
@@ -40,7 +40,7 @@
 
 typedef struct xWord {
 	char word[CHARACTER_MAX];
-	unsigned int count;
+	unsigned int context_count;
 	double prob;
 	struct xWord* left;
 	struct xWord* right;

@@ -42,8 +42,8 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		node = (xWord*) calloc(1, sizeof(xWord));
 		strcpy(node->word, word);
 		node->left = node->right = NULL;
-		node->count = 1;
 		node->prob = 0.0;
+		node->context_count = 0;
 		*success = 1;
 		return node;
 	}
@@ -54,8 +54,6 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		node->left = bst_insert(node->left, word, success);
 	} else if(cmp > 0) {
 		node->right = bst_insert(node->right, word, success);
-	} else {
-		node->count++;
 	}
 
 	return node;
@@ -76,7 +74,7 @@ static void bst_free(xWord* node) {
 		node->left = NULL;
 		node->right = NULL;
 		free(node);
-		node->count = 0;
+		node->context_count = 0;
 		node = NULL;
 	}
 }
@@ -247,10 +245,10 @@ static void initialize_training() {
 
 			xBit* word = map_get(context[i][j]);
 
-			for(index = 0; index < pattern_max && !word[index].on; index++)
-				;
-
-			int count = 0;
+			for(index = 0; index < pattern_max && !word[index].on; index++);
+			
+			int index_copy = index;
+			xWord* center_node = bst_get(root, &index_copy);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
@@ -263,7 +261,18 @@ static void initialize_training() {
 
 				for(pom = 0; pom < output_max; pom++) {
 					if(word[pom].on) {
-						context_target[index][count++] = pom;
+						int found = 0;						
+
+						for(p = 0; p < center_node->context_count; p++) {
+							if(context_target[index][p] == pom) {
+								found = 1;
+								break;
+							}
+						}
+
+						if(!found) {
+							context_target[index][(center_node->context_count)++] = pom;
+						}
 					}
 
 					target[index][pom].on |= word[pom].on;
@@ -284,34 +293,29 @@ static void initialize_training() {
 }
 
 static void initialize_test() {
-	printf("\nCenter:\t\t%s\n\n", test_word);
+	printf("\nCenter:\t\t%s\n", test_word);
 
 	xBit* onehot = map_get(test_word);
 
 	int index, curr = 0;
 	p = 0;
-	count = 0;
 
 	for(i = 0; i < input_max; i++) {
 		input[p][k].on = onehot[i].on;
 
 		curr += onehot[i].on * i;
 	}
+	
+	int curr_copy = curr;
+	xWord* center_word = bst_get(root, &curr_copy);
 
-	for(k = -1; (index = context_target[curr][++k]) >= 0; count++) {
+	for(k = 0; k < center_word->context_count; k++) {
+		index = context_target[curr][k];
 		xWord* context = bst_get(root, &index);
-
-		printf("Context #%d:\t%s\n", count, context->word);
-		printf("Vector #%d:\t", count);
-
-		xBit* vec = map_get(context->word);
-
-		for(i = 0; i < input_max; i++) {
-			printf("%d", vec[i].on);
-		}
-
-		printf("\n\n");
+		printf("Context #%d:\t%s\n", k, context->word);
 	}
+
+	printf("\n");
 }
 
 static void initialize_weights() {
@@ -379,9 +383,11 @@ static void calculate_error() {
 	sum = 0.0;
 	count = 0;
 
-	int index;
+	int p_copy = p;
+	xWord* center_word = bst_get(root, &p_copy);
 
-	for(j = -1; (index = context_target[p][++j]) >= 0;) {
+	for(j = 0; j < center_word->context_count; j++) {
+		int index = context_target[p][j];
 		sum += output[p][index];
 		count++;
 	}
@@ -401,9 +407,12 @@ static void calculate_error_derivative() {
 		error_d[k] = 0.0;
 	}
 
-	int index;
+	int p_copy = p;
+	xWord* center_word = bst_get(root, &p_copy);
 
-	for(j = -1; (index = context_target[p][++j]) >= 0;) {
+	for(j = 0; j < center_word->context_count; j++) {
+		int index = context_target[p][j];
+		
 		for(k = 0; k < output_max; k++) {
 			error_d[k] += output[p][k] - target[index][k].on;
 		}
