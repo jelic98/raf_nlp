@@ -5,6 +5,7 @@ static clock_t elapsed;
 static int pattern_max, input_max, hidden_max, output_max;
 static int i, j, k;
 static int p, p1, p2;
+static int context_index;
 
 static double sum, error;
 static int epoch, count, initialized;
@@ -245,8 +246,9 @@ static void initialize_training() {
 
 			xBit* word = map_get(context[i][j]);
 
-			for(index = 0; index < pattern_max && !word[index].on; index++);
-			
+			for(index = 0; index < pattern_max && !word[index].on; index++)
+				;
+
 			int index_copy = index;
 			xWord* center_node = bst_get(root, &index_copy);
 
@@ -261,7 +263,7 @@ static void initialize_training() {
 
 				for(pom = 0; pom < output_max; pom++) {
 					if(word[pom].on) {
-						int found = 0;						
+						int found = 0;
 
 						for(p = 0; p < center_node->context_count; p++) {
 							if(context_target[index][p] == pom) {
@@ -305,7 +307,7 @@ static void initialize_test() {
 
 		curr += onehot[i].on * i;
 	}
-	
+
 	int curr_copy = curr;
 	xWord* center_word = bst_get(root, &curr_copy);
 
@@ -410,11 +412,11 @@ static void calculate_error_derivative() {
 	int p_copy = p;
 	xWord* center_word = bst_get(root, &p_copy);
 
-	for(j = 0; j < center_word->context_count; j++) {
-		int index = context_target[p][j];
-		
-		for(k = 0; k < output_max; k++) {
-			error_d[k] += output[p][k] - target[index][k].on;
+	for(k = 0; k < output_max; k++) {
+		error_d[k] += output[p][k];
+			
+		if(k == context_index) {
+			error_d[k] -= 1;
 		}
 	}
 }
@@ -482,13 +484,21 @@ void start_training() {
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			p = training[p1];
 
-			forward_propagate_input_layer();
-			forward_propagate_hidden_layer();
-			normalize_output_layer();
-			calculate_error();
-			calculate_error_derivative();
-			update_hidden_layer_weights();
-			update_input_layer_weights();
+			int index;
+
+			for(index = 0; index < pattern_max && !input[p][index].on; index++);
+
+			xWord* center_node = bst_get(root, &index);
+
+			for(context_index = 0; context_index < center_node->context_count; context_index++) {
+				forward_propagate_input_layer();
+				forward_propagate_hidden_layer();
+				normalize_output_layer();
+				calculate_error();
+				calculate_error_derivative();
+				update_hidden_layer_weights();
+				update_input_layer_weights();
+			}
 		}
 
 		if(LOG_EPOCH) {
