@@ -7,6 +7,8 @@ static int i, j, k;
 static int p, p1, p2;
 static int context_index;
 
+static double alpha;
+
 static double sum, error;
 static int epoch, count, initialized;
 
@@ -409,9 +411,6 @@ static void calculate_error_derivative() {
 		error_d[k] = 0.0;
 	}
 
-	int p_copy = p;
-	xWord* center_word = bst_get(root, &p_copy);
-
 	for(k = 0; k < output_max; k++) {
 		error_d[k] += output[p][k];
 			
@@ -424,7 +423,7 @@ static void calculate_error_derivative() {
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= LEARNING_RATE * hidden[p][j] * error_d[k];
+			weight_ho[j][k] -= alpha * hidden[p][j] * error_d[k];
 		}
 	}
 }
@@ -442,7 +441,7 @@ static void update_input_layer_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= LEARNING_RATE * input[p][k].on * error_c[j];
+			weight_ih[i][j] -= alpha * input[p][k].on * error_c[j];
 		}
 	}
 }
@@ -484,11 +483,8 @@ void start_training() {
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			p = training[p1];
 
-			int index;
-
-			for(index = 0; index < pattern_max && !input[p][index].on; index++);
-
-			xWord* center_node = bst_get(root, &index);
+			int p_copy = p;
+			xWord* center_node = bst_get(root, &p_copy);
 
 			for(context_index = 0; context_index < center_node->context_count; context_index++) {
 				forward_propagate_input_layer();
@@ -500,6 +496,10 @@ void start_training() {
 				update_input_layer_weights();
 			}
 		}
+
+		alpha = max(LEARNING_RATE_MIN, LEARNING_RATE * (1 - (double) epoch / EPOCH_MAX));
+
+		printf("ALPHA: %lf\n", alpha);
 
 		if(LOG_EPOCH) {
 			log_epoch();

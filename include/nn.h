@@ -9,10 +9,12 @@
 #define HIDDEN_MAX 20
 #define WINDOW_MAX 1
 
-#define LEARNING_RATE 0.1
+#define LEARNING_RATE 0.05
+#define LEARNING_RATE_MIN 0.001
+
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 10
+#define EPOCH_MAX 5
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
