@@ -5,22 +5,20 @@ static clock_t elapsed;
 static int pattern_max, input_max, hidden_max, output_max;
 static int i, j, k;
 static int p, p1, p2;
-static int context_index;
 
 static double alpha;
 
-static double sum, error;
-static int epoch, count, initialized;
+static double sum;
+static int epoch, initialized;
 
 static xBit** input;
-static xBit** target;
 static double** hidden;
 static double** output;
 static double** weight_ih;
 static double** weight_ho;
 static int* training;
-static double* error_d;
-static int** context_target;
+static double* error;
+static int** target;
 
 static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
@@ -158,7 +156,7 @@ static void parse_corpus_file() {
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
-					hidden_max = HIDDEN_MAX;
+					hidden_max = WINDOW_MAX * 2;
 				}
 			}
 
@@ -175,16 +173,14 @@ static void parse_corpus_file() {
 
 static void allocate_layers() {
 	input = (xBit**) calloc(pattern_max, sizeof(xBit*));
-	target = (xBit**) calloc(pattern_max, sizeof(xBit*));
-	context_target = (int**) calloc(pattern_max, sizeof(int*));
+	target = (int**) calloc(pattern_max, sizeof(int*));
 	hidden = (double**) calloc(pattern_max, sizeof(double*));
 	output = (double**) calloc(pattern_max, sizeof(double*));
 	for(p = 0; p < pattern_max; p++) {
 		input[p] = (xBit*) calloc(input_max, sizeof(xBit));
-		target[p] = (xBit*) calloc(output_max, sizeof(xBit));
 
-		context_target[p] = (int*) calloc(output_max, sizeof(int));
-		memset(context_target[p], -1, output_max);
+		target[p] = (int*) calloc(output_max, sizeof(int));
+		memset(target[p], -1, output_max);
 
 		hidden[p] = (double*) calloc(hidden_max, sizeof(double));
 		output[p] = (double*) calloc(output_max, sizeof(double));
@@ -201,20 +197,18 @@ static void allocate_layers() {
 	}
 
 	training = (int*) calloc(pattern_max, sizeof(int));
-	error_d = (double*) calloc(output_max, sizeof(double));
+	error = (double*) calloc(output_max, sizeof(double));
 }
 
 static void free_layers() {
 	for(p = 0; p < pattern_max; p++) {
 		free(input[p]);
 		free(target[p]);
-		free(context_target[p]);
 		free(hidden[p]);
 		free(output[p]);
 	}
 	free(input);
 	free(target);
-	free(context_target);
 	free(hidden);
 	free(output);
 
@@ -229,7 +223,7 @@ static void free_layers() {
 	free(weight_ho);
 
 	free(training);
-	free(error_d);
+	free(error);
 }
 
 static void initialize_training() {
@@ -268,18 +262,16 @@ static void initialize_training() {
 						int found = 0;
 
 						for(p = 0; p < center_node->context_count; p++) {
-							if(context_target[index][p] == pom) {
+							if(target[index][p] == pom) {
 								found = 1;
 								break;
 							}
 						}
 
 						if(!found) {
-							context_target[index][(center_node->context_count)++] = pom;
+							target[index][(center_node->context_count)++] = pom;
 						}
 					}
-
-					target[index][pom].on |= word[pom].on;
 				}
 			}
 		}
@@ -314,7 +306,7 @@ static void initialize_test() {
 	xWord* center_word = bst_get(root, &curr_copy);
 
 	for(k = 0; k < center_word->context_count; k++) {
-		index = context_target[curr][k];
+		index = target[curr][k];
 		xWord* context = bst_get(root, &index);
 		printf("Context #%d:\t%s\n", k, context->word);
 	}
@@ -348,9 +340,13 @@ static void initialize_epoch() {
 		training[p] = training[p1];
 		training[p1] = p2;
 	}
+
+	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE * (1 - (double) epoch / EPOCH_MAX));
 }
 
+// OKAY
 static void forward_propagate_input_layer() {
+	// h = np.dot(self.w1.T, x)
 	for(j = 0; j < hidden_max; j++) {
 		hidden[p][j] = 0.0;
 
@@ -360,7 +356,9 @@ static void forward_propagate_input_layer() {
 	}
 }
 
+// OKAY
 static void forward_propagate_hidden_layer() {
+	// u = np.dot(self.w2.T, h)
 	for(k = 0; k < output_max; k++) {
 		output[p][k] = 0.0;
 
@@ -370,78 +368,81 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
+// OKAY
 static void normalize_output_layer() {
+	// e_x = np.exp(x - np.max(x))
+	double out_max = DBL_MIN;
+
+	for(k = 0; k < output_max; k++) {
+		out_max = max(out_max, output[p][k]);
+	}
+
+	double out_exp[output_max];
 	sum = 0.0;
 
 	for(k = 0; k < output_max; k++) {
-		sum += exp(output[p][k]);
+		sum += out_exp[k] = exp(output[p][k] - out_max);
 	}
 
+	// return e_x / e_x.sum(axis=0)
 	for(k = 0; k < output_max; k++) {
-		output[p][k] = exp(output[p][k]) / sum;
+		output[p][k] = out_exp[k] / sum;
 	}
 }
 
+// OKAY
 static void calculate_error() {
-	error = 0.0;
-	sum = 0.0;
-	count = 0;
-
+	// EI = np.sum([np.subtract(y_pred, word) for word in w_c], axis=0) 
 	int p_copy = p;
-	xWord* center_word = bst_get(root, &p_copy);
+	xWord* center_node = bst_get(root, &p_copy);
 
-	for(j = 0; j < center_word->context_count; j++) {
-		int index = context_target[p][j];
-		sum += output[p][index];
-		count++;
-	}
+	int context_max = center_node->context_count;
+	double error_t[context_max][output_max];
 
-	error -= sum;
-	sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += exp(output[p][k]);
-	}
-
-	error += count * log(sum);
-}
-
-static void calculate_error_derivative() {
-	for(k = 0; k < output_max; k++) {
-		error_d[k] = 0.0;
+	int c;
+	
+	for(c = 0; c < context_max; c++) {
+		for(k = 0; k < output_max; k++) {
+			error_t[c][k] = output[p][k] - input[target[p][c]][k].on;
+		}
 	}
 
 	for(k = 0; k < output_max; k++) {
-		error_d[k] += output[p][k];
-			
-		if(k == context_index) {
-			error_d[k] -= 1;
+		error[k] = 0.0;
+
+		for(c = 0; c < context_max; c++) {
+			error[k] += error_t[c][k]; 
 		}
 	}
 }
 
+// OKAY
 static void update_hidden_layer_weights() {
+	// self.w2 = self.w2 - (self.eta * dl_dw2)
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= alpha * hidden[p][j] * error_d[k];
+			weight_ho[j][k] -= alpha * hidden[p][j] * error[k];
 		}
 	}
 }
 
+// OKAY
 static void update_input_layer_weights() {
-	double error_c[output_max];
+	// dl_dw1 = np.outer(x, np.dot(self.w2, e.T))
+	double error_t[output_max];
 
 	for(j = 0; j < hidden_max; j++) {
-		error_c[j] = 0.0;
+		error_t[j] = 0.0;
 
 		for(k = 0; k < output_max; k++) {
-			error_c[j] += error_d[k] * weight_ho[j][k];
+			error_t[j] += error[k] * weight_ho[j][k];
 		}
 	}
 
+	// self.w1 = self.w1 - (self.eta * dl_dw1)
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= alpha * input[p][k].on * error_c[j];
+			weight_ih[i][j] -= alpha * input[p][k].on * error_t[j];
 		}
 	}
 }
@@ -452,13 +453,8 @@ static void log_epoch() {
 	}
 
 	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch + 1);
-	fprintf(flog, "Error\t%lf\n", error);
 	fprintf(flog, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
-	fprintf(flog, "Input\tTarget\t\tOutput\t\tError\n");
-
-	for(i = 0; i < input_max; i++) {
-		fprintf(flog, "%d\t%d\t\t%lf\t%lf\n", input[0][i].on, target[0][i].on, output[0][i], error_d[i]);
-	}
+	fprintf(flog, "Loss\t%lf\n", 0.0);
 }
 
 static int cmp_words(const void* a, const void* b) {
@@ -483,23 +479,13 @@ void start_training() {
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			p = training[p1];
 
-			int p_copy = p;
-			xWord* center_node = bst_get(root, &p_copy);
-
-			for(context_index = 0; context_index < center_node->context_count; context_index++) {
-				forward_propagate_input_layer();
-				forward_propagate_hidden_layer();
-				normalize_output_layer();
-				calculate_error();
-				calculate_error_derivative();
-				update_hidden_layer_weights();
-				update_input_layer_weights();
-			}
+			forward_propagate_input_layer();
+			forward_propagate_hidden_layer();
+			normalize_output_layer();
+			calculate_error();
+			update_hidden_layer_weights();
+			update_input_layer_weights();
 		}
-
-		alpha = max(LEARNING_RATE_MIN, LEARNING_RATE * (1 - (double) epoch / EPOCH_MAX));
-
-		printf("ALPHA: %lf\n", alpha);
 
 		if(LOG_EPOCH) {
 			log_epoch();

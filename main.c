@@ -7,7 +7,7 @@ int main() {
 	//load_weights();
 	start_training();
 	save_weights();
-	get_predictions("president", 10);
+	get_predictions("agama", 5);
 	finish_training();
 
 	return 0;
