@@ -13,7 +13,7 @@
 
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 30
+#define EPOCH_MAX 1000
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1

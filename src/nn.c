@@ -3,17 +3,18 @@
 static clock_t elapsed;
 
 static int input_max, hidden_max, output_max, pattern_max;
-static int i, j, k;
+static int i, j, k, c;
 static int p, p1, p2;
 
 static double alpha;
 
-static double sum;
+static double sum, loss;
 static int epoch, initialized;
 
 static xBit* input;
 static double* hidden;
 static double* output;
+static double* output_raw;
 static int** target;
 static double** weight_ih;
 static double** weight_ho;
@@ -82,9 +83,7 @@ static void bst_free(xWord* node) {
 
 static xWord* bst_get(xWord* node, int* index) {
 	if(node) {
-		xWord* word;
-
-		word = bst_get(node->left, index);
+		xWord* word = bst_get(node->left, index);
 
 		if(word) {
 			return word;
@@ -175,6 +174,7 @@ static void allocate_layers() {
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
+	output_raw = (double*) calloc(output_max, sizeof(double));
 	
 	target = (int**) calloc(pattern_max, sizeof(int*));
 	for(p = 0; p < pattern_max; p++) {
@@ -200,6 +200,7 @@ static void free_layers() {
 	free(input);
 	free(hidden);
 	free(output);
+	free(output_raw);
 
 	for(p = 0; p < pattern_max; p++) {
 		free(target[p]);
@@ -332,6 +333,8 @@ static void initialize_epoch() {
 	}
 
 	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE * (1 - (double) epoch / EPOCH_MAX));
+
+	loss = 0.0;
 }
 
 static void initialize_input() {
@@ -374,7 +377,7 @@ static void normalize_output_layer() {
 	double out_max = DBL_MIN;
 
 	for(k = 0; k < output_max; k++) {
-		out_max = max(out_max, output[k]);
+		out_max = max(out_max, output_raw[k] = output[k]);
 	}
 
 	double out_exp[output_max];
@@ -398,8 +401,6 @@ static void calculate_error() {
 
 	int context_max = center_node->context_count;
 	double error_t[context_max][output_max];
-
-	int c;
 
 	for(c = 0; c < context_max; c++) {
 		for(k = 0; k < output_max; k++) {
@@ -447,6 +448,27 @@ static void update_input_layer_weights() {
 	}
 }
 
+static void calculate_loss() {
+	// self.loss -= np.sum([u[word.index(1)] for word in w_c])
+	int p_copy = p;
+	xWord* center_node = bst_get(root, &p_copy);
+
+	int context_max = center_node->context_count;
+
+	for(c = 0; c < context_max; c++) {
+		loss -= output_raw[target[p][c]];
+	}
+	
+	// self.loss += len(w_c) * np.log(np.sum(np.exp(u)))
+	sum = 0.0;
+	
+	for(k = 0; k < output_max; k++) {
+		sum += exp(output_raw[k]);
+	}
+
+	loss += context_max * log(sum);
+}
+
 static void log_epoch() {
 	if(epoch % LOG_PERIOD) {
 		return;
@@ -454,7 +476,7 @@ static void log_epoch() {
 
 	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch + 1);
 	fprintf(flog, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
-	fprintf(flog, "Loss\t%lf\n", 0.0);
+	fprintf(flog, "Loss\t%lf\n", loss);
 }
 
 static int cmp_words(const void* a, const void* b) {
@@ -484,6 +506,7 @@ void start_training() {
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
+			calculate_loss();
 		}
 
 		if(LOG_EPOCH) {
