@@ -5,12 +5,12 @@
 
 #define WINDOW_MAX 2
 
-#define LEARNING_RATE 0.05
+#define LEARNING_RATE_MAX 0.1
 #define LEARNING_RATE_MIN 0.001
 
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 1000
+#define EPOCH_MAX 100
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1

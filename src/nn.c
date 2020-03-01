@@ -29,6 +29,10 @@ static char* test_word;
 static FILE* flog;
 static FILE* ffilter;
 
+static void screen_clear() {
+	printf("\e[1;1H\e[2J");
+}
+
 static xBit* map_get(const char* word) {
 	unsigned int hash = 0, c;
 
@@ -104,6 +108,29 @@ static xWord* bst_get(xWord* node, int* index) {
 	return NULL;
 }
 
+static xWord* index_to_word(int index) {
+	return bst_get(root, &index);
+}
+
+static int word_to_index(char* word) {
+	xBit* onehot = map_get(word);
+
+	int index;
+
+	for(index = 0; index < pattern_max && !onehot[index].on; index++);
+
+	return index == pattern_max ? -1 : index;
+}
+
+// TODO Reset union with memset
+static void onehot_reset(xBit* onehot, int size) {
+	int q;
+
+	for(q = 0; q < size; q++) {
+		onehot[q].on = 0;
+	}
+}
+
 static int filter_word(char* word) {
 	if(strlen(word) < 2) {
 		return 1;
@@ -154,7 +181,7 @@ static void parse_corpus_file() {
 					pattern_max = input_max = ++output_max;
 					hidden_max = WINDOW_MAX * 2;
 				}
-			}else {
+			} else {
 				printf("%s\n", word);
 			}
 
@@ -236,20 +263,16 @@ static void initialize_training() {
 				continue;
 			}
 
-			xBit* word = map_get(context[i][j]);
+			index = word_to_index(context[i][j]);
 
-			for(index = 0; index < pattern_max && !word[index].on; index++)
-				;
-
-			int index_copy = index;
-			xWord* center_node = bst_get(root, &index_copy);
+			xWord* center_node = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
 					continue;
 				}
 
-				word = map_get(context[i][k]);
+				xBit* word = map_get(context[i][k]);
 
 				int pom;
 
@@ -283,24 +306,16 @@ static void initialize_training() {
 static void initialize_test() {
 	printf("\nCenter:\t\t%s\n", test_word);
 
-	xBit* onehot = map_get(test_word);
+	int index = word_to_index(test_word);
 
-	int index, curr = 0;
-	p = 0;
-
-	for(i = 0; i < input_max; i++) {
-		input[i].on = onehot[i].on;
-
-		curr += onehot[i].on * i;
-	}
-
-	int curr_copy = curr;
-	xWord* center_word = bst_get(root, &curr_copy);
+	onehot_reset(input, input_max);
+	input[index].on = 1;
+	
+	xWord* center_word = index_to_word(index);
 
 	for(k = 0; k < center_word->context_count; k++) {
-		index = target[curr][k];
-		xWord* context = bst_get(root, &index);
-		printf("Context #%d:\t%s\n", k, context->word);
+		xWord* context = index_to_word(target[index][k]);
+		printf("Context #%d:\t%s\n", k + 1, context->word);
 	}
 
 	printf("\n");
@@ -333,19 +348,14 @@ static void initialize_epoch() {
 		training[p1] = p2;
 	}
 
-	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE * (1 - (double) epoch / EPOCH_MAX));
+	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (double) epoch / EPOCH_MAX));
 
 	loss = 0.0;
 }
 
-static void initialize_input() {
-	p = training[p1];
-
-	for(i = 0; i < input_max; i++) {
-		input[i].on = 0;
-	}
-
-	input[p].on = 1;
+static void initialize_input() {	
+	onehot_reset(input, input_max);
+	input[p = training[p1]].on = 1;
 }
 
 static void forward_propagate_input_layer() {
@@ -388,8 +398,7 @@ static void normalize_output_layer() {
 }
 
 static void calculate_error() {
-	int p_copy = p;
-	xWord* center_node = bst_get(root, &p_copy);
+	xWord* center_node = index_to_word(p);
 
 	int context_max = center_node->context_count;
 	double error_t[context_max][output_max];
@@ -436,8 +445,7 @@ static void update_input_layer_weights() {
 }
 
 static void calculate_loss() {
-	int p_copy = p;
-	xWord* center_node = bst_get(root, &p_copy);
+	xWord* center_node = index_to_word(p);
 
 	int context_max = center_node->context_count;
 
@@ -479,6 +487,7 @@ void start_training() {
 	elapsed = clock();
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+		screen_clear();
 		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
 
 		initialize_epoch();
@@ -519,7 +528,7 @@ void get_predictions(char* word, int count) {
 
 	for(k = 0; k < output_max; k++) {
 		int index = k;
-		pred[k] = *bst_get(root, &index);
+		pred[k] = *index_to_word(index);
 		pred[k].prob = output[k];
 	}
 
