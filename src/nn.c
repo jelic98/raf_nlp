@@ -117,9 +117,10 @@ static int word_to_index(char* word) {
 
 	int index;
 
-	for(index = 0; index < pattern_max && !onehot[index].on; index++);
+	for(index = 0; index < pattern_max && !onehot[index].on; index++)
+		;
 
-	return index == pattern_max ? -1 : index;
+	return index < pattern_max ? index : -1;
 }
 
 // TODO Reset union with memset
@@ -181,8 +182,6 @@ static void parse_corpus_file() {
 					pattern_max = input_max = ++output_max;
 					hidden_max = WINDOW_MAX * 2;
 				}
-			} else {
-				printf("%s\n", word);
 			}
 
 			memset(pw = word, 0, sizeof(word));
@@ -247,6 +246,16 @@ static void free_layers() {
 	free(error);
 }
 
+static int contains_context(xWord* center, int center_index, int context) {
+	for(p = 0; p < center->context_count; p++) {
+		if(target[center_index][p] == context) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 static void initialize_training() {
 	ffilter = fopen(FILTER_PATH, "r");
 
@@ -254,7 +263,6 @@ static void initialize_training() {
 	allocate_layers();
 
 	int index = 0;
-
 	bst_to_map(root, &index);
 
 	for(i = 0; i < SENTENCE_MAX; i++) {
@@ -264,33 +272,17 @@ static void initialize_training() {
 			}
 
 			index = word_to_index(context[i][j]);
-
-			xWord* center_node = index_to_word(index);
+			xWord* center = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
 				if(k == j || k < 0 || !context[i][k][0]) {
 					continue;
 				}
 
-				xBit* word = map_get(context[i][k]);
-
-				int pom;
-
-				for(pom = 0; pom < output_max; pom++) {
-					if(word[pom].on) {
-						int found = 0;
-
-						for(p = 0; p < center_node->context_count; p++) {
-							if(target[index][p] == pom) {
-								found = 1;
-								break;
-							}
-						}
-
-						if(!found) {
-							target[index][(center_node->context_count)++] = pom;
-						}
-					}
+				int context_index = word_to_index(context[i][k]);
+				
+				if(!contains_context(center, index, context_index)) {
+					target[index][(center->context_count)++] = context_index;
 				}
 			}
 		}
@@ -310,7 +302,7 @@ static void initialize_test() {
 
 	onehot_reset(input, input_max);
 	input[index].on = 1;
-	
+
 	xWord* center_word = index_to_word(index);
 
 	for(k = 0; k < center_word->context_count; k++) {
@@ -353,7 +345,7 @@ static void initialize_epoch() {
 	loss = 0.0;
 }
 
-static void initialize_input() {	
+static void initialize_input() {
 	onehot_reset(input, input_max);
 	input[p = training[p1]].on = 1;
 }
