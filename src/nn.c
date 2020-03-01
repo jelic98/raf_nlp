@@ -27,6 +27,7 @@ static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
 static char* test_word;
 
 static FILE* flog;
+static FILE* ffilter;
 
 static xBit* map_get(const char* word) {
 	unsigned int hash = 0, c;
@@ -108,25 +109,21 @@ static int filter_word(char* word) {
 		return 1;
 	}
 
-	FILE* fp = fopen(FILTER_PATH, "r");
-
-	if(!fp) {
-		printf("Filter error\n");
+	if(!ffilter) {
+		fprintf(flog, FILE_ERROR_MESSAGE);
 		return 0;
 	}
 
 	char line[CHARACTER_MAX];
 
-	while(fgets(line, CHARACTER_MAX, fp)) {
+	fseek(ffilter, 0, SEEK_SET);
+
+	while(fgets(line, CHARACTER_MAX, ffilter)) {
 		line[strlen(line) - 1] = '\0';
 
 		if(!strcmp(line, word)) {
 			return 1;
 		}
-	}
-
-	if(fclose(fp) == EOF) {
-		printf("Filter error\n");
 	}
 
 	return 0;
@@ -157,6 +154,8 @@ static void parse_corpus_file() {
 					pattern_max = input_max = ++output_max;
 					hidden_max = WINDOW_MAX * 2;
 				}
+			}else {
+				printf("%s\n", word);
 			}
 
 			memset(pw = word, 0, sizeof(word));
@@ -175,7 +174,7 @@ static void allocate_layers() {
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
 	output_raw = (double*) calloc(output_max, sizeof(double));
-	
+
 	target = (int**) calloc(pattern_max, sizeof(int*));
 	for(p = 0; p < pattern_max; p++) {
 		target[p] = (int*) calloc(output_max, sizeof(int));
@@ -206,7 +205,7 @@ static void free_layers() {
 		free(target[p]);
 	}
 	free(target);
-	
+
 	for(i = 0; i < input_max; i++) {
 		free(weight_ih[i]);
 	}
@@ -222,6 +221,8 @@ static void free_layers() {
 }
 
 static void initialize_training() {
+	ffilter = fopen(FILTER_PATH, "r");
+
 	parse_corpus_file();
 	allocate_layers();
 
@@ -347,9 +348,7 @@ static void initialize_input() {
 	input[p].on = 1;
 }
 
-// OKAY
 static void forward_propagate_input_layer() {
-	// h = np.dot(self.w1.T, x)
 	for(j = 0; j < hidden_max; j++) {
 		hidden[j] = 0.0;
 
@@ -359,9 +358,7 @@ static void forward_propagate_input_layer() {
 	}
 }
 
-// OKAY
 static void forward_propagate_hidden_layer() {
-	// u = np.dot(self.w2.T, h)
 	for(k = 0; k < output_max; k++) {
 		output[k] = 0.0;
 
@@ -371,9 +368,7 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
-// OKAY
 static void normalize_output_layer() {
-	// e_x = np.exp(x - np.max(x))
 	double out_max = DBL_MIN;
 
 	for(k = 0; k < output_max; k++) {
@@ -387,15 +382,12 @@ static void normalize_output_layer() {
 		sum += out_exp[k] = exp(output[k] - out_max);
 	}
 
-	// return e_x / e_x.sum(axis=0)
 	for(k = 0; k < output_max; k++) {
 		output[k] = out_exp[k] / sum;
 	}
 }
 
-// OKAY
 static void calculate_error() {
-	// EI = np.sum([np.subtract(y_pred, word) for word in w_c], axis=0)
 	int p_copy = p;
 	xWord* center_node = bst_get(root, &p_copy);
 
@@ -417,9 +409,7 @@ static void calculate_error() {
 	}
 }
 
-// OKAY
 static void update_hidden_layer_weights() {
-	// self.w2 = self.w2 - (self.eta * dl_dw2)
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
 			weight_ho[j][k] -= alpha * hidden[j] * error[k];
@@ -427,9 +417,7 @@ static void update_hidden_layer_weights() {
 	}
 }
 
-// OKAY
 static void update_input_layer_weights() {
-	// dl_dw1 = np.outer(x, np.dot(self.w2, e.T))
 	double error_t[output_max];
 
 	for(j = 0; j < hidden_max; j++) {
@@ -440,7 +428,6 @@ static void update_input_layer_weights() {
 		}
 	}
 
-	// self.w1 = self.w1 - (self.eta * dl_dw1)
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			weight_ih[i][j] -= alpha * input[k].on * error_t[j];
@@ -449,7 +436,6 @@ static void update_input_layer_weights() {
 }
 
 static void calculate_loss() {
-	// self.loss -= np.sum([u[word.index(1)] for word in w_c])
 	int p_copy = p;
 	xWord* center_node = bst_get(root, &p_copy);
 
@@ -458,10 +444,9 @@ static void calculate_loss() {
 	for(c = 0; c < context_max; c++) {
 		loss -= output_raw[target[p][c]];
 	}
-	
-	// self.loss += len(w_c) * np.log(np.sum(np.exp(u)))
+
 	sum = 0.0;
-	
+
 	for(k = 0; k < output_max; k++) {
 		sum += exp(output_raw[k]);
 	}
@@ -474,7 +459,7 @@ static void log_epoch() {
 		return;
 	}
 
-	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : 0, epoch + 1);
+	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
 	fprintf(flog, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
 	fprintf(flog, "Loss\t%lf\n", loss);
 }
@@ -519,6 +504,7 @@ void finish_training() {
 	bst_free(root);
 	free_layers();
 	fclose(flog);
+	fclose(ffilter);
 }
 
 void get_predictions(char* word, int count) {

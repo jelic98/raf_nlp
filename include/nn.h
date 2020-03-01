@@ -1,6 +1,3 @@
-// https://github.com/chrisjmccormick/word2vec_commented/blob/master/word2vec.c
-// https://nathanrooy.github.io/posts/2018-03-22/word2vec-from-scratch-with-python-and-numpy/
-
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
