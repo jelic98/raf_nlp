@@ -50,7 +50,7 @@ typedef union xBit {
 
 void start_training();
 void finish_training();
-void get_predictions(char*, int);
+void get_predictions(char*, int, int);
 void load_weights();
 void save_weights();
 

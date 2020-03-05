@@ -123,13 +123,22 @@ static int word_to_index(char* word) {
 	return index < pattern_max ? index : -1;
 }
 
-// TODO Reset union with memset
 static void onehot_reset(xBit* onehot, int size) {
 	int q;
 
 	for(q = 0; q < size; q++) {
 		onehot[q].on = 0;
 	}
+}
+
+static int contains_context(xWord* center, int center_index, int context) {
+	for(c = 0; c < center->context_count; c++) {
+		if(target[center_index][c] == context) {
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 static int filter_word(char* word) {
@@ -246,16 +255,6 @@ static void free_layers() {
 	free(error);
 }
 
-static int contains_context(xWord* center, int center_index, int context) {
-	for(p = 0; p < center->context_count; p++) {
-		if(target[center_index][p] == context) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
 static void initialize_training() {
 	ffilter = fopen(FILTER_PATH, "r");
 
@@ -280,7 +279,7 @@ static void initialize_training() {
 				}
 
 				int context_index = word_to_index(context[i][k]);
-				
+
 				if(!contains_context(center, index, context_index)) {
 					target[index][(center->context_count)++] = context_index;
 				}
@@ -296,7 +295,7 @@ static void initialize_training() {
 }
 
 static void initialize_test() {
-	printf("\nCenter:\t\t%s\n", test_word);
+	printf("Center:\t\t%s\n\n", test_word);
 
 	int index = word_to_index(test_word);
 
@@ -478,9 +477,9 @@ void start_training() {
 
 	elapsed = clock();
 
-	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+	for(epoch = 1; epoch <= EPOCH_MAX; epoch++) {
 		screen_clear();
-		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
+		printf("Epoch:\t%d / %d\n", epoch, EPOCH_MAX);
 
 		initialize_epoch();
 
@@ -508,9 +507,10 @@ void finish_training() {
 	fclose(ffilter);
 }
 
-void get_predictions(char* word, int count) {
+void get_predictions(char* word, int count, int tries) {
 	test_word = word;
 
+	screen_clear();
 	initialize_test();
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
