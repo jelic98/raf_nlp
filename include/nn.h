@@ -11,7 +11,7 @@
 
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 1
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
@@ -42,13 +42,13 @@ const int TEST_CASES_END = __LINE__;
 #define FILE_ERROR_MESSAGE "File error occurred\n"
 
 // Number of sentences in file
-#define SENTENCE_MAX 100
+#define SENTENCE_MAX 1000
 
 // Number of words in sentence
-#define WORD_MAX 100
+#define WORD_MAX 50
 
 // Number of characters in word
-#define CHARACTER_MAX 50
+#define CHARACTER_MAX 25
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))

@@ -11,7 +11,6 @@ static double alpha;
 static double sum, loss;
 static int epoch, initialized;
 
-static xBit* input;
 static double* hidden;
 static double* output;
 static double* output_raw;
@@ -23,7 +22,7 @@ static double* error;
 
 static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
-static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
+static int onehot[SENTENCE_MAX * WORD_MAX];
 static char* test_word;
 
 static FILE* flog;
@@ -37,14 +36,14 @@ static double time_get(clock_t start) {
 	return (double) (clock() - start) / CLOCKS_PER_SEC;
 }
 
-static xBit* map_get(const char* word) {
+static int* map_get(const char* word) {
 	unsigned int h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
 		h = (h << 3) + (h >> (sizeof(h) * CHAR_BIT - 3)) + word[i];
 	}
 
-	return onehot[h % (SENTENCE_MAX * WORD_MAX)];
+	return onehot + (h % (SENTENCE_MAX * WORD_MAX));
 }
 
 static xWord* bst_insert(xWord* node, const char* word, int* success) {
@@ -72,7 +71,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 static void bst_to_map(xWord* node, int* index) {
 	if(node) {
 		bst_to_map(node->left, index);
-		map_get(node->word)[(*index)++].on = 1;
+		*map_get(node->word) = (*index)++;
 		bst_to_map(node->right, index);
 	}
 }
@@ -116,22 +115,9 @@ static xWord* index_to_word(int index) {
 }
 
 static int word_to_index(char* word) {
-	xBit* onehot = map_get(word);
-
-	int index;
-
-	for(index = 0; index < pattern_max && !onehot[index].on; index++)
-		;
+	int index = *map_get(word);
 
 	return index < pattern_max ? index : -1;
-}
-
-static void onehot_reset(xBit* onehot, int size) {
-	int q;
-
-	for(q = 0; q < size; q++) {
-		onehot[q].on = 0;
-	}
 }
 
 static int contains_context(xWord* center, int center_index, int context) {
@@ -208,7 +194,6 @@ static void parse_corpus_file() {
 }
 
 static void allocate_layers() {
-	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
 	output_raw = (double*) calloc(output_max, sizeof(double));
@@ -234,7 +219,6 @@ static void allocate_layers() {
 }
 
 static void free_layers() {
-	free(input);
 	free(hidden);
 	free(output);
 	free(output_raw);
@@ -301,10 +285,6 @@ static void initialize_test() {
 	printf("Center:\t\t%s\n\n", test_word);
 
 	int index = word_to_index(test_word);
-
-	onehot_reset(input, input_max);
-	input[index].on = 1;
-
 	xWord* center_word = index_to_word(index);
 
 	for(k = 0; k < center_word->context_count; k++) {
@@ -343,18 +323,9 @@ static void initialize_epoch() {
 	loss = 0.0;
 }
 
-static void initialize_input() {
-	onehot_reset(input, input_max);
-	input[p = training[p1]].on = 1;
-}
-
 static void forward_propagate_input_layer() {
 	for(j = 0; j < hidden_max; j++) {
-		hidden[j] = 0.0;
-
-		for(i = 0; i < input_max; i++) {
-			hidden[j] += input[i].on * weight_ih[i][j];
-		}
+		hidden[j] = weight_ih[p][j];
 	}
 }
 
@@ -429,7 +400,7 @@ static void update_input_layer_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= alpha * input[k].on * error_t[j];
+			weight_ih[i][j] -= alpha * (i == p) * error_t[j];
 		}
 	}
 }
@@ -489,8 +460,7 @@ void start_training() {
 
 		elapsed_time = clock();
 
-		for(p1 = 0; p1 < pattern_max; p1++) {
-			initialize_input();
+		for(p1 = 0; p1 < pattern_max && (p = training[p1]); p1++) {	
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
 			normalize_output_layer();
