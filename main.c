@@ -9,7 +9,7 @@ int main() {
 	save_weights();
 
 	char test[TEST_MAX][CHARACTER_MAX] = { TEST_CASES };
-	int i, result, tries_sum = 0;
+	unsigned int i, result, tries_sum = 0;
 
 	for(i = 0; i < TEST_MAX && test[i][0]; i++) {
 		get_predictions(test[i], 5, &result);

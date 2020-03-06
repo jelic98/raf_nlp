@@ -2,28 +2,30 @@
 
 static clock_t elapsed_time;
 
-static int input_max, hidden_max, output_max, pattern_max;
-static int i, j, k, c;
-static int p, p1, p2;
+static unsigned long vocab_max, hidden_max;
+static unsigned long i, j, k, c;
+static unsigned long p, p1, p2;
 
 static double alpha;
 
+static xBit loaded;
+static unsigned int epoch;
 static double sum, loss;
-static int epoch, initialized;
 
+static double** w_ih;
+static double** w_ho;
 static double* hidden;
 static double* output;
 static double* output_raw;
-static int** target;
-static double** weight_ih;
-static double** weight_ho;
-static int* training;
+static unsigned int** target;
+static unsigned int* training;
 static double* error;
 
-static xWord* root;
+static xWord* bst;
+
+// TODO User dynamic arrays for context and onehot
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
-static int onehot[SENTENCE_MAX * WORD_MAX];
-static char* test_word;
+static unsigned int onehot[SENTENCE_MAX * WORD_MAX];
 
 static FILE* flog;
 static FILE* ffilter;
@@ -36,7 +38,7 @@ static double time_get(clock_t start) {
 	return (double) (clock() - start) / CLOCKS_PER_SEC;
 }
 
-static int* map_get(const char* word) {
+static unsigned int* map_get(const char* word) {
 	unsigned int h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
@@ -46,7 +48,7 @@ static int* map_get(const char* word) {
 	return onehot + (h % (SENTENCE_MAX * WORD_MAX));
 }
 
-static xWord* bst_insert(xWord* node, const char* word, int* success) {
+static xWord* bst_insert(xWord* node, const char* word, unsigned int* success) {
 	if(!node) {
 		node = (xWord*) calloc(1, sizeof(xWord));
 		strcpy(node->word, word);
@@ -68,7 +70,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 	return node;
 }
 
-static void bst_to_map(xWord* node, int* index) {
+static void bst_to_map(xWord* node, unsigned int* index) {
 	if(node) {
 		bst_to_map(node->left, index);
 		*map_get(node->word) = (*index)++;
@@ -88,7 +90,7 @@ static void bst_free(xWord* node) {
 	}
 }
 
-static xWord* bst_get(xWord* node, int* index) {
+static xWord* bst_get(xWord* node, unsigned int* index) {
 	if(node) {
 		xWord* word = bst_get(node->left, index);
 
@@ -110,17 +112,18 @@ static xWord* bst_get(xWord* node, int* index) {
 	return NULL;
 }
 
-static xWord* index_to_word(int index) {
-	return bst_get(root, &index);
+static xWord* index_to_word(unsigned int index) {
+	return bst_get(bst, &index);
 }
 
-static int word_to_index(char* word) {
+static int word_to_index(const char* word) {
 	int index = *map_get(word);
 
-	return index < pattern_max ? index : -1;
+	// TODO Wrap funciton call to check for negative index
+	return index < vocab_max ? index : -1;
 }
 
-static int contains_context(xWord* center, int center_index, int context) {
+static unsigned int contains_context(xWord* center, unsigned int center_index, unsigned int context) {
 	for(c = 0; c < center->context_count; c++) {
 		if(target[center_index][c] == context) {
 			return 1;
@@ -130,7 +133,7 @@ static int contains_context(xWord* center, int center_index, int context) {
 	return 0;
 }
 
-static int filter_word(char* word) {
+static int filter_word(const char* word) {
 	if(strlen(word) < 2) {
 		return 1;
 	}
@@ -163,7 +166,7 @@ static void parse_corpus_file() {
 		return;
 	}
 
-	int i = 0, j = 0, success;
+	unsigned int i = 0, j = 0, success;
 	char c, word[WORD_MAX] = { 0 };
 	char* pw = word;
 
@@ -174,11 +177,10 @@ static void parse_corpus_file() {
 			if(!filter_word(word)) {
 				strcpy(context[i][j++], word);
 				success = 0;
-				root = bst_insert(root, word, &success);
+				bst = bst_insert(bst, word, &success);
 
 				if(success) {
-					pattern_max = input_max = ++output_max;
-					hidden_max = HIDDEN_MAX;
+					vocab_max++, hidden_max = HIDDEN_MAX;
 				}
 			}
 
@@ -195,27 +197,27 @@ static void parse_corpus_file() {
 
 static void allocate_layers() {
 	hidden = (double*) calloc(hidden_max, sizeof(double));
-	output = (double*) calloc(output_max, sizeof(double));
-	output_raw = (double*) calloc(output_max, sizeof(double));
+	output = (double*) calloc(vocab_max, sizeof(double));
+	output_raw = (double*) calloc(vocab_max, sizeof(double));
 
-	target = (int**) calloc(pattern_max, sizeof(int*));
-	for(p = 0; p < pattern_max; p++) {
-		target[p] = (int*) calloc(output_max, sizeof(int));
-		memset(target[p], -1, output_max);
+	target = (unsigned int**) calloc(vocab_max, sizeof(unsigned int*));
+	for(p = 0; p < vocab_max; p++) {
+		target[p] = (unsigned int*) calloc(vocab_max, sizeof(unsigned int));
+		memset(target[p], -1, vocab_max);
 	}
 
-	weight_ih = (double**) calloc(input_max, sizeof(double*));
-	for(i = 0; i < input_max; i++) {
-		weight_ih[i] = (double*) calloc(hidden_max, sizeof(double));
+	w_ih = (double**) calloc(vocab_max, sizeof(double*));
+	for(i = 0; i < vocab_max; i++) {
+		w_ih[i] = (double*) calloc(hidden_max, sizeof(double));
 	}
 
-	weight_ho = (double**) calloc(hidden_max, sizeof(double*));
+	w_ho = (double**) calloc(hidden_max, sizeof(double*));
 	for(j = 0; j < hidden_max; j++) {
-		weight_ho[j] = (double*) calloc(output_max, sizeof(double));
+		w_ho[j] = (double*) calloc(vocab_max, sizeof(double));
 	}
 
-	training = (int*) calloc(pattern_max, sizeof(int));
-	error = (double*) calloc(output_max, sizeof(double));
+	training = (unsigned int*) calloc(vocab_max, sizeof(unsigned int));
+	error = (double*) calloc(vocab_max, sizeof(double));
 }
 
 static void free_layers() {
@@ -223,20 +225,20 @@ static void free_layers() {
 	free(output);
 	free(output_raw);
 
-	for(p = 0; p < pattern_max; p++) {
+	for(p = 0; p < vocab_max; p++) {
 		free(target[p]);
 	}
 	free(target);
 
-	for(i = 0; i < input_max; i++) {
-		free(weight_ih[i]);
+	for(i = 0; i < vocab_max; i++) {
+		free(w_ih[i]);
 	}
-	free(weight_ih);
+	free(w_ih);
 
 	for(j = 0; j < hidden_max; j++) {
-		free(weight_ho[j]);
+		free(w_ho[j]);
 	}
-	free(weight_ho);
+	free(w_ho);
 
 	free(training);
 	free(error);
@@ -248,8 +250,8 @@ static void initialize_training() {
 	parse_corpus_file();
 	allocate_layers();
 
-	int index = 0;
-	bst_to_map(root, &index);
+	unsigned int index = 0;
+	bst_to_map(bst, &index);
 
 	for(i = 0; i < SENTENCE_MAX; i++) {
 		for(j = 0; j < WORD_MAX; j++) {
@@ -265,7 +267,7 @@ static void initialize_training() {
 					continue;
 				}
 
-				int context_index = word_to_index(context[i][k]);
+				unsigned int context_index = word_to_index(context[i][k]);
 
 				if(!contains_context(center, index, context_index)) {
 					target[index][(center->context_count)++] = context_index;
@@ -274,44 +276,44 @@ static void initialize_training() {
 		}
 	}
 
-	for(p = 0; p < pattern_max; p++) {
+	for(p = 0; p < vocab_max; p++) {
 		training[p] = p;
 	}
 
 	flog = fopen(LOG_PATH, "w");
 }
 
-static void initialize_test() {
-	printf("Center:\t\t%s\n\n", test_word);
+static void initialize_test(const char* word) {
+	printf("Center:\t\t%s\n\n", word);
 
-	int index = word_to_index(test_word);
+	unsigned int index = word_to_index(word);
 	xWord* center_word = index_to_word(index);
 
 	for(k = 0; k < center_word->context_count; k++) {
 		xWord* context = index_to_word(target[index][k]);
-		printf("Context #%d:\t%s\n", k + 1, context->word);
+		printf("Context #%lu:\t%s\n", k + 1, context->word);
 	}
 
 	printf("\n");
 }
 
 static void initialize_weights() {
-	for(i = 0; i < input_max; i++) {
+	for(i = 0; i < vocab_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+			w_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+		for(k = 0; k < vocab_max; k++) {
+			w_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 }
 
 static void initialize_epoch() {
-	for(p = 0; p < pattern_max; p++) {
-		p1 = p + random() * (pattern_max - p);
+	for(p = 0; p < vocab_max; p++) {
+		p1 = p + random() * (vocab_max - p);
 
 		p2 = training[p];
 		training[p] = training[p1];
@@ -325,16 +327,16 @@ static void initialize_epoch() {
 
 static void forward_propagate_input_layer() {
 	for(j = 0; j < hidden_max; j++) {
-		hidden[j] = weight_ih[p][j];
+		hidden[j] = w_ih[p][j];
 	}
 }
 
 static void forward_propagate_hidden_layer() {
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		output[k] = 0.0;
 
 		for(j = 0; j < hidden_max; j++) {
-			output[k] += hidden[j] * weight_ho[j][k];
+			output[k] += hidden[j] * w_ho[j][k];
 		}
 	}
 }
@@ -342,18 +344,18 @@ static void forward_propagate_hidden_layer() {
 static void normalize_output_layer() {
 	double out_max = DBL_MIN;
 
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		out_max = max(out_max, output_raw[k] = output[k]);
 	}
 
-	double out_exp[output_max];
+	double out_exp[vocab_max];
 	sum = 0.0;
 
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		sum += out_exp[k] = exp(output[k] - out_max);
 	}
 
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		output[k] = out_exp[k] / sum;
 	}
 }
@@ -361,16 +363,16 @@ static void normalize_output_layer() {
 static void calculate_error() {
 	xWord* center_node = index_to_word(p);
 
-	int context_max = center_node->context_count;
-	double error_t[context_max][output_max];
+	unsigned int context_max = center_node->context_count;
+	double error_t[context_max][vocab_max];
 
 	for(c = 0; c < context_max; c++) {
-		for(k = 0; k < output_max; k++) {
+		for(k = 0; k < vocab_max; k++) {
 			error_t[c][k] = output[k] - (k == target[p][c]);
 		}
 	}
 
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		error[k] = 0.0;
 
 		for(c = 0; c < context_max; c++) {
@@ -381,26 +383,26 @@ static void calculate_error() {
 
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= alpha * hidden[j] * error[k];
+		for(k = 0; k < vocab_max; k++) {
+			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
 	}
 }
 
 static void update_input_layer_weights() {
-	double error_t[output_max];
+	double error_t[vocab_max];
 
 	for(j = 0; j < hidden_max; j++) {
 		error_t[j] = 0.0;
 
-		for(k = 0; k < output_max; k++) {
-			error_t[j] += error[k] * weight_ho[j][k];
+		for(k = 0; k < vocab_max; k++) {
+			error_t[j] += error[k] * w_ho[j][k];
 		}
 	}
 
-	for(i = 0; i < input_max; i++) {
+	for(i = 0; i < vocab_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= alpha * (i == p) * error_t[j];
+			w_ih[i][j] -= alpha * (i == p) * error_t[j];
 		}
 	}
 }
@@ -408,7 +410,7 @@ static void update_input_layer_weights() {
 static void calculate_loss() {
 	xWord* center_node = index_to_word(p);
 
-	int context_max = center_node->context_count;
+	unsigned int context_max = center_node->context_count;
 
 	for(c = 0; c < context_max; c++) {
 		loss -= output_raw[target[p][c]];
@@ -416,7 +418,7 @@ static void calculate_loss() {
 
 	sum = 0.0;
 
-	for(k = 0; k < output_max; k++) {
+	for(k = 0; k < vocab_max; k++) {
 		sum += exp(output_raw[k]);
 	}
 
@@ -444,7 +446,7 @@ void start_training() {
 
 	initialize_training();
 
-	if(initialized) {
+	if(loaded.on) {
 		return;
 	}
 	
@@ -460,7 +462,7 @@ void start_training() {
 
 		elapsed_time = clock();
 
-		for(p1 = 0; p1 < pattern_max && (p = training[p1]); p1++) {	
+		for(p1 = 0; p1 < vocab_max && (p = training[p1]); p1++) {	
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
 			normalize_output_layer();
@@ -479,35 +481,33 @@ void start_training() {
 }
 
 void finish_training() {
-	bst_free(root);
+	bst_free(bst);
 	free_layers();
 	fclose(flog);
 	fclose(ffilter);
 }
 
-void get_predictions(char* word, int count, int* result) {
-	test_word = word;
-
+void get_predictions(const char* word, unsigned int count, unsigned int* result) {
 	screen_clear();
-	initialize_test();
+	initialize_test(word);
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
 	normalize_output_layer();
 
-	xWord pred[output_max];
+	xWord pred[vocab_max];
 
-	for(k = 0; k < output_max; k++) {
-		int index = k;
+	for(k = 0; k < vocab_max; k++) {
+		unsigned int index = k;
 		pred[k] = *index_to_word(index);
 		pred[k].prob = output[k];
 	}
 
-	qsort(pred, output_max, sizeof(xWord), cmp_words);
+	qsort(pred, vocab_max, sizeof(xWord), cmp_words);
 
-	int center_index = word_to_index(word);
+	unsigned int center_index = word_to_index(word);
 	xWord* center = index_to_word(center_index);
 
-	int index;
+	unsigned int index;
 
 	for(index = 1, k = 0; k < count; k++, index++) {
 		if(!strcmp(pred[k].word, word)) {
@@ -515,7 +515,7 @@ void get_predictions(char* word, int count, int* result) {
 			continue;
 		}
 
-		int context_index = word_to_index(pred[k].word);
+		unsigned int context_index = word_to_index(pred[k].word);
 
 		if(index == 1) {
 			*result = contains_context(center, center_index, context_index);
@@ -534,17 +534,17 @@ void save_weights() {
 		return;
 	}
 
-	for(i = 0; i < input_max; i++) {
+	for(i = 0; i < vocab_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			fprintf(fwih, "%s%lf", j ? " " : "", weight_ih[i][j]);
+			fprintf(fwih, "%s%lf", j ? " " : "", w_ih[i][j]);
 		}
 
 		fprintf(fwih, "\n");
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			fprintf(fwho, "%s%lf", k ? " " : "", weight_ho[j][k]);
+		for(k = 0; k < vocab_max; k++) {
+			fprintf(fwho, "%s%lf", k ? " " : "", w_ho[j][k]);
 		}
 
 		fprintf(fwho, "\n");
@@ -564,20 +564,20 @@ void load_weights() {
 		return;
 	}
 	
-	for(i = 0; i < input_max; i++) {
+	for(i = 0; i < vocab_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			fscanf(fwih, "%lf", &weight_ih[i][j]);
+			fscanf(fwih, "%lf", &w_ih[i][j]);
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			fscanf(fwho, "%lf", &weight_ho[j][k]);
+		for(k = 0; k < vocab_max; k++) {
+			fscanf(fwho, "%lf", &w_ho[j][k]);
 		}
 	}
 
 	fclose(fwih);
 	fclose(fwho);
 
-	initialized = 1;
+	loaded.on = 1;
 }
