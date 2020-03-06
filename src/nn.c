@@ -429,7 +429,7 @@ static void update_input_layer_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= alpha * input[k].on * error_t[j];
+			weight_ih[i][j] -= alpha * input[i].on * error_t[j];
 		}
 	}
 }
