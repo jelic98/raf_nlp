@@ -3,19 +3,36 @@
 
 #include "include/main.h"
 
-#define WINDOW_MAX 2
+#define WINDOW_MAX 5
 
 #define LEARNING_RATE_MAX 0.1
 #define LEARNING_RATE_MIN 0.001
 
-#define INITIAL_WEIGHT_MAX 0.5
+#define INITIAL_WEIGHT_MAX 0.7
 
-#define EPOCH_MAX 100
+#define EPOCH_MAX 3
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
 
-#define CORPUS_PATH "res/corpus-tiny.txt"
+#ifdef INCLUDE_TEST
+const int TEST_CASES_START = __LINE__;
+#define TEST_CASES\
+	"gates",\
+	"president",\
+	"computer",\
+	"seattle",\
+	"software",\
+	"ceo",\
+	"foundation",\
+	"ibm",\
+	"apple",\
+	"microsoft"
+const int TEST_CASES_END = __LINE__;
+#define TEST_MAX (TEST_CASES_END - TEST_CASES_START - 2)
+#endif
+
+#define CORPUS_PATH "res/corpus-large.txt"
 #define FILTER_PATH "res/filter.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
@@ -50,7 +67,7 @@ typedef union xBit {
 
 void start_training();
 void finish_training();
-void get_predictions(char*, int, int);
+void get_predictions(char*, int, int*);
 void load_weights();
 void save_weights();
 

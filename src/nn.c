@@ -1,6 +1,6 @@
 #include "include/nn.h"
 
-static clock_t elapsed;
+static clock_t elapsed_time;
 
 static int input_max, hidden_max, output_max, pattern_max;
 static int i, j, k, c;
@@ -33,15 +33,18 @@ static void screen_clear() {
 	printf("\e[1;1H\e[2J");
 }
 
+static double time_get(clock_t start) {
+	return (double) (clock() - start) / CLOCKS_PER_SEC;
+}
+
 static xBit* map_get(const char* word) {
-	unsigned int hash = 0, c;
+	unsigned int h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
-		c = (unsigned char) word[i];
-		hash = (hash << 3) + (hash >> (sizeof(hash) * CHAR_BIT - 3)) + c;
+		h = (h << 3) + (h >> (sizeof(h) * CHAR_BIT - 3)) + word[i];
 	}
 
-	return onehot[hash % (SENTENCE_MAX * WORD_MAX)];
+	return onehot[h % (SENTENCE_MAX * WORD_MAX)];
 }
 
 static xWord* bst_insert(xWord* node, const char* word, int* success) {
@@ -459,7 +462,7 @@ static void log_epoch() {
 	}
 
 	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
-	fprintf(flog, "Took\t%lf sec\n", (double) (elapsed = clock() - elapsed) / CLOCKS_PER_SEC);
+	fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
 	fprintf(flog, "Loss\t%lf\n", loss);
 }
 
@@ -475,13 +478,15 @@ void start_training() {
 	initialize_training();
 	initialize_weights();
 
-	elapsed = clock();
+	clock_t start_time = clock();
 
-	for(epoch = 1; epoch <= EPOCH_MAX; epoch++) {
+	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 		screen_clear();
-		printf("Epoch:\t%d / %d\n", epoch, EPOCH_MAX);
+		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
 
 		initialize_epoch();
+
+		elapsed_time = clock();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
 			initialize_input();
@@ -498,6 +503,8 @@ void start_training() {
 			log_epoch();
 		}
 	}
+
+	printf("Took:\t%lf sec\n", time_get(start_time));
 }
 
 void finish_training() {
@@ -507,7 +514,7 @@ void finish_training() {
 	fclose(ffilter);
 }
 
-void get_predictions(char* word, int count, int tries) {
+void get_predictions(char* word, int count, int* result) {
 	test_word = word;
 
 	screen_clear();
@@ -526,12 +533,21 @@ void get_predictions(char* word, int count, int tries) {
 
 	qsort(pred, output_max, sizeof(xWord), cmp_words);
 
+	int center_index = word_to_index(word);
+	xWord* center = index_to_word(center_index);
+	
 	int index;
 
 	for(index = 1, k = 0; k < count; k++, index++) {
 		if(!strcmp(pred[k].word, word)) {
 			count++;
 			continue;
+		}
+
+		int context_index = word_to_index(pred[k].word);
+
+		if(index == 1) {
+			*result = contains_context(center, center_index, context_index);
 		}
 
 		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
