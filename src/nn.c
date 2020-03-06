@@ -316,10 +316,6 @@ static void initialize_test() {
 }
 
 static void initialize_weights() {
-	if(initialized) {
-		return;
-	}
-
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			weight_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
@@ -476,6 +472,11 @@ void start_training() {
 	srand(time(0));
 
 	initialize_training();
+
+	if(initialized) {
+		return;
+	}
+	
 	initialize_weights();
 
 	clock_t start_time = clock();
@@ -535,7 +536,7 @@ void get_predictions(char* word, int count, int* result) {
 
 	int center_index = word_to_index(word);
 	xWord* center = index_to_word(center_index);
-	
+
 	int index;
 
 	for(index = 1, k = 0; k < count; k++, index++) {
@@ -583,6 +584,7 @@ void save_weights() {
 	fclose(fwho);
 }
 
+// TODO Loading weights gives different precision
 void load_weights() {
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
@@ -591,7 +593,7 @@ void load_weights() {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 		return;
 	}
-
+	
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			fscanf(fwih, "%lf", &weight_ih[i][j]);

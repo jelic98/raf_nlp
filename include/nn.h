@@ -3,14 +3,14 @@
 
 #include "include/main.h"
 
-#define WINDOW_MAX 5
+#define WINDOW_MAX 10
 
 #define LEARNING_RATE_MAX 0.1
 #define LEARNING_RATE_MIN 0.001
 
 #define INITIAL_WEIGHT_MAX 0.7
 
-#define EPOCH_MAX 3
+#define EPOCH_MAX 10
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
