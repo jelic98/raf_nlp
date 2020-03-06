@@ -3,19 +3,20 @@
 
 #include "include/main.h"
 
-#define WINDOW_MAX 10
+#define HIDDEN_MAX 100
+#define WINDOW_MAX 20
 
-#define LEARNING_RATE_MAX 0.1
+#define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
 
-#define INITIAL_WEIGHT_MAX 0.7
+#define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 10
+#define EPOCH_MAX 5
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
 
-#ifdef INCLUDE_TEST
+#ifdef H_TEST_INCLUDE
 const int TEST_CASES_START = __LINE__;
 #define TEST_CASES\
 	"gates",\

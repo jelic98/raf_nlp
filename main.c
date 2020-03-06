@@ -1,6 +1,6 @@
 #include "include/main.h"
 
-#define INCLUDE_TEST
+#define H_TEST_INCLUDE
 #include "include/nn.h"
 
 int main() {

@@ -192,7 +192,7 @@ static void parse_corpus_file() {
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
-					hidden_max = WINDOW_MAX * 2;
+					hidden_max = HIDDEN_MAX;
 				}
 			}
 
