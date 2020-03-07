@@ -21,6 +21,7 @@ static double** weight_ho;
 static int* training;
 static double* error;
 
+// TODO Use dynamic arrays
 static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
@@ -169,6 +170,7 @@ static int filter_word(char* word) {
 	return 0;
 }
 
+// TODO Support encoding whole sentence as a single vector
 static void parse_corpus_file() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
