@@ -2,30 +2,29 @@
 
 static clock_t elapsed_time;
 
+static int epoch;
+static double alpha, sum, loss;
+
 static int input_max, hidden_max, output_max, pattern_max;
 static int i, j, k, c;
 static int p, p1, p2;
-
-static double alpha;
-
-static double sum, loss;
-static int epoch, initialized;
 
 static xBit* input;
 static double* hidden;
 static double* output;
 static double* output_raw;
-static int** target;
-static double** weight_ih;
-static double** weight_ho;
-static int* training;
+static double** w_ih;
+static double** w_ho;
 static double* error;
+static int** target;
+static int* patterns;
+
+static xWord* vocab;
+static char* test_word;
 
 // TODO Use dynamic arrays
-static xWord* root;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
-static char* test_word;
 
 static FILE* flog;
 static FILE* ffilter;
@@ -46,6 +45,28 @@ static xBit* map_get(const char* word) {
 	}
 
 	return onehot[h % (SENTENCE_MAX * WORD_MAX)];
+}
+
+static xWord* bst_get(xWord* node, int* index) {
+	if(node) {
+		xWord* word = bst_get(node->left, index);
+
+		if(word) {
+			return word;
+		}
+
+		if(!(*index)--) {
+			return node;
+		}
+
+		word = bst_get(node->right, index);
+
+		if(word) {
+			return word;
+		}
+	}
+
+	return NULL;
 }
 
 static xWord* bst_insert(xWord* node, const char* word, int* success) {
@@ -90,30 +111,8 @@ static void bst_free(xWord* node) {
 	}
 }
 
-static xWord* bst_get(xWord* node, int* index) {
-	if(node) {
-		xWord* word = bst_get(node->left, index);
-
-		if(word) {
-			return word;
-		}
-
-		if(!(*index)--) {
-			return node;
-		}
-
-		word = bst_get(node->right, index);
-
-		if(word) {
-			return word;
-		}
-	}
-
-	return NULL;
-}
-
 static xWord* index_to_word(int index) {
-	return bst_get(root, &index);
+	return bst_get(vocab, &index);
 }
 
 static int word_to_index(char* word) {
@@ -171,7 +170,7 @@ static int filter_word(char* word) {
 }
 
 // TODO Support encoding whole sentence as a single vector
-static void parse_corpus_file() {
+static void parse_corpus() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
 	if(!fin) {
@@ -190,7 +189,7 @@ static void parse_corpus_file() {
 			if(!filter_word(word)) {
 				strcpy(context[i][j++], word);
 				success = 0;
-				root = bst_insert(root, word, &success);
+				vocab = bst_insert(vocab, word, &success);
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
@@ -209,7 +208,7 @@ static void parse_corpus_file() {
 	}
 }
 
-static void allocate_layers() {
+static void layers_allocate() {
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
@@ -221,21 +220,21 @@ static void allocate_layers() {
 		memset(target[p], -1, output_max);
 	}
 
-	weight_ih = (double**) calloc(input_max, sizeof(double*));
+	w_ih = (double**) calloc(input_max, sizeof(double*));
 	for(i = 0; i < input_max; i++) {
-		weight_ih[i] = (double*) calloc(hidden_max, sizeof(double));
+		w_ih[i] = (double*) calloc(hidden_max, sizeof(double));
 	}
 
-	weight_ho = (double**) calloc(hidden_max, sizeof(double*));
+	w_ho = (double**) calloc(hidden_max, sizeof(double*));
 	for(j = 0; j < hidden_max; j++) {
-		weight_ho[j] = (double*) calloc(output_max, sizeof(double));
+		w_ho[j] = (double*) calloc(output_max, sizeof(double));
 	}
 
-	training = (int*) calloc(pattern_max, sizeof(int));
+	patterns = (int*) calloc(pattern_max, sizeof(int));
 	error = (double*) calloc(output_max, sizeof(double));
 }
 
-static void free_layers() {
+static void layers_free() {
 	free(input);
 	free(hidden);
 	free(output);
@@ -247,27 +246,44 @@ static void free_layers() {
 	free(target);
 
 	for(i = 0; i < input_max; i++) {
-		free(weight_ih[i]);
+		free(w_ih[i]);
 	}
-	free(weight_ih);
+	free(w_ih);
 
 	for(j = 0; j < hidden_max; j++) {
-		free(weight_ho[j]);
+		free(w_ho[j]);
 	}
-	free(weight_ho);
+	free(w_ho);
 
-	free(training);
+	free(patterns);
 	free(error);
 }
 
-static void initialize_training() {
+static int cmp_words(const void* a, const void* b) {
+	double diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+}
+
+static void log_epoch() {
+	if(epoch % LOG_PERIOD) {
+		return;
+	}
+
+	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
+	fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
+	fprintf(flog, "Loss\t%lf\n", loss);
+}
+
+// TODO Add static flags to restrict duuble initializetion (miltiple functions)
+static void initialize_vocab() {
 	ffilter = fopen(FILTER_PATH, "r");
 
-	parse_corpus_file();
-	allocate_layers();
+	parse_corpus();
+	layers_allocate();
 
 	int index = 0;
-	bst_to_map(root, &index);
+	bst_to_map(vocab, &index);
 
 	for(i = 0; i < SENTENCE_MAX; i++) {
 		for(j = 0; j < WORD_MAX; j++) {
@@ -293,7 +309,7 @@ static void initialize_training() {
 	}
 
 	for(p = 0; p < pattern_max; p++) {
-		training[p] = p;
+		patterns[p] = p;
 	}
 
 	flog = fopen(LOG_PATH, "w");
@@ -320,13 +336,13 @@ static void initialize_test() {
 static void initialize_weights() {
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+			w_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+			w_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
 		}
 	}
 }
@@ -335,9 +351,9 @@ static void initialize_epoch() {
 	for(p = 0; p < pattern_max; p++) {
 		p1 = p + random() * (pattern_max - p);
 
-		p2 = training[p];
-		training[p] = training[p1];
-		training[p1] = p2;
+		p2 = patterns[p];
+		patterns[p] = patterns[p1];
+		patterns[p1] = p2;
 	}
 
 	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (double) epoch / EPOCH_MAX));
@@ -347,7 +363,7 @@ static void initialize_epoch() {
 
 static void initialize_input() {
 	onehot_reset(input, input_max);
-	input[p = training[p1]].on = 1;
+	input[p = patterns[p1]].on = 1;
 }
 
 static void forward_propagate_input_layer() {
@@ -355,7 +371,7 @@ static void forward_propagate_input_layer() {
 		hidden[j] = 0.0;
 
 		for(i = 0; i < input_max; i++) {
-			hidden[j] += input[i].on * weight_ih[i][j];
+			hidden[j] += input[i].on * w_ih[i][j];
 		}
 	}
 }
@@ -365,7 +381,7 @@ static void forward_propagate_hidden_layer() {
 		output[k] = 0.0;
 
 		for(j = 0; j < hidden_max; j++) {
-			output[k] += hidden[j] * weight_ho[j][k];
+			output[k] += hidden[j] * w_ho[j][k];
 		}
 	}
 }
@@ -413,7 +429,7 @@ static void calculate_error() {
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			weight_ho[j][k] -= alpha * hidden[j] * error[k];
+			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
 	}
 }
@@ -425,13 +441,13 @@ static void update_input_layer_weights() {
 		error_t[j] = 0.0;
 
 		for(k = 0; k < output_max; k++) {
-			error_t[j] += error[k] * weight_ho[j][k];
+			error_t[j] += error[k] * w_ho[j][k];
 		}
 	}
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			weight_ih[i][j] -= alpha * input[i].on * error_t[j];
+			w_ih[i][j] -= alpha * input[i].on * error_t[j];
 		}
 	}
 }
@@ -454,31 +470,19 @@ static void calculate_loss() {
 	loss += context_max * log(sum);
 }
 
-static void log_epoch() {
-	if(epoch % LOG_PERIOD) {
-		return;
-	}
-
-	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
-	fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
-	fprintf(flog, "Loss\t%lf\n", loss);
-}
-
-static int cmp_words(const void* a, const void* b) {
-	double diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
-}
-
-void start_training() {
+void nn_start() {
 	srand(time(0));
+	initialize_vocab();
+}
 
-	initialize_training();
+void nn_finish() {
+	bst_free(vocab);
+	layers_free();
+	fclose(flog);
+	fclose(ffilter);
+}
 
-	if(initialized) {
-		return;
-	}
-	
+void training_run() {
 	initialize_weights();
 
 	clock_t start_time = clock();
@@ -510,14 +514,7 @@ void start_training() {
 	printf("Took:\t%lf sec\n", time_get(start_time));
 }
 
-void finish_training() {
-	bst_free(root);
-	free_layers();
-	fclose(flog);
-	fclose(ffilter);
-}
-
-void get_predictions(char* word, int count, int* result) {
+void test_run(char* word, int count, int* result) {
 	test_word = word;
 
 	screen_clear();
@@ -557,7 +554,7 @@ void get_predictions(char* word, int count, int* result) {
 	}
 }
 
-void save_weights() {
+void weights_save() {
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
 
@@ -568,7 +565,7 @@ void save_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			fprintf(fwih, "%s%lf", j ? " " : "", weight_ih[i][j]);
+			fprintf(fwih, "%s%lf", j ? " " : "", w_ih[i][j]);
 		}
 
 		fprintf(fwih, "\n");
@@ -576,7 +573,7 @@ void save_weights() {
 
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			fprintf(fwho, "%s%lf", k ? " " : "", weight_ho[j][k]);
+			fprintf(fwho, "%s%lf", k ? " " : "", w_ho[j][k]);
 		}
 
 		fprintf(fwho, "\n");
@@ -586,30 +583,27 @@ void save_weights() {
 	fclose(fwho);
 }
 
-// TODO Loading weights gives different precision
-void load_weights() {
-	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
-	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
+void weights_load() {
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "r");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "r");
 
 	if(!fwih || !fwho) {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 		return;
 	}
-	
+
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			fscanf(fwih, "%lf", &weight_ih[i][j]);
+			fscanf(fwih, "%lf", &w_ih[i][j]);
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			fscanf(fwho, "%lf", &weight_ho[j][k]);
+			fscanf(fwho, "%lf", &w_ho[j][k]);
 		}
 	}
 
 	fclose(fwih);
 	fclose(fwho);
-
-	initialized = 1;
 }

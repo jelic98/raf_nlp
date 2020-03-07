@@ -11,10 +11,12 @@
 
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 1
 
 #define LOG_EPOCH 1
 #define LOG_PERIOD 1
+
+// TODO Add DEBUG flag to skip printfs in production
 
 #ifdef H_TEST_INCLUDE
 const int TEST_CASES_START = __LINE__;
@@ -66,10 +68,11 @@ typedef union xBit {
 	unsigned int on : 1;
 } xBit;
 
-void start_training();
-void finish_training();
-void get_predictions(char*, int, int*);
-void load_weights();
-void save_weights();
+void nn_start();
+void nn_finish();
+void training_run();
+void test_run(char*, int, int*);
+void weights_save();
+void weights_load();
 
 #endif
