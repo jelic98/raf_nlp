@@ -115,7 +115,6 @@ static xWord* index_to_word(int index) {
 	return bst_get(vocab, &index);
 }
 
-// TODO Handle case when this function returs -1
 static int word_to_index(char* word) {
 	xBit* onehot = map_get(word);
 
@@ -125,6 +124,10 @@ static int word_to_index(char* word) {
 		;
 
 	return index < pattern_max ? index : -1;
+}
+
+static int index_valid(int index) {
+	return index >= 0 && index < input_max;
 }
 
 static void onehot_reset(xBit* onehot, int size) {
@@ -195,7 +198,7 @@ static void parse_corpus() {
 	while((c = fgetc(fin)) != EOF) {
 		if(isalnum(c) || c == '-') {
 			*pw++ = tolower(c);
-		// TODO Handle all special characters
+		// TODO Handle all characters or use same parsing as in sentece encoding
 		} else if(!(isalnum(c) || c == '-') && word[0]) {
 			if(!filter_word(word)) {
 				strcpy(context[i][j++], word);
@@ -320,6 +323,11 @@ static void initialize_vocab() {
 			}
 
 			index = word_to_index(context[i][j]);
+
+			if(!index_valid(index)) {
+				continue;
+			}
+
 			xWord* center = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
@@ -328,6 +336,10 @@ static void initialize_vocab() {
 				}
 
 				int context_index = word_to_index(context[i][k]);
+
+				if(!index_valid(context_index)) {
+					continue;
+				}
 
 				if(!contains_context(center, index, context_index)) {
 					target[index][(center->context_count)++] = context_index;
@@ -347,6 +359,10 @@ static void initialize_test() {
 #endif
 
 	int index = word_to_index(test_word);
+
+	if(!index_valid(index)) {
+		return;
+	}
 
 	onehot_reset(input, input_max);
 	input[index].on = 1;
@@ -584,6 +600,11 @@ void test_run(char* word, int count, int* result) {
 	qsort(pred, output_max, sizeof(xWord), cmp_words);
 
 	int center_index = word_to_index(word);
+
+	if(!index_valid(center_index)) {
+		return;
+	}
+
 	xWord* center = index_to_word(center_index);
 
 	int index;
@@ -595,6 +616,10 @@ void test_run(char* word, int count, int* result) {
 		}
 
 		int context_index = word_to_index(pred[k].word);
+
+		if(!index_valid(context_index)) {
+			continue;
+		}
 
 		if(index == 1) {
 			*result = contains_context(center, center_index, context_index);
@@ -680,6 +705,10 @@ void sentence_encode(char* sentence, double* vector) {
 	while(tok) {
 		if(!filter_word(tok)) {
 			index = word_to_index(tok);
+
+			if(!index_valid(index)) {
+				continue;
+			}
 
 			for(j = 0; j < HIDDEN_MAX; j++) {
 				vector[j] += w_ih[index][j];
