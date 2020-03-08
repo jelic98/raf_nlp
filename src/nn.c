@@ -549,10 +549,6 @@ void training_run() {
 			calculate_loss();
 		}
 
-		if(epoch % LOG_PERIOD) {
-			return;
-		}
-
 #ifdef FLAG_LOG
 		fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
 		fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
