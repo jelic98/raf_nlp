@@ -150,7 +150,9 @@ static int filter_word(char* word) {
 	}
 
 	if(!ffilter) {
+#ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
 		return 0;
 	}
 
@@ -171,10 +173,18 @@ static int filter_word(char* word) {
 
 // TODO Support encoding whole sentence as a single vector
 static void parse_corpus() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
 	if(!fin) {
+#ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
 		return;
 	}
 
@@ -204,11 +214,19 @@ static void parse_corpus() {
 	}
 
 	if(fclose(fin) == EOF) {
+#ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
 	}
 }
 
 static void layers_allocate() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
@@ -235,6 +253,12 @@ static void layers_allocate() {
 }
 
 static void layers_free() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
 	free(input);
 	free(hidden);
 	free(output);
@@ -265,19 +289,22 @@ static int cmp_words(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static void log_epoch() {
-	if(epoch % LOG_PERIOD) {
+static void initialize_vocab() {
+	static int done = 0;
+
+	if(done++) {
 		return;
 	}
 
-	fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
-	fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
-	fprintf(flog, "Loss\t%lf\n", loss);
-}
-
-// TODO Add static flags to restrict duuble initializetion (miltiple functions)
-static void initialize_vocab() {
+	flog = fopen(LOG_PATH, "w");
 	ffilter = fopen(FILTER_PATH, "r");
+
+	if(!ffilter) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+		return;
+	}
 
 	parse_corpus();
 	layers_allocate();
@@ -311,12 +338,12 @@ static void initialize_vocab() {
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
-
-	flog = fopen(LOG_PATH, "w");
 }
 
 static void initialize_test() {
+#ifdef FLAG_DEBUG
 	printf("Center:\t\t%s\n\n", test_word);
+#endif
 
 	int index = word_to_index(test_word);
 
@@ -327,10 +354,14 @@ static void initialize_test() {
 
 	for(k = 0; k < center_word->context_count; k++) {
 		xWord* context = index_to_word(target[index][k]);
+#ifdef FLAG_DEBUG
 		printf("Context #%d:\t%s\n", k + 1, context->word);
+#endif
 	}
 
+#ifdef FLAG_DEBUG
 	printf("\n");
+#endif
 }
 
 static void initialize_weights() {
@@ -478,8 +509,18 @@ void nn_start() {
 void nn_finish() {
 	bst_free(vocab);
 	layers_free();
-	fclose(flog);
-	fclose(ffilter);
+	
+	if(fclose(ffilter) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
+
+	if(fclose(flog) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
 }
 
 void training_run() {
@@ -488,8 +529,10 @@ void training_run() {
 	clock_t start_time = clock();
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+#ifdef FLAG_DEBUG
 		screen_clear();
 		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
+#endif
 
 		initialize_epoch();
 
@@ -506,18 +549,28 @@ void training_run() {
 			calculate_loss();
 		}
 
-		if(LOG_EPOCH) {
-			log_epoch();
+		if(epoch % LOG_PERIOD) {
+			return;
 		}
+
+#ifdef FLAG_LOG
+		fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
+		fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
+		fprintf(flog, "Loss\t%lf\n", loss);
+#endif
 	}
 
+#ifdef FLAG_DEBUG
 	printf("Took:\t%lf sec\n", time_get(start_time));
+#endif
 }
 
 void test_run(char* word, int count, int* result) {
 	test_word = word;
 
+#ifdef FLAG_DEBUG
 	screen_clear();
+#endif
 	initialize_test();
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
@@ -550,7 +603,9 @@ void test_run(char* word, int count, int* result) {
 			*result = contains_context(center, center_index, context_index);
 		}
 
+#ifdef FLAG_DEBUG
 		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
+#endif
 	}
 }
 
@@ -559,7 +614,9 @@ void weights_save() {
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
 
 	if(!fwih || !fwho) {
+#ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
 		return;
 	}
 
@@ -579,8 +636,11 @@ void weights_save() {
 		fprintf(fwho, "\n");
 	}
 
-	fclose(fwih);
-	fclose(fwho);
+	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
 }
 
 void weights_load() {
@@ -588,7 +648,9 @@ void weights_load() {
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "r");
 
 	if(!fwih || !fwho) {
+#ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
 		return;
 	}
 
@@ -604,6 +666,9 @@ void weights_load() {
 		}
 	}
 
-	fclose(fwih);
-	fclose(fwho);
+	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
 }

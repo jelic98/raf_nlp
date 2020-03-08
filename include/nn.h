@@ -3,6 +3,8 @@
 
 #include "include/main.h"
 
+#define EPOCH_MAX 1
+
 #define HIDDEN_MAX 100
 #define WINDOW_MAX 20
 
@@ -11,12 +13,11 @@
 
 #define INITIAL_WEIGHT_MAX 0.5
 
-#define EPOCH_MAX 1
-
-#define LOG_EPOCH 1
 #define LOG_PERIOD 1
 
-// TODO Add DEBUG flag to skip printfs in production
+// Flags
+#define FLAG_DEBUG
+#define FLAG_LOG
 
 #ifdef H_TEST_INCLUDE
 const int TEST_CASES_START = __LINE__;
