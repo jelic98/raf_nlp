@@ -58,6 +58,7 @@ void training_run();
 void test_run(char*, int, int*);
 void weights_save();
 void weights_load();
+void sentence_encode(char*, double*);
 
 // Test cases
 #ifdef H_TEST_INCLUDE

@@ -115,6 +115,7 @@ static xWord* index_to_word(int index) {
 	return bst_get(vocab, &index);
 }
 
+// TODO Handle case when this function returs -1
 static int word_to_index(char* word) {
 	xBit* onehot = map_get(word);
 
@@ -171,7 +172,6 @@ static int filter_word(char* word) {
 	return 0;
 }
 
-// TODO Support encoding whole sentence as a single vector
 static void parse_corpus() {
 	static int done = 0;
 
@@ -195,6 +195,7 @@ static void parse_corpus() {
 	while((c = fgetc(fin)) != EOF) {
 		if(isalnum(c) || c == '-') {
 			*pw++ = tolower(c);
+		// TODO Handle all special characters
 		} else if(!(isalnum(c) || c == '-') && word[0]) {
 			if(!filter_word(word)) {
 				strcpy(context[i][j++], word);
@@ -509,7 +510,7 @@ void nn_start() {
 void nn_finish() {
 	bst_free(vocab);
 	layers_free();
-	
+
 	if(fclose(ffilter) == EOF) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
@@ -666,5 +667,25 @@ void weights_load() {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
+	}
+}
+
+void sentence_encode(char* sentence, double* vector) {
+	memset(vector, 0, HIDDEN_MAX * sizeof(double));
+	
+	int index;
+	char* sep = " \t\n\r.?!,:;(){}[]<>\"";
+	char* tok = strtok(sentence, sep);
+
+	while(tok) {
+		if(!filter_word(tok)) {
+			index = word_to_index(tok);
+
+			for(j = 0; j < HIDDEN_MAX; j++) {
+				vector[j] += w_ih[index][j];
+			}
+		}
+
+		tok = strtok(NULL, sep);
 	}
 }
