@@ -262,54 +262,6 @@ static void parse_corpus() {
 	}
 
 	int i = 0, j = 0, success;
-	char c, word[WORD_MAX] = { 0 };
-	char* pw = word;
-
-	while((c = fgetc(fin)) != EOF) {
-		if(isalnum(c) || c == '-') {
-			*pw++ = tolower(c);
-		} else if(!(isalnum(c) || c == '-') && word[0]) {
-			if(!word_filter(word)) {
-				strcpy(context[i][j++], word);
-				success = 0;
-				vocab = bst_insert(vocab, word, &success);
-
-				if(success) {
-					pattern_max = input_max = ++output_max;
-					hidden_max = HIDDEN_MAX;
-				}
-			}
-
-			memset(pw = word, 0, sizeof(word));
-		} else if(c == '.') {
-			++i, j = 0;
-		}
-	}
-
-	if(fclose(fin) == EOF) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-	}
-}
-
-static void parse_corpus_2() {
-	static int done = 0;
-
-	if(done++) {
-		return;
-	}
-
-	FILE* fin = fopen(CORPUS_PATH, "r");
-
-	if(!fin) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-		return;
-	}
-
-	int i = 0, j = 0, success;
 	char line[LINE_CHARACTER_MAX];
 	char* sep = WORD_DELIMITERS;
 	char* tok;
@@ -430,7 +382,7 @@ static void initialize_vocab() {
 		return;
 	}
 
-	parse_corpus_2();
+	parse_corpus();
 	layers_allocate();
 
 	int index = 0;
