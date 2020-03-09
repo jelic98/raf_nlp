@@ -24,7 +24,7 @@ static char* test_word;
 
 // TODO Use dynamic arrays
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
-static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
+static int onehot[SENTENCE_MAX * WORD_MAX];
 
 static int invalid_index[INVALID_INDEX_MAX];
 static int invalid_index_last;
@@ -44,14 +44,14 @@ static double time_get(clock_t start) {
 }
 #endif
 
-static xBit* map_get(const char* word) {
+static int* map_get(const char* word) {
 	unsigned int h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
 		h = (h << 3) + (h >> (sizeof(h) * CHAR_BIT - 3)) + word[i];
 	}
 
-	return onehot[h % (SENTENCE_MAX * WORD_MAX)];
+	return &onehot[h % (SENTENCE_MAX * WORD_MAX)];
 }
 
 static xWord* bst_get(xWord* node, int* index) {
@@ -101,7 +101,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 static void bst_to_map(xWord* node, int* index) {
 	if(node) {
 		bst_to_map(node->left, index);
-		map_get(node->word)[(*index)++].on = 1;
+		*map_get(node->word) = (*index)++;
 		bst_to_map(node->right, index);
 	}
 }
@@ -170,12 +170,7 @@ static void invalid_index_print() {
 #endif
 
 static int word_to_index(char* word) {
-	xBit* onehot = map_get(word);
-
-	int index;
-
-	for(index = 0; index < pattern_max && !onehot[index].on; index++)
-		;
+	int index = *map_get(word);
 
 	return index < pattern_max ? index : -1;
 }
@@ -227,12 +222,14 @@ static int word_clean(char* word) {
 	return 0;
 }
 
-static void onehot_reset(xBit* onehot, int size) {
+static void onehot_set(xBit* onehot, int index, int size) {	
 	int q;
 
 	for(q = 0; q < size; q++) {
 		onehot[q].on = 0;
 	}
+
+	onehot[p = index].on = 1;
 }
 
 static int contains_context(xWord* center, int center_index, int context) {
@@ -436,8 +433,7 @@ static void initialize_test() {
 		return;
 	}
 
-	onehot_reset(input, input_max);
-	input[index].on = 1;
+	onehot_set(input, index, input_max);
 
 	xWord* center_word = index_to_word(index);
 
@@ -482,8 +478,7 @@ static void initialize_epoch() {
 }
 
 static void initialize_input() {
-	onehot_reset(input, input_max);
-	input[p = patterns[p1]].on = 1;
+	onehot_set(input, patterns[p1], input_max);
 }
 
 static void forward_propagate_input_layer() {
@@ -683,15 +678,9 @@ void test_run(char* word, int count, int* result) {
 		pred[k].prob = output[k];
 	}
 
-	qsort(pred, output_max, sizeof(xWord), cmp_words);
+	qsort(pred, output_max, sizeof(xWord), cmp_words);	
 
-	int center_index = word_to_index(word);
-
-	if(!index_valid(center_index)) {
-		return;
-	}
-
-	xWord* center = index_to_word(center_index);
+	xWord* center = index_to_word(p);
 
 	int index;
 
@@ -708,7 +697,7 @@ void test_run(char* word, int count, int* result) {
 		}
 
 		if(index == 1) {
-			*result = contains_context(center, center_index, context_index);
+			*result = contains_context(center, p, context_index);
 		}
 
 #ifdef FLAG_DEBUG

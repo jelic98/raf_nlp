@@ -15,7 +15,7 @@
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
 
 // Number of sentences in file
-#define SENTENCE_MAX 100
+#define SENTENCE_MAX 300
 
 // Number of words in sentence
 #define WORD_MAX 100
