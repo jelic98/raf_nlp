@@ -9,6 +9,10 @@
 #define INITIAL_WEIGHT_MAX 0.5
 #define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
+#define INVALID_INDEX_MAX 10
+
+#define SENTENCE_DELIMITERS ".?!"
+#define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
 
 // Number of sentences in file
 #define SENTENCE_MAX 100
@@ -19,9 +23,14 @@
 // Number of characters in word
 #define CHARACTER_MAX 50
 
+// Number of characters in line
+#define LINE_CHARACTER_MAX 512
+
 // Flags
 #define FLAG_DEBUG
-#define FLAG_LOG
+//#define FLAG_LOG
+//#define FLAG_PRINT_VOCAB
+//#define FLAG_PRINT_ERRORS
 
 // Paths
 #define CORPUS_PATH "res/corpus-large.txt"

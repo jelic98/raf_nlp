@@ -1,5 +1,6 @@
 a
 all
+also
 an
 and
 any
@@ -44,6 +45,7 @@ they
 though
 to
 us
+ve
 was
 we
 were

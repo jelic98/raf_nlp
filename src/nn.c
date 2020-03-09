@@ -26,16 +26,23 @@ static char* test_word;
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
 static xBit onehot[SENTENCE_MAX * WORD_MAX][SENTENCE_MAX * WORD_MAX];
 
+static int invalid_index[INVALID_INDEX_MAX];
+static int invalid_index_last;
+
 static FILE* flog;
 static FILE* ffilter;
 
+#ifdef FLAG_DEBUG
 static void screen_clear() {
 	printf("\e[1;1H\e[2J");
 }
+#endif
 
+#ifdef FLAG_DEBUG
 static double time_get(clock_t start) {
 	return (double) (clock() - start) / CLOCKS_PER_SEC;
 }
+#endif
 
 static xBit* map_get(const char* word) {
 	unsigned int h = 0;
@@ -99,6 +106,16 @@ static void bst_to_map(xWord* node, int* index) {
 	}
 }
 
+#ifdef FLAG_PRINT_VOCAB
+static void bst_print(xWord* node, int* index) {
+	if(node) {
+		bst_print(node->left, index);
+		printf("Vocab #%d:\t%s\n", ++(*index), node->word);
+		bst_print(node->right, index);
+	}
+}
+#endif
+
 static void bst_free(xWord* node) {
 	if(node) {
 		bst_free(node->left);
@@ -115,6 +132,43 @@ static xWord* index_to_word(int index) {
 	return bst_get(vocab, &index);
 }
 
+static int index_valid(int index) {
+	int valid = index >= 0 && index < input_max;
+
+	if(!valid) {
+		int i, found = 0;
+
+		for(i = 0; i < invalid_index_last; i++) {
+			if(invalid_index[i] == index) {
+				found = 1;
+				break;
+			}
+		}
+
+		if(!found) {
+			invalid_index[invalid_index_last++] = index;
+		}
+	}
+
+	return valid;
+}
+
+#ifdef FLAG_DEBUG
+#ifdef FLAG_PRINT_ERRORS
+static void invalid_index_print() {
+	if(invalid_index_last > 0) {
+		int i;
+
+		for(i = 0; i < invalid_index_last; i++) {
+			printf("Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
+		}
+	} else {
+		printf("No invalid indices\n");
+	}
+}
+#endif
+#endif
+
 static int word_to_index(char* word) {
 	xBit* onehot = map_get(word);
 
@@ -126,29 +180,14 @@ static int word_to_index(char* word) {
 	return index < pattern_max ? index : -1;
 }
 
-static int index_valid(int index) {
-	return index >= 0 && index < input_max;
-}
-
-static void onehot_reset(xBit* onehot, int size) {
-	int q;
-
-	for(q = 0; q < size; q++) {
-		onehot[q].on = 0;
+static void word_lower(char* word) {
+	while(*word) {
+		*word = tolower(*word);
+		word++;
 	}
 }
 
-static int contains_context(xWord* center, int center_index, int context) {
-	for(c = 0; c < center->context_count; c++) {
-		if(target[center_index][c] == context) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int filter_word(char* word) {
+static int word_filter(char* word) {
 	if(strlen(word) < 2) {
 		return 1;
 	}
@@ -168,6 +207,37 @@ static int filter_word(char* word) {
 		line[strlen(line) - 1] = '\0';
 
 		if(!strcmp(line, word)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int word_clean(char* word) {
+	word_lower(word);
+
+	int len = strlen(word) - 1;
+
+	if(strchr(SENTENCE_DELIMITERS, word[len])) {
+		word[len] = '\0';
+		return 1;
+	}
+
+	return 0;
+}
+
+static void onehot_reset(xBit* onehot, int size) {
+	int q;
+
+	for(q = 0; q < size; q++) {
+		onehot[q].on = 0;
+	}
+}
+
+static int contains_context(xWord* center, int center_index, int context) {
+	for(c = 0; c < center->context_count; c++) {
+		if(target[center_index][c] == context) {
 			return 1;
 		}
 	}
@@ -198,9 +268,8 @@ static void parse_corpus() {
 	while((c = fgetc(fin)) != EOF) {
 		if(isalnum(c) || c == '-') {
 			*pw++ = tolower(c);
-		// TODO Handle all characters or use same parsing as in sentece encoding
 		} else if(!(isalnum(c) || c == '-') && word[0]) {
-			if(!filter_word(word)) {
+			if(!word_filter(word)) {
 				strcpy(context[i][j++], word);
 				success = 0;
 				vocab = bst_insert(vocab, word, &success);
@@ -214,6 +283,57 @@ static void parse_corpus() {
 			memset(pw = word, 0, sizeof(word));
 		} else if(c == '.') {
 			++i, j = 0;
+		}
+	}
+
+	if(fclose(fin) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
+}
+
+static void parse_corpus_2() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
+	FILE* fin = fopen(CORPUS_PATH, "r");
+
+	if(!fin) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+		return;
+	}
+
+	int i = 0, j = 0, success;
+	char line[LINE_CHARACTER_MAX];
+	char* sep = WORD_DELIMITERS;
+	char* tok;
+
+	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
+		tok = strtok(line, sep);
+
+		while(tok) {
+			if(word_clean(tok)) {
+				++i, j = 0;
+			}
+
+			if(!word_filter(tok)) {
+				strcpy(context[i][j++], tok);
+				success = 0;
+				vocab = bst_insert(vocab, tok, &success);
+
+				if(success) {
+					pattern_max = input_max = ++output_max;
+					hidden_max = HIDDEN_MAX;
+				}
+			}
+
+			tok = strtok(NULL, sep);
 		}
 	}
 
@@ -310,7 +430,7 @@ static void initialize_vocab() {
 		return;
 	}
 
-	parse_corpus();
+	parse_corpus_2();
 	layers_allocate();
 
 	int index = 0;
@@ -370,8 +490,8 @@ static void initialize_test() {
 	xWord* center_word = index_to_word(index);
 
 	for(k = 0; k < center_word->context_count; k++) {
-		xWord* context = index_to_word(target[index][k]);
 #ifdef FLAG_DEBUG
+		xWord* context = index_to_word(target[index][k]);
 		printf("Context #%d:\t%s\n", k + 1, context->word);
 #endif
 	}
@@ -524,6 +644,18 @@ void nn_start() {
 }
 
 void nn_finish() {
+#ifdef FLAG_DEBUG
+#ifdef FLAG_PRINT_VOCAB
+	screen_clear();
+	int index = 0;
+	bst_print(vocab, &index);
+#endif
+#ifdef FLAG_PRINT_ERRORS
+	screen_clear();
+	invalid_index_print();
+#endif
+#endif
+
 	bst_free(vocab);
 	layers_free();
 
@@ -543,7 +675,9 @@ void nn_finish() {
 void training_run() {
 	initialize_weights();
 
+#ifdef FLAG_DEBUG
 	clock_t start_time = clock();
+#endif
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_DEBUG
@@ -697,13 +831,15 @@ void weights_load() {
 
 void sentence_encode(char* sentence, double* vector) {
 	memset(vector, 0, HIDDEN_MAX * sizeof(double));
-	
+
 	int index;
-	char* sep = " \t\n\r.?!,:;(){}[]<>\"";
+	char* sep = WORD_DELIMITERS;
 	char* tok = strtok(sentence, sep);
 
 	while(tok) {
-		if(!filter_word(tok)) {
+		word_clean(tok);
+
+		if(!word_filter(tok)) {
 			index = word_to_index(tok);
 
 			if(!index_valid(index)) {

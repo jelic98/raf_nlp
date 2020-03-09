@@ -7,7 +7,7 @@ int main() {
 	nn_start();
 	
 	training_run();
-	weights_save();
+	//weights_save();
 	//weights_load();
 
 	char test[TEST_MAX][CHARACTER_MAX] = { TEST_CASES };
@@ -18,7 +18,7 @@ int main() {
 		tries_sum += result;
 	}
 
-	printf("Precision: %.1lf%%\n", 100.0 * tries_sum / TEST_MAX);
+	printf("\nPrecision: %.1lf%%\n", 100.0 * tries_sum / TEST_MAX);
 
 	nn_finish();
 
