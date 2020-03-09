@@ -19,12 +19,13 @@ static double* error;
 static int** target;
 static int* patterns;
 
-static xWord* vocab;
-static char* test_word;
-
 // TODO Use dynamic arrays
-static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
+static char* context[SENTENCE_MAX][WORD_MAX];
+static int context_length[SENTENCE_MAX];
+
+static xWord* vocab;
 static int* onehot;
+static char* test_word;
 
 static int invalid_index[INVALID_INDEX_MAX];
 static int invalid_index_last;
@@ -116,10 +117,10 @@ static void bst_print(xWord* node, int* index) {
 }
 #endif
 
-static void bst_free(xWord* node) {
+static void bst_release(xWord* node) {
 	if(node) {
-		bst_free(node->left);
-		bst_free(node->right);
+		bst_release(node->left);
+		bst_release(node->right);
 		node->left = NULL;
 		node->right = NULL;
 		free(node);
@@ -258,7 +259,7 @@ static void parse_corpus() {
 		return;
 	}
 
-	int i = 0, j = 0, success;
+	int i = 0, j = -1, success;
 	char line[LINE_CHARACTER_MAX];
 	char* sep = WORD_DELIMITERS;
 	char* tok;
@@ -268,11 +269,11 @@ static void parse_corpus() {
 
 		while(tok) {
 			if(word_clean(tok)) {
-				++i, j = 0;
+				++i, j = -1;
 			}
 
 			if(!word_filter(tok)) {
-				strcpy(context[i][j++], tok);
+				strcpy(context[i][context_length[i] = ++j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
 				success = 0;
 				vocab = bst_insert(vocab, tok, &success);
 
@@ -293,7 +294,7 @@ static void parse_corpus() {
 	}
 }
 
-static void layers_allocate() {
+static void resources_allocate() {
 	static int done = 0;
 
 	if(done++) {
@@ -301,7 +302,6 @@ static void layers_allocate() {
 	}
 
 	onehot = (int*) calloc(pattern_max, sizeof(int));
-
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
@@ -327,15 +327,20 @@ static void layers_allocate() {
 	error = (double*) calloc(output_max, sizeof(double));
 }
 
-static void layers_free() {
+static void resources_release() {
 	static int done = 0;
 
 	if(done++) {
 		return;
 	}
 
-	free(onehot);
+	for(i = 0; i < SENTENCE_MAX; i++) {
+		for(j = 0; j < context_length[i]; j++) {
+			free(context[i][j]);
+		}
+	}
 
+	free(onehot);
 	free(input);
 	free(hidden);
 	free(output);
@@ -384,14 +389,14 @@ static void initialize_vocab() {
 	}
 
 	parse_corpus();
-	layers_allocate();
+	resources_allocate();
 
 	int index = 0;
 	bst_to_map(vocab, &index);
 
 	for(i = 0; i < SENTENCE_MAX; i++) {
 		for(j = 0; j < WORD_MAX; j++) {
-			if(!context[i][j][0]) {
+			if(!context[i][j] || !context[i][j][0]) {
 				continue;
 			}
 
@@ -404,7 +409,7 @@ static void initialize_vocab() {
 			xWord* center = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
-				if(k == j || k < 0 || !context[i][k][0]) {
+				if(k == j || k < 0 || !context[i][k] || !context[i][k][0]) {
 					continue;
 				}
 
@@ -607,8 +612,8 @@ void nn_finish() {
 #endif
 #endif
 
-	bst_free(vocab);
-	layers_free();
+	bst_release(vocab);
+	resources_release();
 
 	if(fclose(ffilter) == EOF) {
 #ifdef FLAG_LOG

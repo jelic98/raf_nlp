@@ -3,7 +3,7 @@
 
 #include "include/main.h"
 
-#define EPOCH_MAX 10
+#define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 10
 #define INITIAL_WEIGHT_MAX 0.5
