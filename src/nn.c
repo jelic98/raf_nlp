@@ -24,7 +24,7 @@ static char* test_word;
 
 // TODO Use dynamic arrays
 static char context[SENTENCE_MAX][WORD_MAX][CHARACTER_MAX];
-static int onehot[SENTENCE_MAX * WORD_MAX];
+static int* onehot;
 
 static int invalid_index[INVALID_INDEX_MAX];
 static int invalid_index_last;
@@ -51,7 +51,7 @@ static int* map_get(const char* word) {
 		h = (h << 3) + (h >> (sizeof(h) * CHAR_BIT - 3)) + word[i];
 	}
 
-	return &onehot[h % (SENTENCE_MAX * WORD_MAX)];
+	return &onehot[h % pattern_max];
 }
 
 static xWord* bst_get(xWord* node, int* index) {
@@ -222,7 +222,7 @@ static int word_clean(char* word) {
 	return 0;
 }
 
-static void onehot_set(xBit* onehot, int index, int size) {	
+static void onehot_set(xBit* onehot, int index, int size) {
 	int q;
 
 	for(q = 0; q < size; q++) {
@@ -300,6 +300,8 @@ static void layers_allocate() {
 		return;
 	}
 
+	onehot = (int*) calloc(pattern_max, sizeof(int));
+
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
 	output = (double*) calloc(output_max, sizeof(double));
@@ -331,6 +333,8 @@ static void layers_free() {
 	if(done++) {
 		return;
 	}
+
+	free(onehot);
 
 	free(input);
 	free(hidden);
@@ -678,7 +682,7 @@ void test_run(char* word, int count, int* result) {
 		pred[k].prob = output[k];
 	}
 
-	qsort(pred, output_max, sizeof(xWord), cmp_words);	
+	qsort(pred, output_max, sizeof(xWord), cmp_words);
 
 	xWord* center = index_to_word(p);
 
