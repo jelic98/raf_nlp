@@ -10,7 +10,7 @@ int main() {
 	//weights_save();
 	//weights_load();
 
-	char test[TEST_MAX][CHARACTER_MAX] = { TEST_CASES };
+	char test[TEST_MAX][100] = { TEST_CASES };
 	int i, result = 0, tries_sum = 0;
 
 	for(i = 0; i < TEST_MAX && test[i][0]; i++) {

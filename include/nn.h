@@ -15,16 +15,13 @@
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
 
 // Number of sentences in file
-#define SENTENCE_MAX 300
-
-// Number of words in sentence
-#define WORD_MAX 100
-
-// Number of characters in word
-#define CHARACTER_MAX 50
+#define SENTENCE_MAX 500
 
 // Number of characters in line
 #define LINE_CHARACTER_MAX 512
+
+// Sentence increment size
+#define WORD_THRESHOLD 16
 
 // Flags
 #define FLAG_DEBUG
@@ -49,7 +46,7 @@
 
 // Internal data types
 typedef struct xWord {
-	char word[CHARACTER_MAX];
+	const char* word;
 	unsigned int context_count;
 	double prob;
 	struct xWord* left;

@@ -20,8 +20,9 @@ static int** target;
 static int* patterns;
 
 // TODO Use dynamic arrays
-static char* context[SENTENCE_MAX][WORD_MAX];
-static int context_length[SENTENCE_MAX];
+static char** context[SENTENCE_MAX];
+static int context_total_words[SENTENCE_MAX];
+static int context_total_sentences;
 
 static xWord* vocab;
 static int* onehot;
@@ -80,7 +81,7 @@ static xWord* bst_get(xWord* node, int* index) {
 static xWord* bst_insert(xWord* node, const char* word, int* success) {
 	if(!node) {
 		node = (xWord*) calloc(1, sizeof(xWord));
-		strcpy(node->word, word);
+		node->word = word;
 		node->left = node->right = NULL;
 		node->prob = 0.0;
 		node->context_count = 0;
@@ -88,7 +89,10 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		return node;
 	}
 
+	//printf("NOT OK\n");
+	//printf("%p\n", node->word);
 	int cmp = strcmp(word, node->word);
+	//printf("OK\n");
 
 	if(cmp < 0) {
 		node->left = bst_insert(node->left, word, success);
@@ -170,7 +174,7 @@ static void invalid_index_print() {
 #endif
 #endif
 
-static int word_to_index(char* word) {
+static int word_to_index(const char* word) {
 	int index = *map_get(word);
 
 	return index < pattern_max ? index : -1;
@@ -195,11 +199,11 @@ static int word_filter(char* word) {
 		return 0;
 	}
 
-	char line[CHARACTER_MAX];
+	char line[LINE_CHARACTER_MAX];
 
 	fseek(ffilter, 0, SEEK_SET);
 
-	while(fgets(line, CHARACTER_MAX, ffilter)) {
+	while(fgets(line, LINE_CHARACTER_MAX, ffilter)) {
 		line[strlen(line) - 1] = '\0';
 
 		if(!strcmp(line, word)) {
@@ -210,13 +214,13 @@ static int word_filter(char* word) {
 	return 0;
 }
 
-static int word_clean(char* word) {
+static int word_end(char* word) {
 	word_lower(word);
 
-	int len = strlen(word) - 1;
+	int end = strlen(word) - 1;
 
-	if(strchr(SENTENCE_DELIMITERS, word[len])) {
-		word[len] = '\0';
+	if(strchr(SENTENCE_DELIMITERS, word[end])) {
+		word[end] = '\0';
 		return 1;
 	}
 
@@ -259,7 +263,7 @@ static void parse_corpus() {
 		return;
 	}
 
-	int i = 0, j = -1, success;
+	int i = -1, j = -1, success;
 	char line[LINE_CHARACTER_MAX];
 	char* sep = WORD_DELIMITERS;
 	char* tok;
@@ -268,12 +272,18 @@ static void parse_corpus() {
 		tok = strtok(line, sep);
 
 		while(tok) {
-			if(word_clean(tok)) {
-				++i, j = -1;
+			if(i == -1 || word_end(tok)) {
+				context[context_total_sentences = (j = -1, ++i)] = (char**) calloc(WORD_THRESHOLD, sizeof(char**));
+				printf("______\tS\t%d\n", i);
 			}
 
 			if(!word_filter(tok)) {
-				strcpy(context[i][context_length[i] = ++j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
+				if(!(j % WORD_THRESHOLD)) {
+					context[i] = (char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(char**));
+					printf("REALOC\tS\t%d\tW\t%d\n", i, j);
+				}
+
+				strcpy(context[i][context_total_words[i] = ++j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
 				success = 0;
 				vocab = bst_insert(vocab, tok, &success);
 
@@ -334,10 +344,12 @@ static void resources_release() {
 		return;
 	}
 
-	for(i = 0; i < SENTENCE_MAX; i++) {
-		for(j = 0; j < context_length[i]; j++) {
+	for(i = 0; i < context_total_sentences; i++) {
+		for(j = 0; j < context_total_words[i]; j++) {
 			free(context[i][j]);
 		}
+
+		free(context[i]);
 	}
 
 	free(onehot);
@@ -394,8 +406,8 @@ static void initialize_vocab() {
 	int index = 0;
 	bst_to_map(vocab, &index);
 
-	for(i = 0; i < SENTENCE_MAX; i++) {
-		for(j = 0; j < WORD_MAX; j++) {
+	for(i = 0; i < context_total_sentences; i++) {
+		for(j = 0; j < context_total_words[i]; j++) {
 			if(!context[i][j] || !context[i][j][0]) {
 				continue;
 			}
@@ -409,7 +421,7 @@ static void initialize_vocab() {
 			xWord* center = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
-				if(k == j || k < 0 || !context[i][k] || !context[i][k][0]) {
+				if(k == j || k < 0 || k > context_total_words[i] || !context[i][k] || !context[i][k][0]) {
 					continue;
 				}
 
@@ -787,7 +799,7 @@ void sentence_encode(char* sentence, double* vector) {
 	char* tok = strtok(sentence, sep);
 
 	while(tok) {
-		word_clean(tok);
+		word_end(tok);
 
 		if(!word_filter(tok)) {
 			index = word_to_index(tok);
