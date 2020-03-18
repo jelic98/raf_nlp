@@ -89,10 +89,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		return node;
 	}
 
-	//printf("NOT OK\n");
-	//printf("%p\n", node->word);
 	int cmp = strcmp(word, node->word);
-	//printf("OK\n");
 
 	if(cmp < 0) {
 		node->left = bst_insert(node->left, word, success);
@@ -274,18 +271,16 @@ static void parse_corpus() {
 		while(tok) {
 			if(i == -1 || word_end(tok)) {
 				context[context_total_sentences = (j = -1, ++i)] = (char**) calloc(WORD_THRESHOLD, sizeof(char**));
-				printf("______\tS\t%d\n", i);
 			}
 
 			if(!word_filter(tok)) {
 				if(!(j % WORD_THRESHOLD)) {
 					context[i] = (char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(char**));
-					printf("REALOC\tS\t%d\tW\t%d\n", i, j);
 				}
 
 				strcpy(context[i][context_total_words[i] = ++j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
 				success = 0;
-				vocab = bst_insert(vocab, tok, &success);
+				vocab = bst_insert(vocab, context[i][j], &success);
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
@@ -296,7 +291,7 @@ static void parse_corpus() {
 			tok = strtok(NULL, sep);
 		}
 	}
-
+	
 	if(fclose(fin) == EOF) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
@@ -413,7 +408,7 @@ static void initialize_vocab() {
 			}
 
 			index = word_to_index(context[i][j]);
-
+			
 			if(!index_valid(index)) {
 				continue;
 			}
@@ -434,7 +429,7 @@ static void initialize_vocab() {
 				if(!contains_context(center, index, context_index)) {
 					target[index][(center->context_count)++] = context_index;
 				}
-			}
+			}	
 		}
 	}
 

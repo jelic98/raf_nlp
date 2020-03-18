@@ -19,7 +19,7 @@ int main() {
 	}
 
 	printf("\nPrecision: %.1lf%%\n", 100.0 * tries_sum / TEST_MAX);
-
+	
 	nn_finish();
 
 	return 0;
