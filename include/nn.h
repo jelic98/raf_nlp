@@ -14,13 +14,13 @@
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
 
-// Number of sentences in file
-#define SENTENCE_MAX 500
-
 // Number of characters in line
 #define LINE_CHARACTER_MAX 512
 
-// Sentence increment size
+// Number of sentences to allocate per file initially
+#define SENTENCE_THRESHOLD 64
+
+// Number of words to allocate per sentence initially
 #define WORD_THRESHOLD 16
 
 // Flags

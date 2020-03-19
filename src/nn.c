@@ -19,9 +19,8 @@ static double* error;
 static int** target;
 static int* patterns;
 
-// TODO Use dynamic arrays
-static char** context[SENTENCE_MAX];
-static int context_total_words[SENTENCE_MAX];
+static char*** context;
+static int* context_total_words;
 static int context_total_sentences;
 
 static xWord* vocab;
@@ -260,25 +259,37 @@ static void parse_corpus() {
 		return;
 	}
 
-	int i = -1, j = -1, success;
+	int i = -1, j = -1, end = 0, success;
 	char line[LINE_CHARACTER_MAX];
 	char* sep = WORD_DELIMITERS;
 	char* tok;
+
+	context = (char***) calloc(SENTENCE_THRESHOLD, sizeof(char**));
+	context_total_words = (int*) calloc(SENTENCE_THRESHOLD, sizeof(int));
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
 
 		while(tok) {
-			if(i == -1 || word_end(tok)) {
-				context[context_total_sentences = (j = -1, ++i)] = (char**) calloc(WORD_THRESHOLD, sizeof(char**));
+			if(i == -1 || end) {
+				if(i > 0 && !((i + 1) % SENTENCE_THRESHOLD)) {
+					context = (char***) realloc(context, (i + SENTENCE_THRESHOLD) * sizeof(char**));
+					context_total_words = (int*) realloc(context_total_words, (i + SENTENCE_THRESHOLD) * sizeof(int));
+				} else {
+					context_total_sentences = (j = -1, ++i + 1);
+					context[i] = (char**) calloc(WORD_THRESHOLD, sizeof(char*));
+				}
 			}
 
+			end = word_end(tok);
+
 			if(!word_filter(tok)) {
-				if(!(j % WORD_THRESHOLD)) {
-					context[i] = (char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(char**));
+				if(j > 0 && !((j + 1) % WORD_THRESHOLD)) {
+					context[i] = (char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(char*));
 				}
 
-				strcpy(context[i][context_total_words[i] = ++j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
+				context_total_words[i] = ++j + 1;
+				strcpy(context[i][j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
 				success = 0;
 				vocab = bst_insert(vocab, context[i][j], &success);
 
@@ -291,7 +302,7 @@ static void parse_corpus() {
 			tok = strtok(NULL, sep);
 		}
 	}
-	
+
 	if(fclose(fin) == EOF) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
@@ -343,9 +354,11 @@ static void resources_release() {
 		for(j = 0; j < context_total_words[i]; j++) {
 			free(context[i][j]);
 		}
-
 		free(context[i]);
 	}
+	free(context);
+
+	free(context_total_words);
 
 	free(onehot);
 	free(input);
@@ -400,7 +413,7 @@ static void initialize_vocab() {
 
 	int index = 0;
 	bst_to_map(vocab, &index);
-
+	
 	for(i = 0; i < context_total_sentences; i++) {
 		for(j = 0; j < context_total_words[i]; j++) {
 			if(!context[i][j] || !context[i][j][0]) {
@@ -408,7 +421,7 @@ static void initialize_vocab() {
 			}
 
 			index = word_to_index(context[i][j]);
-			
+
 			if(!index_valid(index)) {
 				continue;
 			}
@@ -416,7 +429,7 @@ static void initialize_vocab() {
 			xWord* center = index_to_word(index);
 
 			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
-				if(k == j || k < 0 || k > context_total_words[i] || !context[i][k] || !context[i][k][0]) {
+				if(k == j || k < 0 || k >= context_total_words[i] || !context[i][k] || !context[i][k][0]) {
 					continue;
 				}
 
@@ -429,7 +442,7 @@ static void initialize_vocab() {
 				if(!contains_context(center, index, context_index)) {
 					target[index][(center->context_count)++] = context_index;
 				}
-			}	
+			}
 		}
 	}
 
