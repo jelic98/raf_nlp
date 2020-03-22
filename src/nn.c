@@ -36,9 +36,11 @@ static int vocab_count;
 static int samples[NEGATIVE_SAMPLES_MAX];
 #endif
 
-// TODO Wrap some declaration in ifdef
-static FILE* flog;
 static FILE* ffilter;
+
+#ifdef FLAG_LOG
+static FILE* flog;
+#endif
 
 #ifdef FLAG_DEBUG
 static void screen_clear() {
@@ -264,12 +266,6 @@ static int contains_context(xWord* center, int center_index, int context) {
 }
 
 static void parse_corpus() {
-	static int done = 0;
-
-	if(done++) {
-		return;
-	}
-
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
 	if(!fin) {
@@ -331,12 +327,6 @@ static void parse_corpus() {
 }
 
 static void resources_allocate() {
-	static int done = 0;
-
-	if(done++) {
-		return;
-	}
-
 	onehot = (int*) calloc(pattern_max, sizeof(int));
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 	hidden = (double*) calloc(hidden_max, sizeof(double));
@@ -364,12 +354,6 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
-	static int done = 0;
-
-	if(done++) {
-		return;
-	}
-
 	for(i = 0; i < context_total_sentences; i++) {
 		for(j = 0; j < context_total_words[i]; j++) {
 			free(context[i][j]);
@@ -412,13 +396,6 @@ static int cmp_words(const void* a, const void* b) {
 }
 
 static void initialize_vocab() {
-	static int done = 0;
-
-	if(done++) {
-		return;
-	}
-
-	flog = fopen(LOG_PATH, "w");
 	ffilter = fopen(FILTER_PATH, "r");
 
 	if(!ffilter) {
@@ -466,7 +443,9 @@ static void initialize_vocab() {
 		}
 	}
 
+#ifdef FLAG_NEGATIVE_SAMPLING
 	bst_count(vocab, (vocab_count = 0, &vocab_count));
+#endif
 
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
@@ -685,8 +664,8 @@ static void negative_sampling() {
 					samples[k] = onehot[random_int() % pattern_max];
 					freq = index_to_word(samples[k])->freq / vocab_count;
 
-					if(samples[k] == samples[0] || random() < freq) {
-						continue;
+					if(samples[k] != samples[0] && random() < freq) {
+						break;
 					}
 				}
 			}
@@ -716,11 +695,28 @@ static void calculate_loss() {
 }
 
 void nn_start() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
 	srand(time(0));
+
+#ifdef FLAG_LOG
+	flog = fopen(LOG_PATH, "w");
+#endif
+
 	initialize_vocab();
 }
 
 void nn_finish() {
+	static int done = 0;
+
+	if(done++) {
+		return;
+	}
+
 #ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_VOCAB
 	screen_clear();
@@ -742,11 +738,11 @@ void nn_finish() {
 #endif
 	}
 
-	if(fclose(flog) == EOF) {
 #ifdef FLAG_LOG
+	if(fclose(flog) == EOF) {
 		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
 	}
+#endif
 }
 
 void training_run() {
