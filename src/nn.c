@@ -32,8 +32,8 @@ static int invalid_index[INVALID_INDEX_MAX];
 static int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static int vocab_count;
-static int samples[NEGATIVE_SAMPLES_MAX];
+static int vocab_freq_sum, vocab_freq_max;
+static int** samples;
 #endif
 
 static FILE* ffilter;
@@ -120,11 +120,19 @@ static void bst_to_map(xWord* node, int* index) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static void bst_count(xWord* node, int* count) {
+static void bst_freq_sum(xWord* node, int* sum) {
 	if(node) {
-		*count += node->freq;
-		bst_count(node->left, count);
-		bst_count(node->right, count);
+		*sum += node->freq;
+		bst_freq_sum(node->left, sum);
+		bst_freq_sum(node->right, sum);
+	}
+}
+
+static void bst_freq_max(xWord* node, int* max) {
+	if(node) {
+		*max = max(*max, node->freq);
+		bst_freq_max(node->left, max);
+		bst_freq_max(node->right, max);
 	}
 }
 #endif
@@ -336,7 +344,7 @@ static void resources_allocate() {
 	target = (int**) calloc(pattern_max, sizeof(int*));
 	for(p = 0; p < pattern_max; p++) {
 		target[p] = (int*) calloc(output_max, sizeof(int));
-		memset(target[p], -1, output_max);
+		memset(target[p], -1, output_max * sizeof(int));
 	}
 
 	w_ih = (double**) calloc(input_max, sizeof(double*));
@@ -351,6 +359,13 @@ static void resources_allocate() {
 
 	patterns = (int*) calloc(pattern_max, sizeof(int));
 	error = (double*) calloc(output_max, sizeof(double));
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+	samples = (int**) calloc(pattern_max, sizeof(int*));
+	for(p = 0; p < pattern_max; p++) {
+		samples[p] = (int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(int));
+	}
+#endif
 }
 
 static void resources_release() {
@@ -387,6 +402,13 @@ static void resources_release() {
 
 	free(patterns);
 	free(error);
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+	for(p = 0; p < pattern_max; p++) {
+		free(samples[p]);
+	}
+	free(samples);
+#endif
 }
 
 static int cmp_words(const void* a, const void* b) {
@@ -444,7 +466,8 @@ static void initialize_vocab() {
 	}
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	bst_count(vocab, (vocab_count = 0, &vocab_count));
+	bst_freq_sum(vocab, (vocab_freq_sum = 0, &vocab_freq_sum));
+	bst_freq_max(vocab, (vocab_freq_max = 0, &vocab_freq_max));
 #endif
 
 	for(p = 0; p < pattern_max; p++) {
@@ -561,7 +584,7 @@ static void calculate_error() {
 				continue;
 			}
 
-			error_t[c][samples[k]] = output[samples[k]] - (samples[k] == target[p][c]);
+			error_t[c][samples[c][k]] = output[samples[c][k]] - (samples[c][k] == target[p][c]);
 		}
 	}
 
@@ -570,10 +593,10 @@ static void calculate_error() {
 			continue;
 		}
 
-		error[samples[k]] = 0.0;
+		error[samples[c][k]] = 0.0;
 
 		for(c = 0; c < context_max; c++) {
-			error[samples[k]] += error_t[c][samples[k]];
+			error[samples[c][k]] += error_t[c][samples[c][k]];
 		}
 	}
 #else
@@ -594,14 +617,20 @@ static void calculate_error() {
 }
 
 static void update_hidden_layer_weights() {
+#ifdef FLAG_NEGATIVE_SAMPLING
+	int context_max = index_to_word(p)->context_count;
+#endif
+
 	for(j = 0; j < hidden_max; j++) {
 #ifdef FLAG_NEGATIVE_SAMPLING
-		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-			if(k < 0) {
-				continue;
-			}
+		for(c = 0; c < context_max; c++) {
+			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
+				if(k < 0) {
+					continue;
+				}
 
-			w_ho[j][samples[k]] -= alpha * hidden[j] * error[samples[k]];
+				w_ho[j][samples[c][k]] -= alpha * hidden[j] * error[samples[c][k]];
+			}
 		}
 #else
 		for(k = 0; k < output_max; k++) {
@@ -612,18 +641,24 @@ static void update_hidden_layer_weights() {
 }
 
 static void update_input_layer_weights() {
+#ifdef FLAG_NEGATIVE_SAMPLING
+	int context_max = index_to_word(p)->context_count;
+#endif
+
 	double error_t[output_max];
 
 	for(j = 0; j < hidden_max; j++) {
 		error_t[j] = 0.0;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-			if(k < 0) {
-				continue;
-			}
+		for(c = 0; c < context_max; c++) {
+			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
+				if(k < 0) {
+					continue;
+				}
 
-			error_t[j] += error[samples[k]] * w_ho[j][samples[k]];
+				error_t[j] += error[samples[c][k]] * w_ho[j][samples[c][k]];
+			}
 		}
 #else
 		for(k = 0; k < output_max; k++) {
@@ -647,33 +682,32 @@ static void update_input_layer_weights() {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void negative_sampling() {
-	int context_max = index_to_word(p)->context_count;
-
 	int exit;
-	double freq;
+	double freq, rnd;
 
+	int context_max = index_to_word(p)->context_count;
+	double max_freq = ((double) vocab_freq_max / vocab_freq_sum);
+	
 	for(c = 0; c < context_max; c++) {
-		memset(samples, -1, NEGATIVE_SAMPLES_MAX);
+		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(int));
 
-		for(samples[0] = k = 0; k < output_max && k != target[p][c]; samples[0] = ++k)
+		for(samples[c][0] = k = 0; k < output_max && k != target[p][c]; samples[c][0] = ++k)
 			;
 
 		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
 			if(k) {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					samples[k] = onehot[random_int() % pattern_max];
-					freq = index_to_word(samples[k])->freq / vocab_count;
+					samples[c][k] = onehot[random_int() % pattern_max];
+					freq = (double) index_to_word(samples[c][k])->freq / vocab_freq_sum;
 
-					if(samples[k] != samples[0] && random() < freq) {
+					rnd = random() * max_freq * MONTE_CARLO_FACTOR;
+					
+					if(samples[c][k] != samples[c][0] && rnd < freq) {
 						break;
 					}
 				}
 			}
 		}
-
-		calculate_error();
-		update_hidden_layer_weights();
-		update_input_layer_weights();
 	}
 }
 #endif
@@ -769,11 +803,10 @@ void training_run() {
 			normalize_output_layer();
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
-#else
+#endif
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
-#endif
 			calculate_loss();
 		}
 
@@ -901,7 +934,6 @@ void weights_load() {
 }
 
 void sentence_encode(char* sentence, double* vector) {
-	// TODO Just pass HIDDEN_MAX?
 	memset(vector, 0, HIDDEN_MAX * sizeof(double));
 
 	int index;
