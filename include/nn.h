@@ -6,9 +6,12 @@
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 10
+#define NEGATIVE_SAMPLES_MAX 5
 #define INITIAL_WEIGHT_MAX 0.5
 #define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
+
+#define MONTE_CARLO_EMERGENCY 100
 #define INVALID_INDEX_MAX 10
 
 #define SENTENCE_DELIMITERS ".?!"
@@ -24,6 +27,7 @@
 #define WORD_THRESHOLD 16
 
 // Flags
+#define FLAG_NEGATIVE_SAMPLING
 #define FLAG_DEBUG
 //#define FLAG_LOG
 //#define FLAG_PRINT_VOCAB
@@ -42,11 +46,13 @@
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define random() ((double)rand() / ((double) RAND_MAX + 1))
+#define random() ((double) rand() / ((double) RAND_MAX + 1))
+#define random_int() (rand())
 
 // Internal data types
 typedef struct xWord {
 	const char* word;
+	unsigned int freq;
 	unsigned int context_count;
 	double prob;
 	struct xWord* left;
@@ -69,17 +75,8 @@ void sentence_encode(char*, double*);
 // Test cases
 #ifdef H_TEST_INCLUDE
 const int TEST_CASES_START = __LINE__;
-#define TEST_CASES\
-	"gates",\
-	"president",\
-	"computer",\
-	"seattle",\
-	"software",\
-	"ceo",\
-	"foundation",\
-	"ibm",\
-	"apple",\
-	"microsoft"
+#define TEST_CASES \
+	"gates", "president", "computer", "seattle", "software", "ceo", "foundation", "ibm", "apple", "microsoft"
 const int TEST_CASES_END = __LINE__;
 #define TEST_MAX (TEST_CASES_END - TEST_CASES_START - 2)
 #endif
