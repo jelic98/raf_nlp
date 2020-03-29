@@ -2,38 +2,38 @@
 
 static clock_t elapsed_time;
 
-static int epoch;
-static double alpha, sum, loss;
+static dt_int epoch;
+static dt_float alpha, sum, loss;
 
-static int input_max, hidden_max, output_max, pattern_max;
-static int i, j, k, c;
-static int p, p1, p2;
+static dt_int input_max, hidden_max, output_max, pattern_max;
+static dt_int i, j, k, c;
+static dt_int p, p1, p2;
 
 static xBit* input;
-static double* hidden;
-static double* output;
-static double* output_raw;
-static double** w_ih;
-static double** w_ho;
-static double* error;
-static int** target;
-static int* patterns;
+static dt_float* hidden;
+static dt_float* output;
+static dt_float* output_raw;
+static dt_float** w_ih;
+static dt_float** w_ho;
+static dt_float* error;
+static dt_int** target;
+static dt_int* patterns;
 
-static char*** context;
-static int* context_total_words;
-static int context_total_sentences;
+static dt_char*** context;
+static dt_int* context_total_words;
+static dt_int context_total_sentences;
 
 static xWord* vocab;
 
-static int* onehot;
-static char* test_word;
+static dt_int* onehot;
+static dt_char* test_word;
 
-static int invalid_index[INVALID_INDEX_MAX];
-static int invalid_index_last;
+static dt_int invalid_index[INVALID_INDEX_MAX];
+static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static int vocab_freq_sum, vocab_freq_max;
-static int** samples;
+static dt_int vocab_freq_sum, vocab_freq_max;
+static dt_int** samples;
 #endif
 
 static FILE* ffilter;
@@ -49,22 +49,22 @@ static void screen_clear() {
 #endif
 
 #ifdef FLAG_DEBUG
-static double time_get(clock_t start) {
-	return (double) (clock() - start) / CLOCKS_PER_SEC;
+static dt_float time_get(clock_t start) {
+	return (dt_float)(clock() - start) / CLOCKS_PER_SEC;
 }
 #endif
 
-static int* map_get(const char* word) {
-	unsigned int h = 0;
+static dt_int* map_get(const dt_char* word) {
+	dt_uint h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
-		h = (h << 3) + (h >> (sizeof(h) * CHAR_BIT - 3)) + word[i];
+		h = (h << 3) + (h >> (sizeof(h) * sizeof(dt_char) - 3)) + word[i];
 	}
 
 	return &onehot[h % pattern_max];
 }
 
-static xWord* bst_get(xWord* node, int* index) {
+static xWord* bst_get(xWord* node, dt_int* index) {
 	if(node) {
 		xWord* word = bst_get(node->left, index);
 
@@ -86,7 +86,7 @@ static xWord* bst_get(xWord* node, int* index) {
 	return NULL;
 }
 
-static xWord* bst_insert(xWord* node, const char* word, int* success) {
+static xWord* bst_insert(xWord* node, const dt_char* word, dt_int* success) {
 	if(!node) {
 		node = (xWord*) calloc(1, sizeof(xWord));
 		node->word = word;
@@ -98,7 +98,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 		return node;
 	}
 
-	int cmp = strcmp(word, node->word);
+	dt_int cmp = strcmp(word, node->word);
 
 	if(cmp < 0) {
 		node->left = bst_insert(node->left, word, success);
@@ -111,7 +111,7 @@ static xWord* bst_insert(xWord* node, const char* word, int* success) {
 	return node;
 }
 
-static void bst_to_map(xWord* node, int* index) {
+static void bst_to_map(xWord* node, dt_int* index) {
 	if(node) {
 		bst_to_map(node->left, index);
 		*map_get(node->word) = (*index)++;
@@ -120,7 +120,7 @@ static void bst_to_map(xWord* node, int* index) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static void bst_freq_sum(xWord* node, int* sum) {
+static void bst_freq_sum(xWord* node, dt_int* sum) {
 	if(node) {
 		*sum += node->freq;
 		bst_freq_sum(node->left, sum);
@@ -128,7 +128,7 @@ static void bst_freq_sum(xWord* node, int* sum) {
 	}
 }
 
-static void bst_freq_max(xWord* node, int* max) {
+static void bst_freq_max(xWord* node, dt_int* max) {
 	if(node) {
 		*max = max(*max, node->freq);
 		bst_freq_max(node->left, max);
@@ -138,7 +138,7 @@ static void bst_freq_max(xWord* node, int* max) {
 #endif
 
 #ifdef FLAG_PRINT_VOCAB
-static void bst_print(xWord* node, int* index) {
+static void bst_print(xWord* node, dt_int* index) {
 	if(node) {
 		bst_print(node->left, index);
 		printf("Vocab #%d:\t%s\n", ++(*index), node->word);
@@ -159,15 +159,15 @@ static void bst_release(xWord* node) {
 	}
 }
 
-static xWord* index_to_word(int index) {
+static xWord* index_to_word(dt_int index) {
 	return bst_get(vocab, &index);
 }
 
-static int index_valid(int index) {
-	int valid = index >= 0 && index < input_max;
+static dt_int index_valid(dt_int index) {
+	dt_int valid = index >= 0 && index < input_max;
 
 	if(!valid) {
-		int i, found = 0;
+		dt_int i, found = 0;
 
 		for(i = 0; i < invalid_index_last; i++) {
 			if(invalid_index[i] == index) {
@@ -188,7 +188,7 @@ static int index_valid(int index) {
 #ifdef FLAG_PRINT_ERRORS
 static void invalid_index_print() {
 	if(invalid_index_last > 0) {
-		int i;
+		dt_int i;
 
 		for(i = 0; i < invalid_index_last; i++) {
 			printf("Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
@@ -200,20 +200,20 @@ static void invalid_index_print() {
 #endif
 #endif
 
-static int word_to_index(const char* word) {
-	int index = *map_get(word);
+static dt_int word_to_index(const dt_char* word) {
+	dt_int index = *map_get(word);
 
 	return index < pattern_max ? index : -1;
 }
 
-static void word_lower(char* word) {
+static void word_lower(dt_char* word) {
 	while(*word) {
 		*word = tolower(*word);
 		word++;
 	}
 }
 
-static int word_filter(char* word) {
+static dt_int word_filter(dt_char* word) {
 	if(strlen(word) < 2) {
 		return 1;
 	}
@@ -225,7 +225,7 @@ static int word_filter(char* word) {
 		return 0;
 	}
 
-	char line[LINE_CHARACTER_MAX];
+	dt_char line[LINE_CHARACTER_MAX];
 
 	fseek(ffilter, 0, SEEK_SET);
 
@@ -240,10 +240,10 @@ static int word_filter(char* word) {
 	return 0;
 }
 
-static int word_end(char* word) {
+static dt_int word_end(dt_char* word) {
 	word_lower(word);
 
-	int end = strlen(word) - 1;
+	dt_int end = strlen(word) - 1;
 
 	if(strchr(SENTENCE_DELIMITERS, word[end])) {
 		word[end] = '\0';
@@ -253,8 +253,8 @@ static int word_end(char* word) {
 	return 0;
 }
 
-static void onehot_set(xBit* onehot, int index, int size) {
-	int q;
+static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
+	dt_int q;
 
 	for(q = 0; q < size; q++) {
 		onehot[q].on = 0;
@@ -263,7 +263,7 @@ static void onehot_set(xBit* onehot, int index, int size) {
 	onehot[p = index].on = 1;
 }
 
-static int contains_context(xWord* center, int center_index, int context) {
+static dt_int contains_context(xWord* center, dt_int center_index, dt_int context) {
 	for(c = 0; c < center->context_count; c++) {
 		if(target[center_index][c] == context) {
 			return 1;
@@ -283,13 +283,13 @@ static void parse_corpus() {
 		return;
 	}
 
-	int i = -1, j = -1, end = 0, success;
-	char line[LINE_CHARACTER_MAX];
-	char* sep = WORD_DELIMITERS;
-	char* tok;
+	dt_int i = -1, j = -1, end = 0, success;
+	dt_char line[LINE_CHARACTER_MAX];
+	dt_char* sep = WORD_DELIMITERS;
+	dt_char* tok;
 
-	context = (char***) calloc(SENTENCE_THRESHOLD, sizeof(char**));
-	context_total_words = (int*) calloc(SENTENCE_THRESHOLD, sizeof(int));
+	context = (dt_char***) calloc(SENTENCE_THRESHOLD, sizeof(dt_char**));
+	context_total_words = (dt_int*) calloc(SENTENCE_THRESHOLD, sizeof(dt_int));
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
@@ -297,11 +297,12 @@ static void parse_corpus() {
 		while(tok) {
 			if(i == -1 || end) {
 				if(i > 0 && !((i + 1) % SENTENCE_THRESHOLD)) {
-					context = (char***) realloc(context, (i + SENTENCE_THRESHOLD) * sizeof(char**));
-					context_total_words = (int*) realloc(context_total_words, (i + SENTENCE_THRESHOLD) * sizeof(int));
+					context = (dt_char***) realloc(context, (i + SENTENCE_THRESHOLD) * sizeof(dt_char**));
+					context_total_words =
+					    (dt_int*) realloc(context_total_words, (i + SENTENCE_THRESHOLD) * sizeof(dt_int));
 				} else {
 					context_total_sentences = (j = -1, ++i + 1);
-					context[i] = (char**) calloc(WORD_THRESHOLD, sizeof(char*));
+					context[i] = (dt_char**) calloc(WORD_THRESHOLD, sizeof(dt_char*));
 				}
 			}
 
@@ -309,11 +310,11 @@ static void parse_corpus() {
 
 			if(!word_filter(tok)) {
 				if(j > 0 && !((j + 1) % WORD_THRESHOLD)) {
-					context[i] = (char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(char*));
+					context[i] = (dt_char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(dt_char*));
 				}
 
 				context_total_words[i] = ++j + 1;
-				strcpy(context[i][j] = (char*) calloc(strlen(tok) + 1, sizeof(char)), tok);
+				strcpy(context[i][j] = (dt_char*) calloc(strlen(tok) + 1, sizeof(dt_char)), tok);
 				success = 0;
 				vocab = bst_insert(vocab, context[i][j], &success);
 
@@ -335,35 +336,35 @@ static void parse_corpus() {
 }
 
 static void resources_allocate() {
-	onehot = (int*) calloc(pattern_max, sizeof(int));
+	onehot = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 	input = (xBit*) calloc(input_max, sizeof(xBit));
-	hidden = (double*) calloc(hidden_max, sizeof(double));
-	output = (double*) calloc(output_max, sizeof(double));
-	output_raw = (double*) calloc(output_max, sizeof(double));
+	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+	output = (dt_float*) calloc(output_max, sizeof(dt_float));
+	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
 
-	target = (int**) calloc(pattern_max, sizeof(int*));
+	target = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
 	for(p = 0; p < pattern_max; p++) {
-		target[p] = (int*) calloc(output_max, sizeof(int));
-		memset(target[p], -1, output_max * sizeof(int));
+		target[p] = (dt_int*) calloc(output_max, sizeof(dt_int));
+		memset(target[p], -1, output_max * sizeof(dt_int));
 	}
 
-	w_ih = (double**) calloc(input_max, sizeof(double*));
+	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	for(i = 0; i < input_max; i++) {
-		w_ih[i] = (double*) calloc(hidden_max, sizeof(double));
+		w_ih[i] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 	}
 
-	w_ho = (double**) calloc(hidden_max, sizeof(double*));
+	w_ho = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
 	for(j = 0; j < hidden_max; j++) {
-		w_ho[j] = (double*) calloc(output_max, sizeof(double));
+		w_ho[j] = (dt_float*) calloc(output_max, sizeof(dt_float));
 	}
 
-	patterns = (int*) calloc(pattern_max, sizeof(int));
-	error = (double*) calloc(output_max, sizeof(double));
+	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	error = (dt_float*) calloc(output_max, sizeof(dt_float));
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	samples = (int**) calloc(pattern_max, sizeof(int*));
+	samples = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
 	for(p = 0; p < pattern_max; p++) {
-		samples[p] = (int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(int));
+		samples[p] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
 	}
 #endif
 }
@@ -411,8 +412,8 @@ static void resources_release() {
 #endif
 }
 
-static int cmp_words(const void* a, const void* b) {
-	double diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
+static dt_int cmp_words(const void* a, const void* b) {
+	dt_float diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
@@ -430,7 +431,7 @@ static void initialize_vocab() {
 	parse_corpus();
 	resources_allocate();
 
-	int index = 0;
+	dt_int index = 0;
 	bst_to_map(vocab, &index);
 
 	for(i = 0; i < context_total_sentences; i++) {
@@ -452,7 +453,7 @@ static void initialize_vocab() {
 					continue;
 				}
 
-				int context_index = word_to_index(context[i][k]);
+				dt_int context_index = word_to_index(context[i][k]);
 
 				if(!index_valid(context_index)) {
 					continue;
@@ -480,7 +481,7 @@ static void initialize_test() {
 	printf("Center:\t\t%s\n\n", test_word);
 #endif
 
-	int index = word_to_index(test_word);
+	dt_int index = word_to_index(test_word);
 
 	if(!index_valid(index)) {
 		return;
@@ -525,7 +526,7 @@ static void initialize_epoch() {
 		patterns[p1] = p2;
 	}
 
-	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (double) epoch / EPOCH_MAX));
+	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
 
 	loss = 0.0;
 }
@@ -555,13 +556,13 @@ static void forward_propagate_hidden_layer() {
 }
 
 static void normalize_output_layer() {
-	double out_max = DBL_MIN;
+	dt_float out_max = DT_FLOAT_MIN;
 
 	for(k = 0; k < output_max; k++) {
 		out_max = max(out_max, output_raw[k] = output[k]);
 	}
 
-	double out_exp[output_max];
+	dt_float out_exp[output_max];
 	sum = 0.0;
 
 	for(k = 0; k < output_max; k++) {
@@ -574,8 +575,8 @@ static void normalize_output_layer() {
 }
 
 static void calculate_error() {
-	int context_max = index_to_word(p)->context_count;
-	double error_t[context_max][output_max];
+	dt_int context_max = index_to_word(p)->context_count;
+	dt_float error_t[context_max][output_max];
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 	for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
@@ -606,7 +607,7 @@ static void calculate_error() {
 
 static void update_hidden_layer_weights() {
 #ifdef FLAG_NEGATIVE_SAMPLING
-	int context_max = index_to_word(p)->context_count;
+	dt_int context_max = index_to_word(p)->context_count;
 #endif
 
 	for(j = 0; j < hidden_max; j++) {
@@ -629,7 +630,7 @@ static void update_hidden_layer_weights() {
 }
 
 static void update_input_layer_weights() {
-	double error_t[output_max];
+	dt_float error_t[output_max];
 
 	for(j = 0; j < hidden_max; j++) {
 		error_t[j] = 0.0;
@@ -646,14 +647,14 @@ static void update_input_layer_weights() {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void negative_sampling() {
-	int exit;
-	double freq, rnd;
+	dt_int exit;
+	dt_float freq, rnd;
 
-	int context_max = index_to_word(p)->context_count;
-	double max_freq = ((double) vocab_freq_max / vocab_freq_sum);
+	dt_int context_max = index_to_word(p)->context_count;
+	dt_float max_freq = ((dt_float) vocab_freq_max / vocab_freq_sum);
 
 	for(c = 0; c < context_max; c++) {
-		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(int));
+		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
 
 		for(samples[c][0] = k = 0; k < output_max && k != target[p][c]; samples[c][0] = ++k)
 			;
@@ -662,7 +663,7 @@ static void negative_sampling() {
 			if(k) {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					samples[c][k] = onehot[random_int() % pattern_max];
-					freq = (double) index_to_word(samples[c][k])->freq / vocab_freq_sum;
+					freq = (dt_float) index_to_word(samples[c][k])->freq / vocab_freq_sum;
 
 					rnd = random() * max_freq * MONTE_CARLO_FACTOR;
 
@@ -677,7 +678,7 @@ static void negative_sampling() {
 #endif
 
 static void calculate_loss() {
-	int context_max = index_to_word(p)->context_count;
+	dt_int context_max = index_to_word(p)->context_count;
 
 	for(c = 0; c < context_max; c++) {
 		loss -= output_raw[target[p][c]];
@@ -693,7 +694,7 @@ static void calculate_loss() {
 }
 
 void nn_start() {
-	static int done = 0;
+	static dt_int done = 0;
 
 	if(done++) {
 		return;
@@ -709,7 +710,7 @@ void nn_start() {
 }
 
 void nn_finish() {
-	static int done = 0;
+	static dt_int done = 0;
 
 	if(done++) {
 		return;
@@ -718,7 +719,7 @@ void nn_finish() {
 #ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_VOCAB
 	screen_clear();
-	int index = 0;
+	dt_int index = 0;
 	bst_print(vocab, &index);
 #endif
 #ifdef FLAG_PRINT_ERRORS
@@ -786,7 +787,7 @@ void training_run() {
 #endif
 }
 
-void test_run(char* word, int count, int* result) {
+void test_run(dt_char* word, dt_int count, dt_int* result) {
 	test_word = word;
 
 #ifdef FLAG_DEBUG
@@ -800,7 +801,7 @@ void test_run(char* word, int count, int* result) {
 	xWord pred[output_max];
 
 	for(k = 0; k < output_max; k++) {
-		int index = k;
+		dt_int index = k;
 		pred[k] = *index_to_word(index);
 		pred[k].prob = output[k];
 	}
@@ -809,7 +810,7 @@ void test_run(char* word, int count, int* result) {
 
 	xWord* center = index_to_word(p);
 
-	int index;
+	dt_int index;
 
 	for(index = 1, k = 0; k < count; k++, index++) {
 		if(!strcmp(pred[k].word, word)) {
@@ -817,7 +818,7 @@ void test_run(char* word, int count, int* result) {
 			continue;
 		}
 
-		int context_index = word_to_index(pred[k].word);
+		dt_int context_index = word_to_index(pred[k].word);
 
 		if(!index_valid(context_index)) {
 			continue;
@@ -897,12 +898,12 @@ void weights_load() {
 	}
 }
 
-void sentence_encode(char* sentence, double* vector) {
-	memset(vector, 0, HIDDEN_MAX * sizeof(double));
+void sentence_encode(dt_char* sentence, dt_float* vector) {
+	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
 
-	int index;
-	char* sep = WORD_DELIMITERS;
-	char* tok = strtok(sentence, sep);
+	dt_int index;
+	dt_char* sep = WORD_DELIMITERS;
+	dt_char* tok = strtok(sentence, sep);
 
 	while(tok) {
 		word_end(tok);

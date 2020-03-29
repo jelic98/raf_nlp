@@ -47,35 +47,43 @@
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define random() ((double) rand() / ((double) RAND_MAX + 1))
+#define random() ((dt_float) rand() / ((dt_float) RAND_MAX + 1))
 #define random_int() (rand())
 
+// Internal data limits
+#define DT_FLOAT_MIN DBL_MIN
+
 // Internal data types
+typedef char dt_char;
+typedef int dt_int;
+typedef unsigned int dt_uint;
+typedef double dt_float;
+
 typedef struct xWord {
-	const char* word;
-	unsigned int freq;
-	unsigned int context_count;
-	double prob;
+	const dt_char* word;
+	dt_uint freq;
+	dt_uint context_count;
+	dt_float prob;
 	struct xWord* left;
 	struct xWord* right;
 } xWord;
 
 typedef union xBit {
-	unsigned int on : 1;
+	dt_uint on : 1;
 } xBit;
 
 // API functions
 void nn_start();
 void nn_finish();
 void training_run();
-void test_run(char*, int, int*);
+void test_run(dt_char*, int, int*);
 void weights_save();
 void weights_load();
-void sentence_encode(char*, double*);
+void sentence_encode(dt_char*, dt_float*);
 
 // Test cases
 #ifdef H_TEST_INCLUDE
-const int TEST_CASES_START = __LINE__;
+const dt_int TEST_CASES_START = __LINE__;
 #define TEST_CASES \
 	"gates", \
 	"president", \
@@ -87,7 +95,7 @@ const int TEST_CASES_START = __LINE__;
 	"ibm", \
 	"apple", \
 	"microsoft"
-const int TEST_CASES_END = __LINE__;
+const dt_int TEST_CASES_END = __LINE__;
 #define TEST_MAX (TEST_CASES_END - TEST_CASES_START - 2)
 #endif
 #endif

@@ -4,7 +4,6 @@
 #include "include/nn.h"
 
 // TODO Negative sampling implementation
-// TODO Extract types to change doubles to floats easy
 // TODO Test on file instead of context matrix?
 // TODO Add stemmer (https://github.com/wooorm/stmr.c)
 
