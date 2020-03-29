@@ -13,9 +13,9 @@ int main() {
 	training_run();
 	//weights_save();
 	//weights_load();
-
-	char test[TEST_MAX][100] = { TEST_CASES };
-	int i, result = 0, tries_sum = 0;
+	
+	dt_char test[TEST_MAX][100] = { TEST_CASES };
+	dt_int i, result = 0, tries_sum = 0;
 
 	for(i = 0; i < TEST_MAX && test[i][0]; i++) {
 		test_run(test[i], 5, &result);

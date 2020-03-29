@@ -28,7 +28,7 @@
 #define WORD_THRESHOLD 16
 
 // Flags
-//#define FLAG_NEGATIVE_SAMPLING
+#define FLAG_NEGATIVE_SAMPLING
 #define FLAG_DEBUG
 //#define FLAG_LOG
 //#define FLAG_PRINT_VOCAB
