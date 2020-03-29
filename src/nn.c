@@ -578,25 +578,13 @@ static void calculate_error() {
 	double error_t[context_max][output_max];
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	for(c = 0; c < context_max; c++) {
-		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-			if(k < 0) {
-				continue;
-			}
-
-			error_t[c][samples[c][k]] = output[samples[c][k]] - (samples[c][k] == target[p][c]);
-		}
-	}
-
 	for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-		if(k < 0) {
+		if(samples[k] < 0) {
 			continue;
 		}
 
-		error[samples[c][k]] = 0.0;
-
 		for(c = 0; c < context_max; c++) {
-			error[samples[c][k]] += error_t[c][samples[c][k]];
+			error[samples[c][k]] += output[samples[c][k]] - (samples[c][k] == target[p][c]);
 		}
 	}
 #else
@@ -625,7 +613,7 @@ static void update_hidden_layer_weights() {
 #ifdef FLAG_NEGATIVE_SAMPLING
 		for(c = 0; c < context_max; c++) {
 			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-				if(k < 0) {
+				if(samples[k] < 0) {
 					continue;
 				}
 
@@ -641,43 +629,19 @@ static void update_hidden_layer_weights() {
 }
 
 static void update_input_layer_weights() {
-#ifdef FLAG_NEGATIVE_SAMPLING
-	int context_max = index_to_word(p)->context_count;
-#endif
-
 	double error_t[output_max];
 
 	for(j = 0; j < hidden_max; j++) {
 		error_t[j] = 0.0;
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-		for(c = 0; c < context_max; c++) {
-			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-				if(k < 0) {
-					continue;
-				}
-
-				error_t[j] += error[samples[c][k]] * w_ho[j][samples[c][k]];
-			}
-		}
-#else
 		for(k = 0; k < output_max; k++) {
 			error_t[j] += error[k] * w_ho[j][k];
 		}
-#endif
 	}
 
-#ifdef FLAG_NEGATIVE_SAMPLING
 	for(j = 0; j < hidden_max; j++) {
 		w_ih[p][j] -= alpha * input[p].on * error_t[j];
 	}
-#else
-	for(i = 0; i < input_max; i++) {
-		for(j = 0; j < hidden_max; j++) {
-			w_ih[i][j] -= alpha * input[i].on * error_t[j];
-		}
-	}
-#endif
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -687,7 +651,7 @@ static void negative_sampling() {
 
 	int context_max = index_to_word(p)->context_count;
 	double max_freq = ((double) vocab_freq_max / vocab_freq_sum);
-	
+
 	for(c = 0; c < context_max; c++) {
 		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(int));
 
@@ -701,7 +665,7 @@ static void negative_sampling() {
 					freq = (double) index_to_word(samples[c][k])->freq / vocab_freq_sum;
 
 					rnd = random() * max_freq * MONTE_CARLO_FACTOR;
-					
+
 					if(samples[c][k] != samples[c][0] && rnd < freq) {
 						break;
 					}

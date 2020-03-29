@@ -3,7 +3,7 @@
 
 #include "include/main.h"
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 10
 #define NEGATIVE_SAMPLES_MAX 6
@@ -28,9 +28,9 @@
 #define WORD_THRESHOLD 16
 
 // Flags
-#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_NEGATIVE_SAMPLING
 #define FLAG_DEBUG
-#define FLAG_LOG
+//#define FLAG_LOG
 //#define FLAG_PRINT_VOCAB
 //#define FLAG_PRINT_ERRORS
 
