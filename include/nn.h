@@ -30,8 +30,8 @@
 // Flags
 //#define FLAG_NEGATIVE_SAMPLING
 #define FLAG_DEBUG
-//#define FLAG_LOG
-//#define FLAG_PRINT_VOCAB
+#define FLAG_LOG
+#define FLAG_PRINT_CORPUS
 //#define FLAG_PRINT_ERRORS
 
 // Paths
@@ -61,7 +61,7 @@ typedef unsigned int dt_uint;
 typedef double dt_float;
 
 typedef struct xWord {
-	const dt_char* word;
+	dt_char* word;
 	dt_uint freq;
 	dt_uint context_count;
 	dt_float prob;

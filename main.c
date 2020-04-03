@@ -7,13 +7,15 @@
 // TODO ADD multithreading
 // TODO ADD dropout rate for w_ih
 // TODO ADD normal distribution for weight initialization
+// TODO ADD corpus cleaning
+// TODO ADD detailed logging with timestamps
 
 int main() {
 	nn_start();
 	training_run();
 	//weights_save();
 	//weights_load();
-	test_run();
+	//test_run();
 	nn_finish();
 
 	return 0;

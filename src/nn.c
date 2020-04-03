@@ -19,12 +19,7 @@ static dt_float* error;
 static dt_int** target;
 static dt_int* patterns;
 
-static dt_char*** context;
-static dt_int* context_total_words;
-static dt_int context_total_sentences;
-
-static xWord* vocab;
-
+static xWord* corpus;
 static dt_int* onehot;
 static dt_char* test_word;
 
@@ -32,7 +27,7 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int vocab_freq_sum, vocab_freq_max;
+static dt_int corpus_freq_sum, corpus_freq_max;
 static dt_int** samples;
 #endif
 
@@ -89,12 +84,14 @@ static xWord* bst_get(xWord* node, dt_int* index) {
 static xWord* bst_insert(xWord* node, const dt_char* word, dt_int* success) {
 	if(!node) {
 		node = (xWord*) calloc(1, sizeof(xWord));
-		node->word = word;
+		node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+		strcpy(node->word, word);
 		node->freq = 1;
 		node->context_count = 0;
 		node->prob = 0.0;
 		node->left = node->right = NULL;
 		*success = 1;
+
 		return node;
 	}
 
@@ -137,11 +134,13 @@ static void bst_freq_max(xWord* node, dt_int* max) {
 }
 #endif
 
-#ifdef FLAG_PRINT_VOCAB
+#ifdef FLAG_PRINT_CORPUS
 static void bst_print(xWord* node, dt_int* index) {
 	if(node) {
 		bst_print(node->left, index);
-		printf("Vocab #%d:\t%s\n", ++(*index), node->word);
+#ifdef FLAG_LOG
+		fprintf(flog, "Corpus #%d:\t%s (%d)\n", ++(*index), node->word, node->freq);
+#endif
 		bst_print(node->right, index);
 	}
 }
@@ -153,14 +152,18 @@ static void bst_release(xWord* node) {
 		bst_release(node->right);
 		node->left = NULL;
 		node->right = NULL;
-		free(node);
+		node->prob = 0;
 		node->context_count = 0;
+		node->freq = 0;
+		free(node->word);
+		node->word = NULL;
+		free(node);
 		node = NULL;
 	}
 }
 
 static xWord* index_to_word(dt_int index) {
-	return bst_get(vocab, &index);
+	return bst_get(corpus, &index);
 }
 
 static dt_int index_valid(dt_int index) {
@@ -240,17 +243,14 @@ static dt_int word_stop(dt_char* word) {
 	return 0;
 }
 
-static dt_int word_end(dt_char* word) {
+static void word_clean(dt_char* word) {
 	word_lower(word);
 
 	dt_int end = strlen(word) - 1;
 
 	if(strchr(SENTENCE_DELIMITERS, word[end])) {
 		word[end] = '\0';
-		return 1;
 	}
-
-	return 0;
 }
 
 static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
@@ -273,7 +273,7 @@ static dt_int contains_context(xWord* center, dt_int center_index, dt_int contex
 	return 0;
 }
 
-static void parse_corpus() {
+static void initialize_corpus() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 
 	if(!fin) {
@@ -283,40 +283,20 @@ static void parse_corpus() {
 		return;
 	}
 
-	dt_int i = -1, j = -1, end = 0, success;
+	dt_int success;
 	dt_char line[LINE_CHARACTER_MAX];
 	dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
-
-	context = (dt_char***) calloc(SENTENCE_THRESHOLD, sizeof(dt_char**));
-	context_total_words = (dt_int*) calloc(SENTENCE_THRESHOLD, sizeof(dt_int));
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
 
 		while(tok) {
-			if(i == -1 || end) {
-				if(i > 0 && !((i + 1) % SENTENCE_THRESHOLD)) {
-					context = (dt_char***) realloc(context, (i + SENTENCE_THRESHOLD) * sizeof(dt_char**));
-					context_total_words =
-					    (dt_int*) realloc(context_total_words, (i + SENTENCE_THRESHOLD) * sizeof(dt_int));
-				} else {
-					context_total_sentences = (j = -1, ++i + 1);
-					context[i] = (dt_char**) calloc(WORD_THRESHOLD, sizeof(dt_char*));
-				}
-			}
-
-			end = word_end(tok);
+			word_clean(tok);
 
 			if(!word_stop(tok)) {
-				if(j > 0 && !((j + 1) % WORD_THRESHOLD)) {
-					context[i] = (dt_char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(dt_char*));
-				}
-
-				context_total_words[i] = ++j + 1;
-				strcpy(context[i][j] = (dt_char*) calloc(strlen(tok) + 1, sizeof(dt_char)), tok);
 				success = 0;
-				vocab = bst_insert(vocab, context[i][j], &success);
+				corpus = bst_insert(corpus, tok, &success);
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
@@ -327,6 +307,13 @@ static void parse_corpus() {
 			tok = strtok(NULL, sep);
 		}
 	}
+
+#ifdef FLAG_DEBUG
+#ifdef FLAG_PRINT_CORPUS
+	dt_int index = 0;
+	bst_print(corpus, &index);
+#endif
+#endif
 
 	if(fclose(fin) == EOF) {
 #ifdef FLAG_LOG
@@ -370,16 +357,6 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
-	for(i = 0; i < context_total_sentences; i++) {
-		for(j = 0; j < context_total_words[i]; j++) {
-			free(context[i][j]);
-		}
-		free(context[i]);
-	}
-	free(context);
-
-	free(context_total_words);
-
 	free(onehot);
 	free(input);
 	free(hidden);
@@ -418,7 +395,7 @@ static dt_int cmp_words(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static void initialize_vocab() {
+static void initialize_training() {
 	fstop = fopen(STOP_PATH, "r");
 
 	if(!fstop) {
@@ -428,12 +405,13 @@ static void initialize_vocab() {
 		return;
 	}
 
-	parse_corpus();
+	initialize_corpus();
 	resources_allocate();
 
 	dt_int index = 0;
-	bst_to_map(vocab, &index);
+	bst_to_map(corpus, &index);
 
+	/*
 	for(i = 0; i < context_total_sentences; i++) {
 		for(j = 0; j < context_total_words[i]; j++) {
 			if(!context[i][j] || !context[i][j][0]) {
@@ -465,10 +443,11 @@ static void initialize_vocab() {
 			}
 		}
 	}
+	*/
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	bst_freq_sum(vocab, (vocab_freq_sum = 0, &vocab_freq_sum));
-	bst_freq_max(vocab, (vocab_freq_max = 0, &vocab_freq_max));
+	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
+	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
 #endif
 
 	for(p = 0; p < pattern_max; p++) {
@@ -684,7 +663,7 @@ static void negative_sampling() {
 	dt_float freq, rnd;
 
 	dt_int context_max = index_to_word(p)->context_count;
-	dt_float max_freq = ((dt_float) vocab_freq_max / vocab_freq_sum);
+	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 
 	for(c = 0; c < context_max; c++) {
 		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
@@ -696,7 +675,7 @@ static void negative_sampling() {
 			if(k) {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					samples[c][k] = random(0, pattern_max);
-					freq = (dt_float) index_to_word(samples[c][k])->freq / vocab_freq_sum;
+					freq = (dt_float) index_to_word(samples[c][k])->freq / corpus_freq_sum;
 
 					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
 
@@ -786,7 +765,7 @@ void nn_start() {
 	flog = fopen(LOG_PATH, "w");
 #endif
 
-	initialize_vocab();
+	initialize_training();
 }
 
 void nn_finish() {
@@ -797,18 +776,13 @@ void nn_finish() {
 	}
 
 #ifdef FLAG_DEBUG
-#ifdef FLAG_PRINT_VOCAB
-	screen_clear();
-	dt_int index = 0;
-	bst_print(vocab, &index);
-#endif
 #ifdef FLAG_PRINT_ERRORS
 	screen_clear();
 	invalid_index_print();
 #endif
 #endif
 
-	bst_release(vocab);
+	bst_release(corpus);
 	resources_release();
 
 	if(fclose(fstop) == EOF) {
@@ -967,7 +941,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	dt_char* tok = strtok(sentence, sep);
 
 	while(tok) {
-		word_end(tok);
+		word_clean(tok);
 
 		if(!word_stop(tok)) {
 			index = word_to_index(tok);
