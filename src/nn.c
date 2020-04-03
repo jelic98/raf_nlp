@@ -20,6 +20,7 @@ static dt_int** target;
 static dt_int* patterns;
 
 static xWord* corpus;
+static xStop* stops;
 static dt_int* onehot;
 static dt_char* test_word;
 
@@ -30,8 +31,6 @@ static dt_int invalid_index_last;
 static dt_int corpus_freq_sum, corpus_freq_max;
 static dt_int** samples;
 #endif
-
-static FILE* fstop;
 
 #ifdef FLAG_LOG
 static FILE* flog;
@@ -162,6 +161,38 @@ static void bst_release(xWord* node) {
 	}
 }
 
+static xStop* list_insert(xStop* root, dt_char* word) {
+	xStop* node = (xStop*) calloc(1, sizeof(xStop));
+	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+	strcpy(node->word, word);
+	node->next = root;
+
+	return node;
+}
+
+static dt_int list_contains(xStop* root, dt_char* word) {
+	while(root) {
+		if(!strcmp(root->word, word)) {
+			return 1;
+		}
+		
+		root = root->next;
+	}
+	
+	return 0;
+}
+
+static void list_release(xStop* root) {
+	if(root) {
+		list_release(root->next);
+		root->next = NULL;
+		free(root->word);
+		root->word = NULL;
+		free(root);
+		root = NULL;
+	}
+}
+
 static xWord* index_to_word(dt_int index) {
 	return bst_get(corpus, &index);
 }
@@ -216,33 +247,6 @@ static void word_lower(dt_char* word) {
 	}
 }
 
-static dt_int word_stop(dt_char* word) {
-	if(strlen(word) < 2) {
-		return 1;
-	}
-
-	if(!fstop) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-		return 0;
-	}
-
-	dt_char line[LINE_CHARACTER_MAX];
-
-	fseek(fstop, 0, SEEK_SET);
-
-	while(fgets(line, LINE_CHARACTER_MAX, fstop)) {
-		line[strlen(line) - 1] = '\0';
-
-		if(!strcmp(line, word)) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
 static void word_clean(dt_char* word) {
 	word_lower(word);
 
@@ -271,55 +275,6 @@ static dt_int contains_context(xWord* center, dt_int center_index, dt_int contex
 	}
 
 	return 0;
-}
-
-static void initialize_corpus() {
-	FILE* fin = fopen(CORPUS_PATH, "r");
-
-	if(!fin) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-		return;
-	}
-
-	dt_int success;
-	dt_char line[LINE_CHARACTER_MAX];
-	dt_char* sep = WORD_DELIMITERS;
-	dt_char* tok;
-
-	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
-		tok = strtok(line, sep);
-
-		while(tok) {
-			word_clean(tok);
-
-			if(!word_stop(tok)) {
-				success = 0;
-				corpus = bst_insert(corpus, tok, &success);
-
-				if(success) {
-					pattern_max = input_max = ++output_max;
-					hidden_max = HIDDEN_MAX;
-				}
-			}
-
-			tok = strtok(NULL, sep);
-		}
-	}
-
-#ifdef FLAG_DEBUG
-#ifdef FLAG_PRINT_CORPUS
-	dt_int index = 0;
-	bst_print(corpus, &index);
-#endif
-#endif
-
-	if(fclose(fin) == EOF) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-	}
 }
 
 static void resources_allocate() {
@@ -389,6 +344,76 @@ static void resources_release() {
 #endif
 }
 
+static void initialize_corpus() {
+	FILE* fin = fopen(CORPUS_PATH, "r");
+	FILE* fstop = fopen(STOP_PATH, "r");
+
+	if(!fstop || !fstop) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+		return;
+	}
+
+	dt_char line[LINE_CHARACTER_MAX];
+
+	while(fgets(line, LINE_CHARACTER_MAX, fstop)) {
+		line[strlen(line) - 1] = '\0';
+		stops = list_insert(stops, line);
+	}
+
+	dt_int success;
+	dt_char* sep = WORD_DELIMITERS;
+	dt_char* tok;
+
+	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
+		tok = strtok(line, sep);
+
+		while(tok) {
+			word_clean(tok);
+
+			if(!list_contains(stops, tok)) {
+				success = 0;
+				corpus = bst_insert(corpus, tok, &success);
+
+				if(success) {
+					pattern_max = input_max = ++output_max;
+					hidden_max = HIDDEN_MAX;
+				}
+			}
+
+			tok = strtok(NULL, sep);
+		}
+	}
+
+	resources_allocate();
+
+	dt_int index = 0;
+	bst_to_map(corpus, &index);
+
+	for(p = 0; p < pattern_max; p++) {
+		patterns[p] = p;
+	}
+
+#ifdef FLAG_DEBUG
+#ifdef FLAG_PRINT_CORPUS
+	index = 0;
+	bst_print(corpus, &index);
+#endif
+#endif
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
+	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
+#endif
+
+	if(fclose(fin) == EOF || fclose(fstop) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
+#endif
+	}
+}
+
 static dt_int cmp_words(const void* a, const void* b) {
 	dt_float diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
 
@@ -396,21 +421,6 @@ static dt_int cmp_words(const void* a, const void* b) {
 }
 
 static void initialize_training() {
-	fstop = fopen(STOP_PATH, "r");
-
-	if(!fstop) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-		return;
-	}
-
-	initialize_corpus();
-	resources_allocate();
-
-	dt_int index = 0;
-	bst_to_map(corpus, &index);
-
 	/*
 	for(i = 0; i < context_total_sentences; i++) {
 		for(j = 0; j < context_total_words[i]; j++) {
@@ -444,15 +454,6 @@ static void initialize_training() {
 		}
 	}
 	*/
-
-#ifdef FLAG_NEGATIVE_SAMPLING
-	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
-	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
-#endif
-
-	for(p = 0; p < pattern_max; p++) {
-		patterns[p] = p;
-	}
 }
 
 static void initialize_test() {
@@ -765,6 +766,7 @@ void nn_start() {
 	flog = fopen(LOG_PATH, "w");
 #endif
 
+	initialize_corpus();
 	initialize_training();
 }
 
@@ -783,13 +785,8 @@ void nn_finish() {
 #endif
 
 	bst_release(corpus);
+	list_release(stops);
 	resources_release();
-
-	if(fclose(fstop) == EOF) {
-#ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
-#endif
-	}
 
 #ifdef FLAG_LOG
 	if(fclose(flog) == EOF) {
@@ -943,7 +940,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	while(tok) {
 		word_clean(tok);
 
-		if(!word_stop(tok)) {
+		if(!list_contains(stops, tok)) {
 			index = word_to_index(tok);
 
 			if(!index_valid(index)) {

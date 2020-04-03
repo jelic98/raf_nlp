@@ -9,6 +9,7 @@
 // TODO ADD normal distribution for weight initialization
 // TODO ADD corpus cleaning
 // TODO ADD detailed logging with timestamps
+// TODO ADD all funcstions should be void
 
 int main() {
 	nn_start();

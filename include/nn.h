@@ -69,6 +69,11 @@ typedef struct xWord {
 	struct xWord* right;
 } xWord;
 
+typedef struct xStop {
+	dt_char* word;
+	struct xStop* next;
+} xStop;
+
 typedef union xBit {
 	dt_uint on : 1;
 } xBit;
