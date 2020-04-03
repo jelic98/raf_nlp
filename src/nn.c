@@ -36,7 +36,7 @@ static dt_int vocab_freq_sum, vocab_freq_max;
 static dt_int** samples;
 #endif
 
-static FILE* ffilter;
+static FILE* fstop;
 
 #ifdef FLAG_LOG
 static FILE* flog;
@@ -213,12 +213,12 @@ static void word_lower(dt_char* word) {
 	}
 }
 
-static dt_int word_filter(dt_char* word) {
+static dt_int word_stop(dt_char* word) {
 	if(strlen(word) < 2) {
 		return 1;
 	}
 
-	if(!ffilter) {
+	if(!fstop) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
@@ -227,9 +227,9 @@ static dt_int word_filter(dt_char* word) {
 
 	dt_char line[LINE_CHARACTER_MAX];
 
-	fseek(ffilter, 0, SEEK_SET);
+	fseek(fstop, 0, SEEK_SET);
 
-	while(fgets(line, LINE_CHARACTER_MAX, ffilter)) {
+	while(fgets(line, LINE_CHARACTER_MAX, fstop)) {
 		line[strlen(line) - 1] = '\0';
 
 		if(!strcmp(line, word)) {
@@ -308,7 +308,7 @@ static void parse_corpus() {
 
 			end = word_end(tok);
 
-			if(!word_filter(tok)) {
+			if(!word_stop(tok)) {
 				if(j > 0 && !((j + 1) % WORD_THRESHOLD)) {
 					context[i] = (dt_char**) realloc(context[i], (j + WORD_THRESHOLD) * sizeof(dt_char*));
 				}
@@ -419,9 +419,9 @@ static dt_int cmp_words(const void* a, const void* b) {
 }
 
 static void initialize_vocab() {
-	ffilter = fopen(FILTER_PATH, "r");
+	fstop = fopen(STOP_PATH, "r");
 
-	if(!ffilter) {
+	if(!fstop) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
@@ -601,7 +601,6 @@ static void calculate_error() {
 			error[ck[k]] += error_t[c][ck[k]];
 		}
 	}
-
 #else
 	for(c = 0; c < context_max; c++) {
 		for(k = 0; k < output_max; k++) {
@@ -727,6 +726,53 @@ static void calculate_loss() {
 	loss += context_max * log(sum);
 }
 
+static void test_predict(dt_char* word, dt_int count, dt_int* result) {
+	test_word = word;
+
+#ifdef FLAG_DEBUG
+	screen_clear();
+#endif
+	initialize_test();
+	forward_propagate_input_layer();
+	forward_propagate_hidden_layer();
+	normalize_output_layer();
+
+	xWord pred[output_max];
+
+	for(k = 0; k < output_max; k++) {
+		dt_int index = k;
+		pred[k] = *index_to_word(index);
+		pred[k].prob = output[k];
+	}
+
+	qsort(pred, output_max, sizeof(xWord), cmp_words);
+
+	xWord* center = index_to_word(p);
+
+	dt_int index;
+
+	for(index = 1, k = 0; k < count; k++, index++) {
+		if(!strcmp(pred[k].word, word)) {
+			count++;
+			continue;
+		}
+
+		dt_int context_index = word_to_index(pred[k].word);
+
+		if(!index_valid(context_index)) {
+			continue;
+		}
+
+		if(index == 1) {
+			*result = contains_context(center, p, context_index);
+		}
+
+#ifdef FLAG_DEBUG
+		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
+#endif
+	}
+}
+
 void nn_start() {
 	static dt_int done = 0;
 
@@ -765,7 +811,7 @@ void nn_finish() {
 	bst_release(vocab);
 	resources_release();
 
-	if(fclose(ffilter) == EOF) {
+	if(fclose(fstop) == EOF) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
@@ -821,49 +867,30 @@ void training_run() {
 #endif
 }
 
-void test_run(dt_char* word, dt_int count, dt_int* result) {
-	test_word = word;
+void test_run() {
+	FILE* ftest = fopen(TEST_PATH, "r");
 
-#ifdef FLAG_DEBUG
-	screen_clear();
+	if(!ftest) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
-	initialize_test();
-	forward_propagate_input_layer();
-	forward_propagate_hidden_layer();
-	normalize_output_layer();
-
-	xWord pred[output_max];
-
-	for(k = 0; k < output_max; k++) {
-		dt_int index = k;
-		pred[k] = *index_to_word(index);
-		pred[k].prob = output[k];
+		return;
 	}
 
-	qsort(pred, output_max, sizeof(xWord), cmp_words);
+	dt_char line[LINE_CHARACTER_MAX];
+	dt_int test_count = -1, result = 0, tries_sum = 0;
 
-	xWord* center = index_to_word(p);
+	while(test_count++, fgets(line, LINE_CHARACTER_MAX, ftest)) {
+		line[strlen(line) - 1] = '\0';
+		test_predict(line, 5, &result);
+		tries_sum += result;
+	}
 
-	dt_int index;
+	printf("\nPrecision: %.1lf%%\n", 100.0 * tries_sum / test_count);
 
-	for(index = 1, k = 0; k < count; k++, index++) {
-		if(!strcmp(pred[k].word, word)) {
-			count++;
-			continue;
-		}
-
-		dt_int context_index = word_to_index(pred[k].word);
-
-		if(!index_valid(context_index)) {
-			continue;
-		}
-
-		if(index == 1) {
-			*result = contains_context(center, p, context_index);
-		}
-
-#ifdef FLAG_DEBUG
-		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
+	if(fclose(ftest) == EOF) {
+#ifdef FLAG_LOG
+		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
 	}
 }
@@ -942,7 +969,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	while(tok) {
 		word_end(tok);
 
-		if(!word_filter(tok)) {
+		if(!word_stop(tok)) {
 			index = word_to_index(tok);
 
 			if(!index_valid(index)) {

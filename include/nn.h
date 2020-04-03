@@ -35,8 +35,10 @@
 //#define FLAG_PRINT_ERRORS
 
 // Paths
-#define CORPUS_PATH "res/corpus-large.txt"
-#define FILTER_PATH "res/filter.txt"
+#define CORPUS_PATH "res/corpus/large.txt"
+#define TRAIN_PATH "res/train/large.txt"
+#define TEST_PATH "res/test/large.txt"
+#define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
 #define LOG_PATH "out/log.txt"
@@ -75,26 +77,8 @@ typedef union xBit {
 void nn_start();
 void nn_finish();
 void training_run();
-void test_run(dt_char*, int, int*);
+void test_run();
 void weights_save();
 void weights_load();
 void sentence_encode(dt_char*, dt_float*);
-
-// Test cases
-#ifdef H_TEST_INCLUDE
-const dt_int TEST_CASES_START = __LINE__;
-#define TEST_CASES \
-	"gates", \
-	"president", \
-	"computer", \
-	"seattle", \
-	"software", \
-	"ceo", \
-	"foundation", \
-	"ibm", \
-	"apple", \
-	"microsoft"
-const dt_int TEST_CASES_END = __LINE__;
-#define TEST_MAX (TEST_CASES_END - TEST_CASES_START - 2)
-#endif
 #endif
