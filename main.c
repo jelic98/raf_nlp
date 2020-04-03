@@ -8,10 +8,11 @@
 // TODO Add stemmer (https://github.com/wooorm/stmr.c)
 // TODO Add multithreading
 // TODO Add normal distribution for weight initialization
+// TODO Add dropout rate for w_ih
 
 int main() {
 	nn_start();
-	
+
 	training_run();
 	//weights_save();
 	//weights_load();

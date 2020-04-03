@@ -28,7 +28,7 @@
 #define WORD_THRESHOLD 16
 
 // Flags
-#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_NEGATIVE_SAMPLING
 #define FLAG_DEBUG
 //#define FLAG_LOG
 //#define FLAG_PRINT_VOCAB
@@ -47,8 +47,7 @@
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define random() ((dt_float) rand() / ((dt_float) RAND_MAX + 1))
-#define random_int() (rand())
+#define random(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
 
 // Internal data limits
 #define DT_FLOAT_MIN DBL_MIN

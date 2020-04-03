@@ -506,23 +506,21 @@ static void initialize_test() {
 static void initialize_weights() {
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[i][j] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+			w_ih[i][j] = random(0, INITIAL_WEIGHT_MAX);
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			w_ho[j][k] = 2.0 * (random() - 0.5) * INITIAL_WEIGHT_MAX;
+			w_ho[j][k] = random(0, INITIAL_WEIGHT_MAX);
 		}
 	}
 }
 
 static void initialize_epoch() {
 	for(p = 0; p < pattern_max; p++) {
-		p1 = p + random() * (pattern_max - p);
-
 		p2 = patterns[p];
-		patterns[p] = patterns[p1];
+		patterns[p] = patterns[p1 = p + random(0, 1) * (pattern_max - p)];
 		patterns[p1] = p2;
 	}
 
@@ -698,10 +696,10 @@ static void negative_sampling() {
 		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
 			if(k) {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					samples[c][k] = random_int() % pattern_max;
+					samples[c][k] = random(0, pattern_max);
 					freq = (dt_float) index_to_word(samples[c][k])->freq / vocab_freq_sum;
 
-					rnd = random() * max_freq * MONTE_CARLO_FACTOR;
+					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
 
 					if(samples[c][k] != samples[c][0] && rnd < freq) {
 						break;
