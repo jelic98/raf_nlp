@@ -421,6 +421,11 @@ static dt_int cmp_words(const void* a, const void* b) {
 }
 
 static void initialize_training() {
+	// loop through all sentences
+	//  loop through all words in current sentence
+	//   get current center word
+	//   for each context word in window
+	//    add context index to target array
 	/*
 	for(i = 0; i < context_total_sentences; i++) {
 		for(j = 0; j < context_total_words[i]; j++) {
@@ -767,7 +772,6 @@ void nn_start() {
 #endif
 
 	initialize_corpus();
-	initialize_training();
 }
 
 void nn_finish() {
@@ -796,6 +800,7 @@ void nn_finish() {
 }
 
 void training_run() {
+	initialize_training();
 	initialize_weights();
 
 #ifdef FLAG_DEBUG

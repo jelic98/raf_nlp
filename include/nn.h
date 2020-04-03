@@ -29,6 +29,7 @@
 
 // Flags
 //#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_TRAIN_FILE
 #define FLAG_DEBUG
 #define FLAG_LOG
 #define FLAG_PRINT_CORPUS
