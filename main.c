@@ -6,6 +6,8 @@
 // TODO Negative sampling implementation
 // TODO Test on file instead of context matrix?
 // TODO Add stemmer (https://github.com/wooorm/stmr.c)
+// TODO Add multithreading
+// TODO Add normal distribution for weight initialization
 
 int main() {
 	nn_start();
