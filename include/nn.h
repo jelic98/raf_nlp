@@ -29,15 +29,13 @@
 
 // Flags
 //#define FLAG_NEGATIVE_SAMPLING
-//#define FLAG_TRAIN_FILE
 #define FLAG_DEBUG
 #define FLAG_LOG
 #define FLAG_PRINT_CORPUS
 //#define FLAG_PRINT_ERRORS
 
 // Paths
-#define CORPUS_PATH "res/corpus/tiny.txt"
-#define TRAIN_PATH "res/train/large.txt"
+#define CORPUS_PATH "res/corpus/large.txt"
 #define TEST_PATH "res/test/large.txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
@@ -64,12 +62,14 @@ typedef double dt_float;
 typedef struct xWord {
 	dt_char* word;
 	dt_uint freq;
-	dt_uint context_count;
+	dt_uint context_max;
 	dt_float prob;
+	dt_int index;
+	struct xWord** target;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;
-	struct xContext* context;	
+	struct xContext* context;
 } xWord;
 
 typedef struct xContext {

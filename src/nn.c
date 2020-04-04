@@ -9,6 +9,7 @@ static dt_int input_max, hidden_max, output_max, pattern_max;
 static dt_int i, j, k, c;
 static dt_int p, p1, p2;
 
+static xWord* center;
 static xBit* input;
 static dt_float* hidden;
 static dt_float* output;
@@ -16,7 +17,6 @@ static dt_float* output_raw;
 static dt_float** w_ih;
 static dt_float** w_ho;
 static dt_float* error;
-static dt_int** target;
 static dt_int* patterns;
 
 static xWord* corpus;
@@ -62,9 +62,10 @@ static xWord* node_create(const dt_char* word) {
 	xWord* node = (xWord*) calloc(1, sizeof(xWord));
 	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
 	strcpy(node->word, word);
-	node->prob = node->context_count = node->freq = 0;
+	node->index = node->prob = node->context_max = node->freq = 0;
 	node->left = node->right = node->next = NULL;
 	node->context = NULL;
+	node->target = NULL;
 	return node;
 }
 
@@ -75,9 +76,10 @@ static xContext* node_context_create(xWord* word) {
 }
 
 static void node_release(xWord* root) {
+	root->target = NULL;
 	root->context = NULL;
 	root->left = root->right = root->next = NULL;
-	root->prob = root->context_count = root->freq = 0;
+	root->index = root->prob = root->context_max = root->freq = 0;
 	free(root->word);
 	root->word = NULL;
 	free(root);
@@ -112,7 +114,8 @@ static xWord* list_insert(xWord* root, xWord** node) {
 	return *node;
 }
 
-static xContext* list_context_insert(xContext* root, xWord* word) {
+static xContext* list_context_insert(xContext* root, xWord* word, dt_int* success) {
+	*success = 1;
 	xContext* node = node_context_create(word);
 
 	if(root) {
@@ -121,6 +124,7 @@ static xContext* list_context_insert(xContext* root, xWord* word) {
 		while(tmp->next) {
 			if(tmp->word == node->word) {
 				node_context_release(node);
+				*success = 0;
 				return root;
 			}
 
@@ -150,10 +154,12 @@ static dt_int list_contains(xWord* root, const dt_char* word) {
 }
 
 #ifdef FLAG_PRINT_CORPUS
-static void list_context_print(xContext* root, dt_int* index) {
+static void list_context_print(xContext* root) {
+	dt_int index = 0;
+
 	while(root) {
 #ifdef FLAG_LOG
-		fprintf(flog, "Context #%d:\t%s\n", ++(*index), root->word->word);
+		fprintf(flog, "Context #%d:\t%s\n", ++index, root->word->word);
 #endif
 		root = root->next;
 	}
@@ -218,8 +224,25 @@ static xWord* bst_get(xWord* node, dt_int* index) {
 static void bst_to_map(xWord* root, dt_int* index) {
 	if(root) {
 		bst_to_map(root->left, index);
-		*map_get(root->word) = (*index)++;
+		*map_get(root->word) = root->index = (*index)++;
 		bst_to_map(root->right, index);
+	}
+}
+
+static void bst_target(xWord* root) {
+	if(root) {
+		dt_int index = 0;
+		root->target = (xWord**) calloc(root->context_max, sizeof(xWord*));
+		xContext* tmp = root->context;
+
+		while(tmp) {
+			root->target[index++] = tmp->word;
+			tmp = tmp->next;
+		}
+		
+		free(root->context);
+		bst_target(root->left);
+		bst_target(root->right);
 	}
 }
 
@@ -242,15 +265,14 @@ static void bst_freq_max(xWord* root, dt_int* max) {
 #endif
 
 #ifdef FLAG_PRINT_CORPUS
-static void bst_print(xWord* root, dt_int* index) {
+static void bst_print(xWord* root) {
 	if(root) {
-		bst_print(root->left, index);
+		bst_print(root->left);
 #ifdef FLAG_LOG
-		fprintf(flog, "Corpus #%d:\t%s (%d)\n", ++(*index), root->word, root->freq);
-		dt_int context_index = 0;
-		list_context_print(root->context, &context_index);
+		fprintf(flog, "Corpus #%d:\t%s (%d)\n", root->index, root->word, root->freq);
+		list_context_print(root->context);
 #endif
-		bst_print(root->right, index);
+		bst_print(root->right);
 	}
 }
 #endif
@@ -259,6 +281,7 @@ static void bst_release(xWord* root) {
 	if(root) {
 		bst_release(root->left);
 		bst_release(root->right);
+		free(root->target);
 		list_release(root->next);
 		node_release(root);
 	}
@@ -324,7 +347,7 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 	dt_int end = strlen(word) - 1;
 
 	*sent_end = strchr(SENTENCE_DELIMITERS, word[end]) != NULL;
-	
+
 	if(*sent_end) {
 		word[end] = '\0';
 	}
@@ -338,16 +361,7 @@ static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
 	}
 
 	onehot[p = index].on = 1;
-}
-
-static dt_int contains_context(xWord* center, dt_int center_index, dt_int context) {
-	for(c = 0; c < center->context_count; c++) {
-		if(target[center_index][c] == context) {
-			return 1;
-		}
-	}
-
-	return 0;
+	center = index_to_word(p);
 }
 
 static void resources_allocate() {
@@ -356,12 +370,6 @@ static void resources_allocate() {
 	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 	output = (dt_float*) calloc(output_max, sizeof(dt_float));
 	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
-
-	target = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
-	for(p = 0; p < pattern_max; p++) {
-		target[p] = (dt_int*) calloc(output_max, sizeof(dt_int));
-		memset(target[p], -1, output_max * sizeof(dt_int));
-	}
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	for(i = 0; i < input_max; i++) {
@@ -390,11 +398,6 @@ static void resources_release() {
 	free(hidden);
 	free(output);
 	free(output_raw);
-
-	for(p = 0; p < pattern_max; p++) {
-		free(target[p]);
-	}
-	free(target);
 
 	for(i = 0; i < input_max; i++) {
 		free(w_ih[i]);
@@ -455,19 +458,19 @@ static void initialize_corpus() {
 				if(success) {
 					pattern_max = input_max = ++output_max;
 					hidden_max = HIDDEN_MAX;
-				}				
+				}
 
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
-					if(window[c]) {
-						node->context = list_context_insert(node->context, window[c]);	
-						node->context_count++;
+					if(window[c] && strcmp(window[c]->word, node->word)) {
+						node->context = list_context_insert(node->context, window[c], &success);
+						node->context_max += success;
 
-						window[c]->context = list_context_insert(window[c]->context, node);
-						window[c]->context_count++;
+						window[c]->context = list_context_insert(window[c]->context, node, &success);
+						window[c]->context_max += success;
 					}
 
 					window[c] = window[c + 1];
-				}	
+				}
 			}
 
 			if(sent_end) {
@@ -483,20 +486,17 @@ static void initialize_corpus() {
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
-
+	
 	dt_int index = 0;
 	bst_to_map(corpus, &index);
 
-	index = 0;
-	bst_print(corpus, &index);
-	exit(0);
-
 #ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_CORPUS
-	index = 0;
-	bst_print(corpus, &index);
+	bst_print(corpus);
 #endif
 #endif
+
+	bst_target(corpus);
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
@@ -516,47 +516,6 @@ static dt_int cmp_words(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static void initialize_training() {
-	// loop through all sentences
-	//  loop through all words in current sentence
-	//   get current center word
-	//   for each context word in window
-	//    add context index to target array
-	/*
-	for(i = 0; i < context_total_sentences; i++) {
-		for(j = 0; j < context_total_words[i]; j++) {
-			if(!context[i][j] || !context[i][j][0]) {
-				continue;
-			}
-
-			index = word_to_index(context[i][j]);
-
-			if(!index_valid(index)) {
-				continue;
-			}
-
-			xWord* center = index_to_word(index);
-
-			for(k = j - WINDOW_MAX; k <= j + WINDOW_MAX; k++) {
-				if(k == j || k < 0 || k >= context_total_words[i] || !context[i][k] || !context[i][k][0]) {
-					continue;
-				}
-
-				dt_int context_index = word_to_index(context[i][k]);
-
-				if(!index_valid(context_index)) {
-					continue;
-				}
-
-				if(!contains_context(center, index, context_index)) {
-					target[index][(center->context_count)++] = context_index;
-				}
-			}
-		}
-	}
-	*/
-}
-
 static void initialize_test() {
 #ifdef FLAG_DEBUG
 	printf("Center:\t\t%s\n\n", test_word);
@@ -572,10 +531,10 @@ static void initialize_test() {
 
 	xWord* center_word = index_to_word(index);
 
-	for(k = 0; k < center_word->context_count; k++) {
+	for(c = 0; c < center_word->context_max; c++) {
 #ifdef FLAG_DEBUG
-		xWord* context = index_to_word(target[index][k]);
-		printf("Context #%d:\t%s\n", k + 1, context->word);
+		xWord* context = index_to_word(center->target[c]->index);
+		printf("Context #%d:\t%s\n", c + 1, context->word);
 #endif
 	}
 
@@ -654,97 +613,34 @@ static void normalize_output_layer() {
 }
 
 static void calculate_error() {
-	dt_int context_max = index_to_word(p)->context_count;
-	dt_float error_t[context_max][output_max];
+	dt_float error_t[center->context_max][output_max];
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-	dt_int ck_max = 0;
-	dt_int ck[context_max * NEGATIVE_SAMPLES_MAX];
-	memset(ck, -1, context_max * NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
-
-	for(c = 0; c < context_max; c++) {
-		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-			if(samples[c][k] < 0) {
-				continue;
-			}
-
-			dt_int smp = samples[c][k];
-			ck[ck_max++] = smp;
-
-			error_t[c][smp] = output[smp] - (smp == target[p][c]);
-		}
-	}
-
-	for(k = 0; k < ck_max; k++) {
-		error[ck[k]] = 0.0;
-
-		for(c = 0; c < context_max; c++) {
-			error[ck[k]] += error_t[c][ck[k]];
-		}
-	}
-#else
-	for(c = 0; c < context_max; c++) {
+	for(c = 0; c < center->context_max; c++) {
 		for(k = 0; k < output_max; k++) {
-			error_t[c][k] = output[k] - (k == target[p][c]);
+			error_t[c][k] = output[k] - (k == center->target[c]->index);
 		}
 	}
 
 	for(k = 0; k < output_max; k++) {
 		error[k] = 0.0;
 
-		for(c = 0; c < context_max; c++) {
+		for(c = 0; c < center->context_max; c++) {
 			error[k] += error_t[c][k];
 		}
 	}
-#endif
 }
 
 static void update_hidden_layer_weights() {
-#ifdef FLAG_NEGATIVE_SAMPLING
-	dt_int context_max = index_to_word(p)->context_count;
-#endif
-
 	for(j = 0; j < hidden_max; j++) {
-#ifdef FLAG_NEGATIVE_SAMPLING
-		for(c = 0; c < context_max; c++) {
-			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-				if(samples[c][k] < 0) {
-					continue;
-				}
-
-				dt_int ck = samples[c][k];
-
-				w_ho[j][ck] -= alpha * hidden[j] * error[ck];
-			}
-		}
-#else
 		for(k = 0; k < output_max; k++) {
 			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
-#endif
 	}
 }
 
 static void update_input_layer_weights() {
-	dt_float error_t[output_max];
+	dt_float error_t[hidden_max];
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-	dt_int context_max = index_to_word(p)->context_count;
-
-	for(j = 0; j < hidden_max; j++) {
-		error_t[j] = 0.0;
-
-		for(c = 0; c < context_max; c++) {
-			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-				if(samples[c][k] < 0) {
-					continue;
-				}
-
-				error_t[j] += error[samples[c][k]] * w_ho[j][samples[c][k]];
-			}
-		}
-	}
-#else
 	for(j = 0; j < hidden_max; j++) {
 		error_t[j] = 0.0;
 
@@ -752,7 +648,6 @@ static void update_input_layer_weights() {
 			error_t[j] += error[k] * w_ho[j][k];
 		}
 	}
-#endif
 
 	for(j = 0; j < hidden_max; j++) {
 		w_ih[p][j] -= alpha * input[p].on * error_t[j];
@@ -764,13 +659,12 @@ static void negative_sampling() {
 	dt_int exit;
 	dt_float freq, rnd;
 
-	dt_int context_max = index_to_word(p)->context_count;
 	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 
-	for(c = 0; c < context_max; c++) {
+	for(c = 0; c < center->context_max; c++) {
 		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
 
-		for(samples[c][0] = k = 0; k < output_max && k != target[p][c]; samples[c][0] = ++k)
+		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]; samples[c][0] = ++k)
 			;
 
 		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
@@ -792,10 +686,8 @@ static void negative_sampling() {
 #endif
 
 static void calculate_loss() {
-	dt_int context_max = index_to_word(p)->context_count;
-
-	for(c = 0; c < context_max; c++) {
-		loss -= output_raw[target[p][c]];
+	for(c = 0; c < center->context_max; c++) {
+		loss -= output_raw[center->target[c]->index];
 	}
 
 	sum = 0.0;
@@ -804,7 +696,7 @@ static void calculate_loss() {
 		sum += exp(output_raw[k]);
 	}
 
-	loss += context_max * log(sum);
+	loss += center->context_max * log(sum);
 }
 
 static void test_predict(dt_char* word, dt_int count, dt_int* result) {
@@ -845,7 +737,14 @@ static void test_predict(dt_char* word, dt_int count, dt_int* result) {
 		}
 
 		if(index == 1) {
-			*result = contains_context(center, p, context_index);
+			*result = 0;
+
+			for(c = 0; c < center->context_max; c++) {
+				if(center->target[c]->index == context_index) {
+					*result = 1;
+					break;
+				}
+			}
 		}
 
 #ifdef FLAG_DEBUG
@@ -896,7 +795,6 @@ void nn_finish() {
 }
 
 void training_run() {
-	initialize_training();
 	initialize_weights();
 
 #ifdef FLAG_DEBUG
@@ -910,7 +808,7 @@ void training_run() {
 #endif
 
 		initialize_epoch();
-
+		
 		elapsed_time = clock();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
