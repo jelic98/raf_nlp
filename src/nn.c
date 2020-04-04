@@ -239,7 +239,7 @@ static void bst_target(xWord* root) {
 			root->target[index++] = tmp->word;
 			tmp = tmp->next;
 		}
-		
+
 		free(root->context);
 		bst_target(root->left);
 		bst_target(root->right);
@@ -353,6 +353,17 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 	}
 }
 
+static dt_int word_stop(dt_char* word) {
+	if(strlen(word) < 3) {
+		return 1;
+	}
+
+	dt_char* p;
+	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);	
+
+	return *p || list_contains(stops, word);
+}
+
 static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
 	dt_int q;
 
@@ -451,7 +462,7 @@ static void initialize_corpus() {
 		while(tok) {
 			word_clean(tok, &sent_end);
 
-			if(!list_contains(stops, tok)) {
+			if(!word_stop(tok)) {
 				window[WINDOW_MAX - 1] = node = node_create(tok);
 				corpus = bst_insert(corpus, &node, &success);
 
@@ -486,7 +497,7 @@ static void initialize_corpus() {
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
-	
+
 	dt_int index = 0;
 	bst_to_map(corpus, &index);
 
@@ -808,7 +819,7 @@ void training_run() {
 #endif
 
 		initialize_epoch();
-		
+
 		elapsed_time = clock();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
@@ -939,7 +950,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	while(tok) {
 		word_clean(tok, &sent_end);
 
-		if(!list_contains(stops, tok)) {
+		if(!word_stop(tok)) {
 			index = word_to_index(tok);
 
 			if(!index_valid(index)) {

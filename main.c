@@ -1,10 +1,8 @@
 #include "include/main.h"
 #include "include/nn.h"
 
-// TODO [PARSER] training from file not from context matrix
 // TODO [PARSER] word stemmer
 // TODO [PARSER] multithreading
-// TODO [PARSER] corpus cleaning
 
 // TODO [MODEL] negative sampling
 // TODO [MODEL] dropout rate for w_ih
@@ -14,6 +12,7 @@
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
 // TODO [MISC] reset corpus and other pointers to null after release
+
 int main() {
 	nn_start();
 	training_run();
