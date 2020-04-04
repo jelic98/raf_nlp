@@ -13,7 +13,6 @@
 // TODO [MISC] detailed logging with timestamps
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
-// TODO [MISC] reset corpus and other pointers to null after release
 
 int main() {
 	nn_start();

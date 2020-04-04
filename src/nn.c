@@ -4,12 +4,12 @@ static clock_t elapsed_time;
 
 static dt_int epoch;
 static dt_float alpha, sum, loss;
+static xWord* center;
 
 static dt_int input_max, hidden_max, output_max, pattern_max;
 static dt_int i, j, k, c;
 static dt_int p, p1, p2;
 
-static xWord* center;
 static xBit* input;
 static dt_float* hidden;
 static dt_float* output;
@@ -58,37 +58,10 @@ static dt_int* map_get(const dt_char* word) {
 	return &onehot[h % pattern_max];
 }
 
-static xWord* node_create(const dt_char* word) {
-	xWord* node = (xWord*) calloc(1, sizeof(xWord));
-	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
-	strcpy(node->word, word);
-	node->index = node->prob = node->context_max = node->freq = 0;
-	node->left = node->right = node->next = NULL;
-	node->context = NULL;
-	node->target = NULL;
-	return node;
-}
-
-static xContext* node_context_create(xWord* word) {
-	xContext* node = (xContext*) calloc(1, sizeof(xContext));
-	node->word = word;
-	return node;
-}
-
-static void node_release(xWord* root) {
-	root->target = NULL;
-	root->context = NULL;
-	root->left = root->right = root->next = NULL;
-	root->index = root->prob = root->context_max = root->freq = 0;
-	free(root->word);
-	root->word = NULL;
-	free(root);
-}
-
-static void node_context_release(xContext* root) {
-	root->word = NULL;
-	free(root);
-}
+static xWord* node_create(const dt_char*);
+static xContext* node_context_create(xWord*);
+static void node_release(xWord*);
+static void node_context_release(xContext*);
 
 static xWord* list_insert(xWord* root, xWord** node) {
 	if(root) {
@@ -176,6 +149,16 @@ static void list_release(xWord* root) {
 	}
 }
 
+static void list_context_release(xContext* root) {
+	xContext* node;
+
+	while(root) {
+		node = root;
+		root = root->next;
+		node_context_release(node);
+	}
+}
+
 static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	*success = 0;
 
@@ -241,7 +224,9 @@ static void bst_target(xWord* root) {
 			tmp = tmp->next;
 		}
 
-		free(root->context);
+		list_context_release(root->context);
+		root->context = NULL;
+
 		bst_target(root->left);
 		bst_target(root->right);
 	}
@@ -282,10 +267,48 @@ static void bst_release(xWord* root) {
 	if(root) {
 		bst_release(root->left);
 		bst_release(root->right);
-		free(root->target);
-		list_release(root->next);
 		node_release(root);
 	}
+}
+
+static xWord* node_create(const dt_char* word) {
+	xWord* node = (xWord*) calloc(1, sizeof(xWord));
+	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+	strcpy(node->word, word);
+	node->index = node->prob = node->context_max = node->freq = 0;
+	node->left = node->right = node->next = NULL;
+	node->context = NULL;
+	node->target = NULL;
+	return node;
+}
+
+static xContext* node_context_create(xWord* word) {
+	xContext* node = (xContext*) calloc(1, sizeof(xContext));
+	node->word = word;
+	return node;
+}
+
+static void node_release(xWord* root) {
+	if(root->target) {
+		free(root->target);
+		root->target = NULL;
+	}
+
+	if(root->context) {
+		list_context_release(root->context);
+		root->context = NULL;
+	}
+
+	root->left = root->right = root->next = NULL;
+	root->index = root->prob = root->context_max = root->freq = 0;
+	free(root->word);
+	root->word = NULL;
+	free(root);
+}
+
+static void node_context_release(xContext* root) {
+	root->word = NULL;
+	free(root);
 }
 
 static xWord* index_to_word(dt_int index) {
@@ -360,7 +383,7 @@ static dt_int word_stop(dt_char* word) {
 	}
 
 	dt_char* p;
-	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);	
+	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);
 
 	return *p || list_contains(stops, word);
 }
@@ -406,29 +429,44 @@ static void resources_allocate() {
 
 static void resources_release() {
 	free(onehot);
+	onehot = NULL;
+	
 	free(input);
+	input = NULL;
+	
 	free(hidden);
+	hidden = NULL;
+	
 	free(output);
+	output = NULL;
+
 	free(output_raw);
+	output_raw = NULL;
 
 	for(i = 0; i < input_max; i++) {
 		free(w_ih[i]);
 	}
 	free(w_ih);
+	w_ih = NULL;
 
 	for(j = 0; j < hidden_max; j++) {
 		free(w_ho[j]);
 	}
 	free(w_ho);
+	w_ho = NULL;
 
 	free(patterns);
+	patterns = NULL;
+
 	free(error);
+	error = NULL;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 	for(p = 0; p < pattern_max; p++) {
 		free(samples[p]);
 	}
 	free(samples);
+	samples = NULL;
 #endif
 }
 
@@ -473,7 +511,7 @@ static void initialize_corpus() {
 				}
 
 				window[WINDOW_MAX - 1] = node;
-				
+
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
 					if(window[c] && strcmp(window[c]->word, node->word)) {
 						node->context = list_context_insert(node->context, window[c], &success);
@@ -798,7 +836,11 @@ void nn_finish() {
 #endif
 
 	bst_release(corpus);
+	corpus = NULL;
+
 	list_release(stops);
+	stops = NULL;
+	
 	resources_release();
 
 #ifdef FLAG_LOG
@@ -837,7 +879,7 @@ void training_run() {
 			update_hidden_layer_weights();
 			update_input_layer_weights();
 		}
-		
+
 		calculate_loss();
 
 #ifdef FLAG_LOG
