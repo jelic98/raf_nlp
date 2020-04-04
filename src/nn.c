@@ -88,27 +88,28 @@ static void node_context_release(xContext* root) {
 	free(root);
 }
 
-static xWord* list_insert(xWord* root, xWord* node) {
+static xWord* list_insert(xWord* root, xWord** node) {
 	if(root) {
 		xWord* tmp = root;
 
 		while(tmp->next) {
-			if(!strcmp(tmp->word, node->word)) {
-				node_release(node);
+			if(!strcmp(tmp->word, (*node)->word)) {
+				node_release(*node);
+				*node = tmp;
 				return root;
 			}
 
 			tmp = tmp->next;
 		}
 
-		tmp->next = node;
+		tmp->next = *node;
 
 		return root;
 	} else {
-		return node;
+		return *node;
 	}
 
-	return node;
+	return *node;
 }
 
 static xContext* list_context_insert(xContext* root, xWord* word) {
@@ -317,12 +318,14 @@ static void word_lower(dt_char* word) {
 	}
 }
 
-static void word_clean(dt_char* word) {
+static void word_clean(dt_char* word, dt_int* sent_end) {
 	word_lower(word);
 
 	dt_int end = strlen(word) - 1;
 
-	if(strchr(SENTENCE_DELIMITERS, word[end])) {
+	*sent_end = strchr(SENTENCE_DELIMITERS, word[end]) != NULL;
+	
+	if(*sent_end) {
 		word[end] = '\0';
 	}
 }
@@ -426,23 +429,24 @@ static void initialize_corpus() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
+	xWord* node;
 
 	while(fgets(line, LINE_CHARACTER_MAX, fstop)) {
 		line[strlen(line) - 1] = '\0';
-		stops = list_insert(stops, node_create(line));
+		node = node_create(line);
+		stops = list_insert(stops, &node);
 	}
 
-	dt_int success;
+	dt_int success, sent_end;
 	dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
-	xWord* node;
 	xWord* window[WINDOW_MAX] = { 0 };
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
 
 		while(tok) {
-			word_clean(tok);
+			word_clean(tok, &sent_end);
 
 			if(!list_contains(stops, tok)) {
 				window[WINDOW_MAX - 1] = node = node_create(tok);
@@ -451,18 +455,23 @@ static void initialize_corpus() {
 				if(success) {
 					pattern_max = input_max = ++output_max;
 					hidden_max = HIDDEN_MAX;
-				}
+				}				
 
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
 					if(window[c]) {
-						node->context = list_context_insert(node->context, window[c]);
-						window[c]->context = list_context_insert(window[c]->context, node);
+						node->context = list_context_insert(node->context, window[c]);	
 						node->context_count++;
+
+						window[c]->context = list_context_insert(window[c]->context, node);
 						window[c]->context_count++;
 					}
 
 					window[c] = window[c + 1];
-				}
+				}	
+			}
+
+			if(sent_end) {
+				memset(window, 0, WINDOW_MAX * sizeof(xWord*));
 			}
 
 			tok = strtok(NULL, sep);
@@ -1025,12 +1034,12 @@ void weights_load() {
 void sentence_encode(dt_char* sentence, dt_float* vector) {
 	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
 
-	dt_int index;
+	dt_int index, sent_end;
 	dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok = strtok(sentence, sep);
 
 	while(tok) {
-		word_clean(tok);
+		word_clean(tok, &sent_end);
 
 		if(!list_contains(stops, tok)) {
 			index = word_to_index(tok);

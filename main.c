@@ -1,16 +1,17 @@
 #include "include/main.h"
 #include "include/nn.h"
 
-// TODO ADD training from file not from context matrix
-// TODO FIX negative sampling
-// TODO ADD word stemmer
-// TODO ADD multithreading
-// TODO ADD dropout rate for w_ih
-// TODO ADD normal distribution for weight initialization
-// TODO ADD corpus cleaning
-// TODO ADD detailed logging with timestamps
-// TODO ADD all functions should be void
-// TODO ADD corpus should hold only pointers not context words
+// TODO [PARSER] training from file not from context matrix
+// TODO [PARSER] word stemmer
+// TODO [PARSER] multithreading
+// TODO [PARSER] corpus cleaning
+
+// TODO [MODEL] negative sampling
+// TODO [MODEL] dropout rate for w_ih
+// TODO [MODEL] normal distribution for weight initialization
+
+// TODO [MISC] detailed logging with timestamps
+// TODO [MISC] all functions should be void
 
 int main() {
 	nn_start();

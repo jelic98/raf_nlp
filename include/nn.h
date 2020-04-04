@@ -64,7 +64,6 @@ typedef double dt_float;
 typedef struct xWord {
 	dt_char* word;
 	dt_uint freq;
-	// TODO DEL context_count field
 	dt_uint context_count;
 	dt_float prob;
 	struct xWord* left;
