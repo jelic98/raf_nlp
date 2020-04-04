@@ -20,7 +20,7 @@ static dt_int** target;
 static dt_int* patterns;
 
 static xWord* corpus;
-static xStop* stops;
+static xWord* stops;
 static dt_int* onehot;
 static dt_char* test_word;
 
@@ -58,6 +58,140 @@ static dt_int* map_get(const dt_char* word) {
 	return &onehot[h % pattern_max];
 }
 
+static xWord* node_create(const dt_char* word) {
+	xWord* node = (xWord*) calloc(1, sizeof(xWord));
+	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+	strcpy(node->word, word);
+	node->prob = node->context_count = node->freq = 0;
+	node->left = node->right = node->next = NULL;
+	node->context = NULL;
+	return node;
+}
+
+static xContext* node_context_create(xWord* word) {
+	xContext* node = (xContext*) calloc(1, sizeof(xContext));
+	node->word = word;
+	return node;
+}
+
+static void node_release(xWord* root) {
+	root->context = NULL;
+	root->left = root->right = root->next = NULL;
+	root->prob = root->context_count = root->freq = 0;
+	free(root->word);
+	root->word = NULL;
+	free(root);
+}
+
+static void node_context_release(xContext* root) {
+	root->word = NULL;
+	free(root);
+}
+
+static xWord* list_insert(xWord* root, xWord* node) {
+	if(root) {
+		xWord* tmp = root;
+
+		while(tmp->next) {
+			if(!strcmp(tmp->word, node->word)) {
+				node_release(node);
+				return root;
+			}
+
+			tmp = tmp->next;
+		}
+
+		tmp->next = node;
+
+		return root;
+	} else {
+		return node;
+	}
+
+	return node;
+}
+
+static xContext* list_context_insert(xContext* root, xWord* word) {
+	xContext* node = node_context_create(word);
+
+	if(root) {
+		xContext* tmp = root;
+
+		while(tmp->next) {
+			if(tmp->word == node->word) {
+				node_context_release(node);
+				return root;
+			}
+
+			tmp = tmp->next;
+		}
+
+		tmp->next = node;
+
+		return root;
+	} else {
+		return node;
+	}
+
+	return node;
+}
+
+static dt_int list_contains(xWord* root, const dt_char* word) {
+	while(root) {
+		if(!strcmp(root->word, word)) {
+			return 1;
+		}
+
+		root = root->next;
+	}
+
+	return 0;
+}
+
+#ifdef FLAG_PRINT_CORPUS
+static void list_context_print(xContext* root, dt_int* index) {
+	while(root) {
+#ifdef FLAG_LOG
+		fprintf(flog, "Context #%d:\t%s\n", ++(*index), root->word->word);
+#endif
+		root = root->next;
+	}
+}
+#endif
+
+static void list_release(xWord* root) {
+	xWord* node;
+
+	while(root) {
+		node = root;
+		root = root->next;
+		node_release(node);
+	}
+}
+
+static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
+	*success = 0;
+
+	if(root) {
+		dt_int cmp = strcmp(root->word, (*node)->word);
+
+		if(cmp < 0) {
+			root->left = bst_insert(root->left, node, success);
+		} else if(cmp > 0) {
+			root->right = bst_insert(root->right, node, success);
+		} else {
+			*node = root;
+			root->freq++;
+		}
+
+		return root;
+	}
+
+	(*node)->freq++;
+	*success = 1;
+	return *node;
+}
+
 static xWord* bst_get(xWord* node, dt_int* index) {
 	if(node) {
 		xWord* word = bst_get(node->left, index);
@@ -80,116 +214,52 @@ static xWord* bst_get(xWord* node, dt_int* index) {
 	return NULL;
 }
 
-static xWord* bst_insert(xWord* node, const dt_char* word, dt_int* success) {
-	if(!node) {
-		node = (xWord*) calloc(1, sizeof(xWord));
-		node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
-		strcpy(node->word, word);
-		node->freq = 1;
-		node->context_count = 0;
-		node->prob = 0.0;
-		node->left = node->right = NULL;
-		*success = 1;
-
-		return node;
-	}
-
-	dt_int cmp = strcmp(word, node->word);
-
-	if(cmp < 0) {
-		node->left = bst_insert(node->left, word, success);
-	} else if(cmp > 0) {
-		node->right = bst_insert(node->right, word, success);
-	} else {
-		node->freq++;
-	}
-
-	return node;
-}
-
-static void bst_to_map(xWord* node, dt_int* index) {
-	if(node) {
-		bst_to_map(node->left, index);
-		*map_get(node->word) = (*index)++;
-		bst_to_map(node->right, index);
+static void bst_to_map(xWord* root, dt_int* index) {
+	if(root) {
+		bst_to_map(root->left, index);
+		*map_get(root->word) = (*index)++;
+		bst_to_map(root->right, index);
 	}
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static void bst_freq_sum(xWord* node, dt_int* sum) {
-	if(node) {
-		*sum += node->freq;
-		bst_freq_sum(node->left, sum);
-		bst_freq_sum(node->right, sum);
+static void bst_freq_sum(xWord* root, dt_int* sum) {
+	if(root) {
+		*sum += root->freq;
+		bst_freq_sum(root->left, sum);
+		bst_freq_sum(root->right, sum);
 	}
 }
 
-static void bst_freq_max(xWord* node, dt_int* max) {
-	if(node) {
-		*max = max(*max, node->freq);
-		bst_freq_max(node->left, max);
-		bst_freq_max(node->right, max);
+static void bst_freq_max(xWord* root, dt_int* max) {
+	if(root) {
+		*max = max(*max, root->freq);
+		bst_freq_max(root->left, max);
+		bst_freq_max(root->right, max);
 	}
 }
 #endif
 
 #ifdef FLAG_PRINT_CORPUS
-static void bst_print(xWord* node, dt_int* index) {
-	if(node) {
-		bst_print(node->left, index);
-#ifdef FLAG_LOG
-		fprintf(flog, "Corpus #%d:\t%s (%d)\n", ++(*index), node->word, node->freq);
-#endif
-		bst_print(node->right, index);
-	}
-}
-#endif
-
-static void bst_release(xWord* node) {
-	if(node) {
-		bst_release(node->left);
-		bst_release(node->right);
-		node->left = NULL;
-		node->right = NULL;
-		node->prob = 0;
-		node->context_count = 0;
-		node->freq = 0;
-		free(node->word);
-		node->word = NULL;
-		free(node);
-		node = NULL;
-	}
-}
-
-static xStop* list_insert(xStop* root, dt_char* word) {
-	xStop* node = (xStop*) calloc(1, sizeof(xStop));
-	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
-	strcpy(node->word, word);
-	node->next = root;
-
-	return node;
-}
-
-static dt_int list_contains(xStop* root, dt_char* word) {
-	while(root) {
-		if(!strcmp(root->word, word)) {
-			return 1;
-		}
-		
-		root = root->next;
-	}
-	
-	return 0;
-}
-
-static void list_release(xStop* root) {
+static void bst_print(xWord* root, dt_int* index) {
 	if(root) {
+		bst_print(root->left, index);
+#ifdef FLAG_LOG
+		fprintf(flog, "Corpus #%d:\t%s (%d)\n", ++(*index), root->word, root->freq);
+		dt_int context_index = 0;
+		list_context_print(root->context, &context_index);
+#endif
+		bst_print(root->right, index);
+	}
+}
+#endif
+
+static void bst_release(xWord* root) {
+	if(root) {
+		bst_release(root->left);
+		bst_release(root->right);
 		list_release(root->next);
-		root->next = NULL;
-		free(root->word);
-		root->word = NULL;
-		free(root);
-		root = NULL;
+		node_release(root);
 	}
 }
 
@@ -359,12 +429,14 @@ static void initialize_corpus() {
 
 	while(fgets(line, LINE_CHARACTER_MAX, fstop)) {
 		line[strlen(line) - 1] = '\0';
-		stops = list_insert(stops, line);
+		stops = list_insert(stops, node_create(line));
 	}
 
 	dt_int success;
 	dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
+	xWord* node;
+	xWord* window[WINDOW_MAX] = { 0 };
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
@@ -373,12 +445,23 @@ static void initialize_corpus() {
 			word_clean(tok);
 
 			if(!list_contains(stops, tok)) {
-				success = 0;
-				corpus = bst_insert(corpus, tok, &success);
+				window[WINDOW_MAX - 1] = node = node_create(tok);
+				corpus = bst_insert(corpus, &node, &success);
 
 				if(success) {
 					pattern_max = input_max = ++output_max;
 					hidden_max = HIDDEN_MAX;
+				}
+
+				for(c = 0; c < WINDOW_MAX - 1; c++) {
+					if(window[c]) {
+						node->context = list_context_insert(node->context, window[c]);
+						window[c]->context = list_context_insert(window[c]->context, node);
+						node->context_count++;
+						window[c]->context_count++;
+					}
+
+					window[c] = window[c + 1];
 				}
 			}
 
@@ -388,12 +471,16 @@ static void initialize_corpus() {
 
 	resources_allocate();
 
-	dt_int index = 0;
-	bst_to_map(corpus, &index);
-
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
+
+	dt_int index = 0;
+	bst_to_map(corpus, &index);
+
+	index = 0;
+	bst_print(corpus, &index);
+	exit(0);
 
 #ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_CORPUS

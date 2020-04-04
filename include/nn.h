@@ -5,7 +5,7 @@
 
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
-#define WINDOW_MAX 10
+#define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 6
 #define INITIAL_WEIGHT_MAX 0.5
 #define LEARNING_RATE_MAX 0.025
@@ -36,7 +36,7 @@
 //#define FLAG_PRINT_ERRORS
 
 // Paths
-#define CORPUS_PATH "res/corpus/large.txt"
+#define CORPUS_PATH "res/corpus/tiny.txt"
 #define TRAIN_PATH "res/train/large.txt"
 #define TEST_PATH "res/test/large.txt"
 #define STOP_PATH "res/misc/stop.txt"
@@ -64,16 +64,19 @@ typedef double dt_float;
 typedef struct xWord {
 	dt_char* word;
 	dt_uint freq;
+	// TODO DEL context_count field
 	dt_uint context_count;
 	dt_float prob;
 	struct xWord* left;
 	struct xWord* right;
+	struct xWord* next;
+	struct xContext* context;	
 } xWord;
 
-typedef struct xStop {
-	dt_char* word;
-	struct xStop* next;
-} xStop;
+typedef struct xContext {
+	xWord* word;
+	struct xContext* next;
+} xContext;
 
 typedef union xBit {
 	dt_uint on : 1;

@@ -10,10 +10,11 @@
 // TODO ADD corpus cleaning
 // TODO ADD detailed logging with timestamps
 // TODO ADD all functions should be void
+// TODO ADD corpus should hold only pointers not context words
 
 int main() {
 	nn_start();
-	training_run();
+	//training_run();
 	//weights_save();
 	//weights_load();
 	//test_run();
