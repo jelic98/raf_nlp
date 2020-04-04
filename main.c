@@ -1,7 +1,7 @@
-#include "include/main.h"
-#include "include/nn.h"
+#include "lib.h"
+#include "nn.h"
+#include "stmr.h"
 
-// TODO [PARSER] word stemmer
 // TODO [PARSER] multithreading
 
 // TODO [MODEL] negative sampling

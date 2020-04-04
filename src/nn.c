@@ -1,4 +1,9 @@
-#include "include/nn.h"
+#include "nn.h"
+
+#ifdef FLAG_STEM
+#define H_STMR_IMPLEMENT
+#include "stmr.h"
+#endif
 
 static clock_t elapsed_time;
 
@@ -375,6 +380,10 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 	if(*sent_end) {
 		word[end] = '\0';
 	}
+
+#ifdef FLAG_STEM
+	word[stem(word, 0, strlen(word) - 1) + 1] = '\0';
+#endif
 }
 
 static dt_int word_stop(dt_char* word) {
@@ -383,7 +392,8 @@ static dt_int word_stop(dt_char* word) {
 	}
 
 	dt_char* p;
-	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);
+	for(p = word; *p && (isalpha(*p) || *p == '-'); p++)
+		;
 
 	return *p || list_contains(stops, word);
 }
@@ -430,13 +440,13 @@ static void resources_allocate() {
 static void resources_release() {
 	free(onehot);
 	onehot = NULL;
-	
+
 	free(input);
 	input = NULL;
-	
+
 	free(hidden);
 	hidden = NULL;
-	
+
 	free(output);
 	output = NULL;
 
@@ -824,7 +834,7 @@ void nn_finish() {
 
 	list_release(stops);
 	stops = NULL;
-	
+
 	resources_release();
 
 #ifdef FLAG_LOG
@@ -886,12 +896,16 @@ void test_run() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int test_count = -1, result = 0, tries_sum = 0;
+	dt_int test_count = -1, result = 0, tries_sum = 0, sent_end;
 
 	while(test_count++, fgets(line, LINE_CHARACTER_MAX, ftest)) {
 		line[strlen(line) - 1] = '\0';
-		test_predict(line, 5, &result);
-		tries_sum += result;
+		word_clean(line, &sent_end);
+		
+		if(!word_stop(line)) {
+			test_predict(line, 5, &result);
+			tries_sum += result;
+		}
 	}
 
 	printf("\nPrecision: %.1lf%%\n", 100.0 * tries_sum / test_count);

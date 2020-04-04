@@ -1,9 +1,9 @@
 #ifndef H_NN_INCLUDE
 #define H_NN_INCLUDE
 
-#include "include/main.h"
+#include "lib.h"
 
-#define EPOCH_MAX 1
+#define EPOCH_MAX 5
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 6
@@ -29,6 +29,7 @@
 
 // Flags
 //#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_STEM
 #define FLAG_DEBUG
 #define FLAG_LOG
 #define FLAG_PRINT_CORPUS

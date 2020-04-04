@@ -1,5 +1,5 @@
-#ifndef H_MAIN_INCLUDE
-#define H_MAIN_INCLUDE
+#ifndef H_LIB_INCLUDE
+#define H_LIB_INCLUDE
 
 #include <stdio.h>
 #include <stdlib.h>

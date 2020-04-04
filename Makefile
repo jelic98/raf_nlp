@@ -10,7 +10,7 @@ IFLAGS = -I. -I./include
 clean:
 	rm -f $(OUT)
 
-build: $(IN) include/main.h include/nn.h
+build: $(IN)
 	$(CC) $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)
