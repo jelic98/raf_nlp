@@ -187,6 +187,7 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 		} else if(cmp > 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
+			node_release(*node);
 			*node = root;
 			root->freq++;
 		}
@@ -463,7 +464,7 @@ static void initialize_corpus() {
 			word_clean(tok, &sent_end);
 
 			if(!word_stop(tok)) {
-				window[WINDOW_MAX - 1] = node = node_create(tok);
+				node = node_create(tok);
 				corpus = bst_insert(corpus, &node, &success);
 
 				if(success) {
@@ -471,6 +472,8 @@ static void initialize_corpus() {
 					hidden_max = HIDDEN_MAX;
 				}
 
+				window[WINDOW_MAX - 1] = node;
+				
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
 					if(window[c] && strcmp(window[c]->word, node->word)) {
 						node->context = list_context_insert(node->context, window[c], &success);
@@ -576,8 +579,6 @@ static void initialize_epoch() {
 	}
 
 	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
-
-	loss = 0.0;
 }
 
 static void initialize_input() {
@@ -697,6 +698,8 @@ static void negative_sampling() {
 #endif
 
 static void calculate_loss() {
+	loss = 0.0;
+
 	for(c = 0; c < center->context_max; c++) {
 		loss -= output_raw[center->target[c]->index];
 	}
@@ -833,8 +836,9 @@ void training_run() {
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
-			calculate_loss();
 		}
+		
+		calculate_loss();
 
 #ifdef FLAG_LOG
 		fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
