@@ -3,7 +3,7 @@
 static clock_t elapsed_time;
 
 static dt_int epoch;
-static dt_float alpha, sum, loss;
+static dt_float alpha, sum;
 static xWord* center;
 
 static dt_int input_max, hidden_max, output_max, pattern_max;
@@ -735,22 +735,6 @@ static void negative_sampling() {
 }
 #endif
 
-static void calculate_loss() {
-	loss = 0.0;
-
-	for(c = 0; c < center->context_max; c++) {
-		loss -= output_raw[center->target[c]->index];
-	}
-
-	sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += exp(output_raw[k]);
-	}
-
-	loss += center->context_max * log(sum);
-}
-
 static void test_predict(dt_char* word, dt_int count, dt_int* result) {
 	test_word = word;
 
@@ -880,12 +864,9 @@ void training_run() {
 			update_input_layer_weights();
 		}
 
-		calculate_loss();
-
 #ifdef FLAG_LOG
 		fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
 		fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
-		fprintf(flog, "Loss\t%lf\n", loss);
 #endif
 	}
 
