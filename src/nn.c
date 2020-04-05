@@ -27,7 +27,6 @@ static dt_int* patterns;
 static xWord* corpus;
 static xWord* stops;
 static dt_int* onehot;
-static dt_char* test_word;
 
 static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
@@ -380,12 +379,12 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 #endif
 }
 
-static dt_int word_stop(dt_char* word) {
+static dt_int word_stop(const dt_char* word) {
 	if(strlen(word) < 3) {
 		return 1;
 	}
 
-	dt_char* p;
+	const dt_char* p;
 	for(p = word; *p && (isalpha(*p) || *p == '-'); p++)
 		;
 
@@ -639,20 +638,6 @@ static dt_int cmp_words(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static void initialize_test() {
-#ifdef FLAG_LOG
-	fprintf(flog, "Center: %s\n", test_word);
-#endif
-
-	dt_int index = word_to_index(test_word);
-
-	if(!index_valid(index)) {
-		return;
-	}
-
-	onehot_set(input, index, input_max);
-}
-
 static void initialize_weights() {
 #ifdef FLAG_LOG
 	fprintf(flog, "Initializing weights\n");
@@ -797,10 +782,19 @@ static void negative_sampling() {
 }
 #endif
 
-static void test_predict(dt_char* word, dt_int count, dt_int* result) {
-	test_word = word;
+static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
+#ifdef FLAG_LOG
+	fprintf(flog, "Center: %s\n", word);
+#endif
 
-	initialize_test();
+	dt_int index = word_to_index(word);
+
+	if(!index_valid(index)) {
+		return;
+	}
+
+	onehot_set(input, index, input_max);
+
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
 	normalize_output_layer();
@@ -816,8 +810,6 @@ static void test_predict(dt_char* word, dt_int count, dt_int* result) {
 	qsort(pred, output_max, sizeof(xWord), cmp_words);
 
 	xWord* center = index_to_word(p);
-
-	dt_int index;
 
 	for(index = 1, k = 0; k < count; k++, index++) {
 		if(!strcmp(pred[k].word, word)) {

@@ -12,7 +12,6 @@
 // TODO [MISC] add timestamp in log
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
-// TODO [MISC] check const char
 
 int main() {
 	nn_start();
