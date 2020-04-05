@@ -116,4 +116,10 @@ void test_run();
 void weights_save();
 void weights_load();
 void sentence_encode(dt_char*, dt_float*);
+
+// Dependencies
+#ifdef FLAG_STEM
+#define H_STMR_IMPLEMENT
+#include "stmr.h"
+#endif
 #endif

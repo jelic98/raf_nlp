@@ -1,10 +1,5 @@
 #include "nn.h"
 
-#ifdef FLAG_STEM
-#define H_STMR_IMPLEMENT
-#include "stmr.h"
-#endif
-
 static clock_t elapsed_time;
 
 static dt_int epoch;

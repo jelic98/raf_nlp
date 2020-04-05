@@ -1,6 +1,4 @@
-#include "lib.h"
 #include "nn.h"
-#include "stmr.h"
 
 // https://stats.stackexchange.com/questions/244616/how-does-negative-sampling-work-in-word2vec
 

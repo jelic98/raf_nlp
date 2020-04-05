@@ -35,6 +35,7 @@
  *     that if step1ab leaves a one letter result (ied -> i, aing -> a etc),
  *     step2 and step4 access the byte before the first letter. So we skip
  *     steps after step1ab unless k > k0. */
+#ifdef FLAG_STEM
 #ifndef H_STMR_INCLUDE
 #define H_STMR_INCLUDE
 
@@ -686,5 +687,6 @@ stem(char *p, int index, int position) {
 
   return k;
 }
+#endif
 #endif
 #endif
