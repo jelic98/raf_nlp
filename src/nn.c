@@ -40,6 +40,8 @@ static dt_int** samples;
 static FILE* flog;
 #endif
 
+static void memcheck_log(void*, const dt_char*, const dt_char*, dt_int);
+
 #ifdef FLAG_LOG
 static dt_float time_get(clock_t start) {
 	return (dt_float)(clock() - start) / CLOCKS_PER_SEC;
@@ -56,9 +58,7 @@ static void timestamp() {
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
 
 static void color_set(eColor color) {
-#ifndef FLAG_LOG_FILE
 	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
-#endif
 }
 
 static void echo_color(eColor color, const dt_char* format, ...) {
@@ -68,19 +68,23 @@ static void echo_color(eColor color, const dt_char* format, ...) {
 	timestamp();
 	color_set(color);
 	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
+	memcheck(f);
 	strcpy(f, format);
 	strcat(f, "\n");
 	vfprintf(flog, f, args);
 	color_set(NONE);
 	va_end(args);
 }
-
-#define echo(...) echo_color(NONE, __VA_ARGS__)
-#define echo_info(...) echo_color(YELLOW, __VA_ARGS__)
-#define echo_succ(...) echo_color(GREEN, __VA_ARGS__)
-#define echo_fail(...) echo_color(RED, __VA_ARGS__)
-#define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
 #endif
+
+static void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt_int line) {
+	if(!ptr) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_MEMORY " @ %s:%s:%d" , file, func, line);
+#endif
+		exit(0);
+	}
+}
 
 static dt_int* map_get(const dt_char* word) {
 	dt_uint h = 0;
@@ -251,6 +255,7 @@ static void bst_target(xWord* root) {
 	if(root) {
 		dt_int index = 0;
 		root->target = (xWord**) calloc(root->context_max, sizeof(xWord*));
+		memcheck(root->target);
 		xContext* tmp = root->context;
 
 		while(tmp) {
@@ -307,7 +312,9 @@ static void bst_release(xWord* root) {
 
 static xWord* node_create(const dt_char* word) {
 	xWord* node = (xWord*) calloc(1, sizeof(xWord));
+	memcheck(node);
 	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+	memcheck(node->word);
 	strcpy(node->word, word);
 	node->index = node->prob = node->context_max = node->freq = 0;
 	node->left = node->right = node->next = NULL;
@@ -318,6 +325,7 @@ static xWord* node_create(const dt_char* word) {
 
 static xContext* node_context_create(xWord* word) {
 	xContext* node = (xContext*) calloc(1, sizeof(xContext));
+	memcheck(node);
 	node->word = word;
 	return node;
 }
@@ -370,7 +378,7 @@ static dt_int index_valid(dt_int index) {
 	return valid;
 }
 
-#ifdef FLAG_PRINT_ERRORS
+#ifdef FLAG_PRINT_INDEX_ERRORS
 static void invalid_index_print() {
 	if(invalid_index_last > 0) {
 		dt_int i;
@@ -446,60 +454,73 @@ static void resources_allocate() {
 #endif
 
 	onehot = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	memcheck(onehot);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "onehot", 1, pattern_max);
 #endif
 
 	input = (xBit*) calloc(input_max, sizeof(xBit));
+	memcheck(input);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "input", 1, input_max);
 #endif
 
 	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+	memcheck(hidden);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "hidden", 1, hidden_max);
 #endif
 
 	output = (dt_float*) calloc(output_max, sizeof(dt_float));
+	memcheck(output);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
 #endif
 
 	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
+	memcheck(output_raw);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "output_raw", 1, output_max);
 #endif
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
+	memcheck(w_ih);
 	for(i = 0; i < input_max; i++) {
 		w_ih[i] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+		memcheck(w_ih[i]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "w_ih", input_max, hidden_max);
 #endif
 
 	w_ho = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
+	memcheck(w_ho);
 	for(j = 0; j < hidden_max; j++) {
 		w_ho[j] = (dt_float*) calloc(output_max, sizeof(dt_float));
+		memcheck(w_ho[j]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
 	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	memcheck(patterns);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "patterns", 1, pattern_max);
 #endif
 
 	error = (dt_float*) calloc(output_max, sizeof(dt_float));
+	memcheck(error);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 	samples = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
+	memcheck(samples);
 	for(p = 0; p < pattern_max; p++) {
 		samples[p] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
+		memcheck(samples[p]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "samples", pattern_max, NEGATIVE_SAMPLES_MAX);
@@ -565,7 +586,7 @@ static void initialize_corpus() {
 
 	if(!fstop || !fstop) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 		return;
 	}
@@ -687,12 +708,12 @@ static void initialize_corpus() {
 
 	if(fclose(fin) == EOF || fclose(fstop) == EOF) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 	}
 
 #ifdef FLAG_LOG
-	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));	
+	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));
 #endif
 }
 
@@ -895,7 +916,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	}
 
 #ifdef FLAG_LOG
-		echo_cond(*success, "%s (%lf sec)", *success ? "SUCCESS" : "FAIL", time_get(elapsed_time));	
+		echo_cond(*success, "Prediction %scorrect (%lf sec)", *success ? "" : "not ", time_get(elapsed_time));
 #endif
 }
 
@@ -923,7 +944,7 @@ void nn_finish() {
 		return;
 	}
 
-#ifdef FLAG_PRINT_ERRORS
+#ifdef FLAG_PRINT_INDEX_ERRORS
 	invalid_index_print();
 #endif
 
@@ -937,7 +958,7 @@ void nn_finish() {
 
 #ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 	}
 #endif
 }
@@ -998,7 +1019,7 @@ void test_run() {
 
 	if(!ftest) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 		return;
 	}
@@ -1018,7 +1039,7 @@ void test_run() {
 
 	if(fclose(ftest) == EOF) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 	}
 
@@ -1039,7 +1060,7 @@ void weights_save() {
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 		return;
 	}
@@ -1062,7 +1083,7 @@ void weights_save() {
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 	}
 
@@ -1081,7 +1102,7 @@ void weights_load() {
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 		return;
 	}
@@ -1100,7 +1121,7 @@ void weights_load() {
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
 #ifdef FLAG_LOG
-		echo_fail(FILE_ERROR_MESSAGE);
+		echo_fail(ERROR_FILE);
 #endif
 	}
 

@@ -11,13 +11,10 @@
 
 // TODO [MISC] tracking elapsed time for testing and parsing
 // TODO [MISC] all functions should be void
-// TODO [MISC] print memory allocation errors
 
 int main() {
 	nn_start();
 	training_run();
-	//weights_save();
-	//weights_load();
 	test_run();
 	nn_finish();
 

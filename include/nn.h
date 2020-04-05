@@ -36,7 +36,7 @@
 //#define FLAG_STEM
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
-//#define FLAG_PRINT_ERRORS
+//#define FLAG_PRINT_INDEX_ERRORS
 
 #ifdef FLAG_LOG
 #define FLAG_LOG_FILE
@@ -56,12 +56,21 @@
 #define LOG_PATH "out/log.txt"
 
 // Messages
-#define FILE_ERROR_MESSAGE "File error occurred\n"
+#define ERROR_FILE "File error occurred"
+#define ERROR_MEMORY "Memory error occurred"
 
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define random(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
+#define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
+#ifdef FLAG_LOG
+#define echo(...) echo_color(NONE, __VA_ARGS__)
+#define echo_info(...) echo_color(YELLOW, "INFO: " __VA_ARGS__)
+#define echo_succ(...) echo_color(GREEN, "SUCCESS: " __VA_ARGS__)
+#define echo_fail(...) echo_color(RED, "FAIL: " __VA_ARGS__)
+#define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
+#endif
 
 // Internal data limits
 #define DT_FLOAT_MIN DBL_MIN
