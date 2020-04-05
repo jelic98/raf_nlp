@@ -14,6 +14,8 @@
 #define MONTE_CARLO_FACTOR 0.1
 #define MONTE_CARLO_EMERGENCY 10
 #define INVALID_INDEX_MAX 10
+#define LOG_PERIOD_PASS 100
+#define LOG_PERIOD_CORPUS 100
 
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
@@ -30,14 +32,23 @@
 // Flags
 //#define FLAG_NEGATIVE_SAMPLING
 //#define FLAG_STEM
-#define FLAG_DEBUG
 #define FLAG_LOG
-#define FLAG_PRINT_CORPUS
+#define FLAG_DEBUG
+//#define FLAG_PRINT_CORPUS
 //#define FLAG_PRINT_ERRORS
 
+#ifdef FLAG_LOG
+#define FLAG_LOG_FILE
+#endif
+
+#ifdef FLAG_DEBUG
+#undef FLAG_LOG_FILE
+#define flog stdout
+#endif
+
 // Paths
-#define CORPUS_PATH "res/corpus/large.txt"
-#define TEST_PATH "res/test/large.txt"
+#define CORPUS_PATH "res/corpus/2.txt"
+#define TEST_PATH "res/test/2.txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"

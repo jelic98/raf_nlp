@@ -9,9 +9,10 @@
 // TODO [MODEL] normal distribution for weight initialization
 // TODO [MODEL] run training in batches
 
-// TODO [MISC] detailed logging with timestamps
+// TODO [MISC] add timestamp in log
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
+// TODO [MISC] check const char
 
 int main() {
 	nn_start();

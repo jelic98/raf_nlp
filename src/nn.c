@@ -37,21 +37,13 @@ static dt_int corpus_freq_sum, corpus_freq_max;
 static dt_int** samples;
 #endif
 
-#ifdef FLAG_LOG
+#ifdef FLAG_LOG_FILE
 static FILE* flog;
 #endif
 
-#ifdef FLAG_DEBUG
-static void screen_clear() {
-	printf("\e[1;1H\e[2J");
-}
-#endif
-
-#ifdef FLAG_DEBUG
 static dt_float time_get(clock_t start) {
 	return (dt_float)(clock() - start) / CLOCKS_PER_SEC;
 }
-#endif
 
 static dt_int* map_get(const dt_char* word) {
 	dt_uint h = 0;
@@ -341,20 +333,22 @@ static dt_int index_valid(dt_int index) {
 	return valid;
 }
 
-#ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_ERRORS
 static void invalid_index_print() {
 	if(invalid_index_last > 0) {
 		dt_int i;
 
 		for(i = 0; i < invalid_index_last; i++) {
-			printf("Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
+#ifdef FLAG_LOG
+			fprintf(flog, "Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
+#endif
 		}
 	} else {
-		printf("No invalid indices\n");
+#ifdef FLAG_LOG
+		fprintf(flog, "No invalid indices\n");
+#endif
 	}
 }
-#endif
 #endif
 
 static dt_int word_to_index(const dt_char* word) {
@@ -411,29 +405,64 @@ static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
 
 static void resources_allocate() {
 	onehot = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "onehot", 1, pattern_max);
+#endif
+
 	input = (xBit*) calloc(input_max, sizeof(xBit));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "input", 1, input_max);
+#endif
+
 	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "hidden", 1, hidden_max);
+#endif
+
 	output = (dt_float*) calloc(output_max, sizeof(dt_float));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "output", 1, output_max);
+#endif
+
 	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "output_raw", 1, output_max);
+#endif
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	for(i = 0; i < input_max; i++) {
 		w_ih[i] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 	}
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "w_ih", input_max, hidden_max);
+#endif
 
 	w_ho = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
 	for(j = 0; j < hidden_max; j++) {
 		w_ho[j] = (dt_float*) calloc(output_max, sizeof(dt_float));
 	}
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "w_ho", hidden_max, output_max);
+#endif
 
 	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "patterns", 1, pattern_max);
+#endif
+
 	error = (dt_float*) calloc(output_max, sizeof(dt_float));
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "error", 1, output_max);
+#endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 	samples = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
 	for(p = 0; p < pattern_max; p++) {
 		samples[p] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
 	}
+#ifdef FLAG_LOG
+	fprintf(flog, "Dimension of %s is %dx%d\n", "samples", pattern_max, NEGATIVE_SAMPLES_MAX);
+#endif
 #endif
 }
 
@@ -481,6 +510,10 @@ static void resources_release() {
 }
 
 static void initialize_corpus() {
+#ifdef FLAG_LOG
+	fprintf(flog, "Initializing corpus\n");
+#endif
+
 	FILE* fin = fopen(CORPUS_PATH, "r");
 	FILE* fstop = fopen(STOP_PATH, "r");
 
@@ -490,6 +523,10 @@ static void initialize_corpus() {
 #endif
 		return;
 	}
+
+#ifdef FLAG_LOG
+	fprintf(flog, "Loading stop words\n");
+#endif
 
 	dt_char line[LINE_CHARACTER_MAX];
 	xWord* node;
@@ -505,6 +542,10 @@ static void initialize_corpus() {
 	dt_char* tok;
 	xWord* window[WINDOW_MAX] = { 0 };
 
+#ifdef FLAG_LOG
+	fprintf(flog, "Reading corpus file\n");
+#endif
+
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
 
@@ -518,6 +559,12 @@ static void initialize_corpus() {
 				if(success) {
 					pattern_max = input_max = ++output_max;
 					hidden_max = HIDDEN_MAX;
+
+#ifdef FLAG_LOG
+					if(!(pattern_max % LOG_PERIOD_CORPUS)) {
+						fprintf(flog, "Corpus grown to %d\n", pattern_max);
+					}
+#endif
 				}
 
 				window[WINDOW_MAX - 1] = node;
@@ -543,24 +590,38 @@ static void initialize_corpus() {
 		}
 	}
 
+#ifdef FLAG_LOG
+	fprintf(flog, "Allocating resources\n");
+#endif
+
 	resources_allocate();
 
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
 
+#ifdef FLAG_LOG
+	fprintf(flog, "Creating corpus map\n");
+#endif
+
 	dt_int index = 0;
 	bst_to_map(corpus, &index);
 
-#ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_CORPUS
 	bst_print(corpus);
 #endif
+
+#ifdef FLAG_LOG
+	fprintf(flog, "Building word targets\n");
 #endif
 
 	bst_target(corpus);
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+#ifdef FLAG_LOG
+	fprintf(flog, "Calculating word frequency\n");
+#endif
+
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
 	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
 #endif
@@ -579,8 +640,8 @@ static dt_int cmp_words(const void* a, const void* b) {
 }
 
 static void initialize_test() {
-#ifdef FLAG_DEBUG
-	printf("Center:\t\t%s\n\n", test_word);
+#ifdef FLAG_LOG
+	fprintf(flog, "Center: %s\n", test_word);
 #endif
 
 	dt_int index = word_to_index(test_word);
@@ -590,22 +651,13 @@ static void initialize_test() {
 	}
 
 	onehot_set(input, index, input_max);
-
-	xWord* center_word = index_to_word(index);
-
-	for(c = 0; c < center_word->context_max; c++) {
-#ifdef FLAG_DEBUG
-		xWord* context = index_to_word(center->target[c]->index);
-		printf("Context #%d:\t%s\n", c + 1, context->word);
-#endif
-	}
-
-#ifdef FLAG_DEBUG
-	printf("\n");
-#endif
 }
 
 static void initialize_weights() {
+#ifdef FLAG_LOG
+	fprintf(flog, "Initializing weights\n");
+#endif
+
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 			w_ih[i][j] = random(0, INITIAL_WEIGHT_MAX);
@@ -748,9 +800,6 @@ static void negative_sampling() {
 static void test_predict(dt_char* word, dt_int count, dt_int* result) {
 	test_word = word;
 
-#ifdef FLAG_DEBUG
-	screen_clear();
-#endif
 	initialize_test();
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
@@ -793,8 +842,8 @@ static void test_predict(dt_char* word, dt_int count, dt_int* result) {
 			}
 		}
 
-#ifdef FLAG_DEBUG
-		printf("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
+#ifdef FLAG_LOG
+		fprintf(flog, "#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
 #endif
 	}
 }
@@ -808,7 +857,7 @@ void nn_start() {
 
 	srand(time(0));
 
-#ifdef FLAG_LOG
+#ifdef FLAG_LOG_FILE
 	flog = fopen(LOG_PATH, "w");
 #endif
 
@@ -822,11 +871,8 @@ void nn_finish() {
 		return;
 	}
 
-#ifdef FLAG_DEBUG
 #ifdef FLAG_PRINT_ERRORS
-	screen_clear();
 	invalid_index_print();
-#endif
 #endif
 
 	bst_release(corpus);
@@ -837,7 +883,7 @@ void nn_finish() {
 
 	resources_release();
 
-#ifdef FLAG_LOG
+#ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 	}
@@ -845,16 +891,16 @@ void nn_finish() {
 }
 
 void training_run() {
-	initialize_weights();
-
-#ifdef FLAG_DEBUG
+#ifdef FLAG_LOG
 	clock_t start_time = clock();
+	fprintf(flog, "Started training\n");
 #endif
 
+	initialize_weights();
+
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
-#ifdef FLAG_DEBUG
-		screen_clear();
-		printf("Epoch:\t%d / %d\n", epoch + 1, EPOCH_MAX);
+#ifdef FLAG_LOG
+		fprintf(flog, "Started epoch %d/%d\n", epoch + 1, EPOCH_MAX);
 #endif
 
 		initialize_epoch();
@@ -862,6 +908,11 @@ void training_run() {
 		elapsed_time = clock();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
+#ifdef FLAG_LOG
+			if(!(p1 % LOG_PERIOD_PASS)) {
+				fprintf(flog, "Started pass %d/%d\n", p1 + 1, pattern_max);
+			}
+#endif
 			initialize_input();
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
@@ -875,17 +926,21 @@ void training_run() {
 		}
 
 #ifdef FLAG_LOG
-		fprintf(flog, "%cEpoch\t%d\n", epoch ? '\n' : '\0', epoch + 1);
-		fprintf(flog, "Took\t%lf sec\n", time_get(elapsed_time));
+		fprintf(flog, "Finished epoch %d/%d (%lf sec)\n", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
 #endif
 	}
 
-#ifdef FLAG_DEBUG
-	printf("Took:\t%lf sec\n", time_get(start_time));
+#ifdef FLAG_LOG
+	fprintf(flog, "Finished training (%lf sec)\n", time_get(start_time));
 #endif
 }
 
 void test_run() {
+#ifdef FLAG_LOG
+	clock_t start_time = clock();
+	fprintf(flog, "Started test\n");
+#endif
+
 	FILE* ftest = fopen(TEST_PATH, "r");
 
 	if(!ftest) {
@@ -901,23 +956,34 @@ void test_run() {
 	while(test_count++, fgets(line, LINE_CHARACTER_MAX, ftest)) {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
-		
+
 		if(!word_stop(line)) {
 			test_predict(line, 5, &result);
 			tries_sum += result;
 		}
-	}
 
-	printf("\nPrecision: %.1lf%%\n", 100.0 * tries_sum / test_count);
+#ifdef FLAG_LOG
+		fprintf(flog, "Correct: %s\n", result ? "YES" : "NO");
+#endif
+	}
 
 	if(fclose(ftest) == EOF) {
 #ifdef FLAG_LOG
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
 	}
+
+#ifdef FLAG_LOG
+	fprintf(flog, "Precision: %.1lf%%\n", 100.0 * tries_sum / test_count);
+	fprintf(flog, "Finished test (%lf sec)\n", time_get(start_time));
+#endif
 }
 
 void weights_save() {
+#ifdef FLAG_LOG
+	fprintf(flog, "Started saving weights\n");
+#endif
+
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
 
@@ -949,9 +1015,17 @@ void weights_save() {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
 	}
+
+#ifdef FLAG_LOG
+	fprintf(flog, "Finished saving weights\n");
+#endif
 }
 
 void weights_load() {
+#ifdef FLAG_LOG
+	fprintf(flog, "Started loading weights\n");
+#endif
+
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "r");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "r");
 
@@ -979,9 +1053,17 @@ void weights_load() {
 		fprintf(flog, FILE_ERROR_MESSAGE);
 #endif
 	}
+
+#ifdef FLAG_LOG
+	fprintf(flog, "Finished loading weights\n");
+#endif
 }
 
 void sentence_encode(dt_char* sentence, dt_float* vector) {
+#ifdef FLAG_LOG
+	fprintf(flog, "Encoding sentence \"%s\"\n", sentence);
+#endif
+	
 	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
 
 	dt_int index, sent_end;
