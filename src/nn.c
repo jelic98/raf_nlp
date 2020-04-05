@@ -32,7 +32,7 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int corpus_freq_sum, corpus_freq_max;
+static dt_int ck, corpus_freq_sum, corpus_freq_max;
 static dt_int** samples;
 #endif
 
@@ -55,8 +55,6 @@ static void timestamp() {
 	fprintf(flog, "[%s.%03d] ", s, tv.tv_usec / 1000);
 }
 
-typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
-
 static void color_set(eColor color) {
 	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
 }
@@ -77,12 +75,24 @@ static void echo_color(eColor color, const dt_char* format, ...) {
 }
 #endif
 
+static void sigget(dt_int sig) {
+	void* ptrs[BACKTRACE_DEPTH];
+	size_t size = backtrace(ptrs, BACKTRACE_DEPTH);
+	dt_char** stack = backtrace_symbols(ptrs, size);
+	for(i = 0; i < size; i++) {
+		stack[i][strchr(stack[i] + 4, ' ') - stack[i]] = '\0';
+		echo_fail("%s @ %s", stack[i] + 4, stack[i] + 40);
+	}
+	free(stack);
+	exit(1);
+}
+
 static void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt_int line) {
 	if(!ptr) {
 #ifdef FLAG_LOG
-		echo_fail(ERROR_MEMORY " @ %s:%s:%d" , file, func, line);
+		echo_fail(ERROR_MEMORY " @ %s:%s:%d", file, func, line);
 #endif
-		exit(0);
+		exit(1);
 	}
 }
 
@@ -810,12 +820,16 @@ static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 		for(c = 0; c < center->context_max; c++) {
-			k = center->target[c]->index;
+			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+				k = samples[center->target[c]->index][ck];
+				w_ho[j][k] -= alpha * hidden[j] * error[k];
+			}
+		}
 #else
 		for(k = 0; k < output_max; k++) {
-#endif
 			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
+#endif
 	}
 }
 
@@ -825,12 +839,16 @@ static void update_input_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 		for(ei = c = 0; c < center->context_max; c++) {
-			k = center->target[c]->index;
+			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+				k = center->target[c]->index;
+				ei += error[k] * w_ho[j][k];
+			}
+		}
 #else
 		for(ei = k = 0; k < output_max; k++) {
-#endif
 			ei += error[k] * w_ho[j][k];
 		}
+#endif
 
 		w_ih[p][j] -= alpha * input[p].on * ei;
 	}
@@ -854,10 +872,9 @@ static void negative_sampling() {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					samples[c][k] = random(0, pattern_max);
 					freq = (dt_float) index_to_word(samples[c][k])->freq / corpus_freq_sum;
-
 					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
 
-					if(samples[c][k] != samples[c][0] && rnd < freq) {
+					if(samples[c][k] != samples[c][0] && rnd > freq) {
 						break;
 					}
 				}
@@ -926,7 +943,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	}
 
 #ifdef FLAG_LOG
-		echo_cond(*success, "Prediction %scorrect (%lf sec)", *success ? "" : "not ", time_get(elapsed_time));
+	echo_cond(*success, "Prediction %scorrect (%lf sec)", *success ? "" : "not ", time_get(elapsed_time));
 #endif
 }
 
@@ -936,6 +953,11 @@ void nn_start() {
 	if(done++) {
 		return;
 	}
+
+	signal(SIGBUS, sigget);
+	signal(SIGFPE, sigget);
+	signal(SIGILL, sigget);
+	signal(SIGSEGV, sigget);
 
 	srand(time(0));
 
@@ -1145,7 +1167,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	echo("Encoding sentence \"%s\"", sentence);
 #endif
 
-	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
+	memset(vector, 0, hidden_max * sizeof(dt_float));
 
 	dt_int index, sent_end;
 	const dt_char* sep = WORD_DELIMITERS;
@@ -1161,7 +1183,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 				continue;
 			}
 
-			for(j = 0; j < HIDDEN_MAX; j++) {
+			for(j = 0; j < hidden_max; j++) {
 				vector[j] += w_ih[index][j];
 			}
 		}

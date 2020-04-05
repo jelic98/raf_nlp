@@ -11,7 +11,7 @@ clean:
 	rm -f $(OUT)
 
 build: $(IN)
-	$(CC) $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
+	$(CC) -g -rdynamic $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)
 	./$(OUT)

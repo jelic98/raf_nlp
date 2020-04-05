@@ -12,6 +12,8 @@
 #include <limits.h>
 #include <float.h>
 #include <unistd.h>
+#include <signal.h>
+#include <execinfo.h>
 #include <sys/time.h>
 
 #endif

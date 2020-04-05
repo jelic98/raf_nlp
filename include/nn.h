@@ -11,11 +11,12 @@
 #define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
 
-#define MONTE_CARLO_FACTOR 0.1
+#define MONTE_CARLO_FACTOR 1.0
 #define MONTE_CARLO_EMERGENCY 10
 #define INVALID_INDEX_MAX 10
 #define LOG_PERIOD_PASS 100
 #define LOG_PERIOD_CORPUS 500
+#define BACKTRACE_DEPTH 10
 
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
@@ -32,7 +33,7 @@
 // Flags
 #define FLAG_LOG
 #define FLAG_DEBUG
-#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_NEGATIVE_SAMPLING
 //#define FLAG_STEM
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
@@ -65,11 +66,15 @@
 #define random(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
+typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
 #define echo(...) echo_color(NONE, __VA_ARGS__)
 #define echo_info(...) echo_color(YELLOW, "INFO: " __VA_ARGS__)
 #define echo_succ(...) echo_color(GREEN, "SUCCESS: " __VA_ARGS__)
 #define echo_fail(...) echo_color(RED, "FAIL: " __VA_ARGS__)
 #define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
+#ifdef FLAG_DEBUG
+#define debug(...) echo_color(MAGENTA, "DEBUG: " __VA_ARGS__)
+#endif
 #endif
 
 // Internal data limits
