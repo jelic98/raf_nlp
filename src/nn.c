@@ -808,7 +808,12 @@ static void calculate_error() {
 
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
+#ifdef FLAG_NEGATIVE_SAMPLING
+		for(c = 0; c < center->context_max; c++) {
+			k = center->target[c]->index;
+#else
 		for(k = 0; k < output_max; k++) {
+#endif
 			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
 	}
@@ -818,7 +823,12 @@ static void update_input_layer_weights() {
 	dt_float ei;
 
 	for(j = 0; j < hidden_max; j++) {
+#ifdef FLAG_NEGATIVE_SAMPLING
+		for(ei = c = 0; c < center->context_max; c++) {
+			k = center->target[c]->index;
+#else
 		for(ei = k = 0; k < output_max; k++) {
+#endif
 			ei += error[k] * w_ho[j][k];
 		}
 
@@ -836,7 +846,7 @@ static void negative_sampling() {
 	for(c = 0; c < center->context_max; c++) {
 		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
 
-		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]; samples[c][0] = ++k)
+		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k)
 			;
 
 		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {

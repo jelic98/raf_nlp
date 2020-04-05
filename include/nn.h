@@ -32,7 +32,7 @@
 // Flags
 #define FLAG_LOG
 #define FLAG_DEBUG
-//#define FLAG_NEGATIVE_SAMPLING
+#define FLAG_NEGATIVE_SAMPLING
 //#define FLAG_STEM
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
