@@ -289,7 +289,7 @@ static void bst_print(xWord* root) {
 	if(root) {
 		bst_print(root->left);
 #ifdef FLAG_LOG
-		echo("Corpus #%d:\t%s (%d)", root->index, root->word, root->freq);
+		echo_info("Corpus #%d:\t%s (%d)", root->index, root->word, root->freq);
 		list_context_print(root->context);
 #endif
 		bst_print(root->right);
@@ -557,6 +557,7 @@ static void resources_release() {
 static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo("Initializing corpus");
+	elapsed_time = clock();
 #endif
 
 	FILE* fin = fopen(CORPUS_PATH, "r");
@@ -691,7 +692,7 @@ static void initialize_corpus() {
 	}
 
 #ifdef FLAG_LOG
-	echo_succ("Done initializing corpus");
+	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));	
 #endif
 }
 
@@ -835,9 +836,10 @@ static void negative_sampling() {
 }
 #endif
 
-static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
+static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 #ifdef FLAG_LOG
 	echo_info("Center: %s", word);
+	elapsed_time = clock();
 #endif
 
 	dt_int index = word_to_index(word);
@@ -877,11 +879,11 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
 		}
 
 		if(index == 1) {
-			*result = 0;
+			*success = 0;
 
 			for(c = 0; c < center->context_max; c++) {
 				if(center->target[c]->index == context_index) {
-					*result = 1;
+					*success = 1;
 					break;
 				}
 			}
@@ -891,6 +893,10 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
 		echo("#%d\t%lf\t%s", index, pred[k].prob, pred[k].word);
 #endif
 	}
+
+#ifdef FLAG_LOG
+		echo_cond(*success, "%s (%lf sec)", *success ? "SUCCESS" : "FAIL", time_get(elapsed_time));	
+#endif
 }
 
 void nn_start() {
@@ -946,11 +952,10 @@ void training_run() {
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
 		echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
+		elapsed_time = clock();
 #endif
 
 		initialize_epoch();
-
-		elapsed_time = clock();
 
 		for(p1 = 0; p1 < pattern_max; p1++) {
 #ifdef FLAG_LOG
@@ -1006,10 +1011,6 @@ void test_run() {
 			test_predict(line, 5, &success);
 			tries_sum += success;
 		}
-
-#ifdef FLAG_LOG
-		echo_cond(success, success ? "SUCCESS" : "FAIL");
-#endif
 	}
 
 	if(fclose(ftest) == EOF) {

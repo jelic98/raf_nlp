@@ -2,7 +2,6 @@
 #include "nn.h"
 #include "stmr.h"
 
-// TODO does weight init get called if weights are loaded?
 // TODO [BACKUP] save weights after each epoch
 
 // TODO [PARSER] multithreading
@@ -12,6 +11,7 @@
 // TODO [MODEL] normal distribution for weight initialization
 // TODO [MODEL] run training in batches
 
+// TODO [MISC] tracking elapsed time for testing and parsing
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
 
