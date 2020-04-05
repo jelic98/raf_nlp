@@ -46,10 +46,11 @@ static dt_float time_get(clock_t start) {
 }
 
 static void timestamp() {
-	time_t now = time(NULL);
-	dt_char s[22];
-	strftime(s, sizeof(s) / sizeof(*s), "%d-%m-%Y %H:%M:%S", gmtime(&now));
-	fprintf(flog, "[%s] ", s);
+	struct timeval tv;
+	dt_char s[20];
+	gettimeofday(&tv, NULL);
+	strftime(s, sizeof(s) / sizeof(*s), "%d-%m-%Y %H:%M:%S", gmtime(&tv.tv_sec));
+	fprintf(flog, "[%s.%03d] ", s, tv.tv_usec / 1000);
 }
 
 static void echo(const dt_char* format, ...) {
@@ -145,7 +146,7 @@ static void list_context_print(xContext* root) {
 
 	while(root) {
 #ifdef FLAG_LOG
-		fprintf(flog, "Context #%d:\t%s\n", ++index, root->word->word);
+		echo("Context #%d:\t%s\n", ++index, root->word->word);
 #endif
 		root = root->next;
 	}
@@ -268,7 +269,7 @@ static void bst_print(xWord* root) {
 	if(root) {
 		bst_print(root->left);
 #ifdef FLAG_LOG
-		fprintf(flog, "Corpus #%d:\t%s (%d)\n", root->index, root->word, root->freq);
+		echo("Corpus #%d:\t%s (%d)\n", root->index, root->word, root->freq);
 		list_context_print(root->context);
 #endif
 		bst_print(root->right);
@@ -356,12 +357,12 @@ static void invalid_index_print() {
 
 		for(i = 0; i < invalid_index_last; i++) {
 #ifdef FLAG_LOG
-			fprintf(flog, "Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
+			echo("Invalid index %d:\t%d\n", i + 1, invalid_index[i]);
 #endif
 		}
 	} else {
 #ifdef FLAG_LOG
-		fprintf(flog, "No invalid indices\n");
+		echo("No invalid indices\n");
 #endif
 	}
 }
@@ -422,27 +423,27 @@ static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
 static void resources_allocate() {
 	onehot = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "onehot", 1, pattern_max);
+	echo("Dimension of %s is %dx%d\n", "onehot", 1, pattern_max);
 #endif
 
 	input = (xBit*) calloc(input_max, sizeof(xBit));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "input", 1, input_max);
+	echo("Dimension of %s is %dx%d\n", "input", 1, input_max);
 #endif
 
 	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "hidden", 1, hidden_max);
+	echo("Dimension of %s is %dx%d\n", "hidden", 1, hidden_max);
 #endif
 
 	output = (dt_float*) calloc(output_max, sizeof(dt_float));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "output", 1, output_max);
+	echo("Dimension of %s is %dx%d\n", "output", 1, output_max);
 #endif
 
 	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "output_raw", 1, output_max);
+	echo("Dimension of %s is %dx%d\n", "output_raw", 1, output_max);
 #endif
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
@@ -450,7 +451,7 @@ static void resources_allocate() {
 		w_ih[i] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 	}
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "w_ih", input_max, hidden_max);
+	echo("Dimension of %s is %dx%d\n", "w_ih", input_max, hidden_max);
 #endif
 
 	w_ho = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
@@ -458,17 +459,17 @@ static void resources_allocate() {
 		w_ho[j] = (dt_float*) calloc(output_max, sizeof(dt_float));
 	}
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "w_ho", hidden_max, output_max);
+	echo("Dimension of %s is %dx%d\n", "w_ho", hidden_max, output_max);
 #endif
 
 	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "patterns", 1, pattern_max);
+	echo("Dimension of %s is %dx%d\n", "patterns", 1, pattern_max);
 #endif
 
 	error = (dt_float*) calloc(output_max, sizeof(dt_float));
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "error", 1, output_max);
+	echo("Dimension of %s is %dx%d\n", "error", 1, output_max);
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -477,7 +478,7 @@ static void resources_allocate() {
 		samples[p] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
 	}
 #ifdef FLAG_LOG
-	fprintf(flog, "Dimension of %s is %dx%d\n", "samples", pattern_max, NEGATIVE_SAMPLES_MAX);
+	echo("Dimension of %s is %dx%d\n", "samples", pattern_max, NEGATIVE_SAMPLES_MAX);
 #endif
 #endif
 }
@@ -527,7 +528,7 @@ static void resources_release() {
 
 static void initialize_corpus() {
 #ifdef FLAG_LOG
-	fprintf(flog, "Initializing corpus\n");
+	echo("Initializing corpus\n");
 #endif
 
 	FILE* fin = fopen(CORPUS_PATH, "r");
@@ -535,13 +536,13 @@ static void initialize_corpus() {
 
 	if(!fstop || !fstop) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 		return;
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Loading stop words\n");
+	echo("Loading stop words\n");
 #endif
 
 	dt_char line[LINE_CHARACTER_MAX];
@@ -559,7 +560,7 @@ static void initialize_corpus() {
 	xWord* window[WINDOW_MAX] = { 0 };
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Reading corpus file\n");
+	echo("Reading corpus file\n");
 #endif
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
@@ -578,7 +579,7 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 					if(!(pattern_max % LOG_PERIOD_CORPUS)) {
-						fprintf(flog, "Corpus grown to %d\n", pattern_max);
+						echo("Corpus grown to %d\n", pattern_max);
 					}
 #endif
 				}
@@ -607,7 +608,7 @@ static void initialize_corpus() {
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Allocating resources\n");
+	echo("Allocating resources\n");
 #endif
 
 	resources_allocate();
@@ -617,7 +618,7 @@ static void initialize_corpus() {
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Creating corpus map\n");
+	echo("Creating corpus map\n");
 #endif
 
 	dt_int index = 0;
@@ -628,14 +629,14 @@ static void initialize_corpus() {
 #endif
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Building word targets\n");
+	echo("Building word targets\n");
 #endif
 
 	bst_target(corpus);
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_LOG
-	fprintf(flog, "Calculating word frequency\n");
+	echo("Calculating word frequency\n");
 #endif
 
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
@@ -644,7 +645,7 @@ static void initialize_corpus() {
 
 	if(fclose(fin) == EOF || fclose(fstop) == EOF) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 	}
 }
@@ -657,7 +658,7 @@ static dt_int cmp_words(const void* a, const void* b) {
 
 static void initialize_weights() {
 #ifdef FLAG_LOG
-	fprintf(flog, "Initializing weights\n");
+	echo("Initializing weights\n");
 #endif
 
 	for(i = 0; i < input_max; i++) {
@@ -801,7 +802,7 @@ static void negative_sampling() {
 
 static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
 #ifdef FLAG_LOG
-	fprintf(flog, "Center: %s\n", word);
+	echo("Center: %s\n", word);
 #endif
 
 	dt_int index = word_to_index(word);
@@ -852,7 +853,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* result) {
 		}
 
 #ifdef FLAG_LOG
-		fprintf(flog, "#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
+		echo("#%d\t%lf\t%s\n", index, pred[k].prob, pred[k].word);
 #endif
 	}
 }
@@ -894,7 +895,7 @@ void nn_finish() {
 
 #ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 	}
 #endif
 }
@@ -902,14 +903,14 @@ void nn_finish() {
 void training_run() {
 #ifdef FLAG_LOG
 	clock_t start_time = clock();
-	fprintf(flog, "Started training\n");
+	echo("Started training\n");
 #endif
 
 	initialize_weights();
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
-		fprintf(flog, "Started epoch %d/%d\n", epoch + 1, EPOCH_MAX);
+		echo("Started epoch %d/%d\n", epoch + 1, EPOCH_MAX);
 #endif
 
 		initialize_epoch();
@@ -919,7 +920,7 @@ void training_run() {
 		for(p1 = 0; p1 < pattern_max; p1++) {
 #ifdef FLAG_LOG
 			if(!(p1 % LOG_PERIOD_PASS)) {
-				fprintf(flog, "Started pass %d/%d\n", p1 + 1, pattern_max);
+				echo("Started pass %d/%d\n", p1 + 1, pattern_max);
 			}
 #endif
 			initialize_input();
@@ -935,26 +936,26 @@ void training_run() {
 		}
 
 #ifdef FLAG_LOG
-		fprintf(flog, "Finished epoch %d/%d (%lf sec)\n", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
+		echo("Finished epoch %d/%d (%lf sec)\n", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
 #endif
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Finished training (%lf sec)\n", time_get(start_time));
+	echo("Finished training (%lf sec)\n", time_get(start_time));
 #endif
 }
 
 void test_run() {
 #ifdef FLAG_LOG
 	clock_t start_time = clock();
-	fprintf(flog, "Started test\n");
+	echo("Started test\n");
 #endif
 
 	FILE* ftest = fopen(TEST_PATH, "r");
 
 	if(!ftest) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 		return;
 	}
@@ -972,25 +973,25 @@ void test_run() {
 		}
 
 #ifdef FLAG_LOG
-		fprintf(flog, "Correct: %s\n", result ? "YES" : "NO");
+		echo("Correct: %s\n", result ? "YES" : "NO");
 #endif
 	}
 
 	if(fclose(ftest) == EOF) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Precision: %.1lf%%\n", 100.0 * tries_sum / test_count);
-	fprintf(flog, "Finished test (%lf sec)\n", time_get(start_time));
+	echo("Precision: %.1lf%%\n", 100.0 * tries_sum / test_count);
+	echo("Finished test (%lf sec)\n", time_get(start_time));
 #endif
 }
 
 void weights_save() {
 #ifdef FLAG_LOG
-	fprintf(flog, "Started saving weights\n");
+	echo("Started saving weights\n");
 #endif
 
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
@@ -998,7 +999,7 @@ void weights_save() {
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 		return;
 	}
@@ -1021,18 +1022,18 @@ void weights_save() {
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Finished saving weights\n");
+	echo("Finished saving weights\n");
 #endif
 }
 
 void weights_load() {
 #ifdef FLAG_LOG
-	fprintf(flog, "Started loading weights\n");
+	echo("Started loading weights\n");
 #endif
 
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "r");
@@ -1040,7 +1041,7 @@ void weights_load() {
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 		return;
 	}
@@ -1059,18 +1060,18 @@ void weights_load() {
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
 #ifdef FLAG_LOG
-		fprintf(flog, FILE_ERROR_MESSAGE);
+		echo(FILE_ERROR_MESSAGE);
 #endif
 	}
 
 #ifdef FLAG_LOG
-	fprintf(flog, "Finished loading weights\n");
+	echo("Finished loading weights\n");
 #endif
 }
 
 void sentence_encode(dt_char* sentence, dt_float* vector) {
 #ifdef FLAG_LOG
-	fprintf(flog, "Encoding sentence \"%s\"\n", sentence);
+	echo("Encoding sentence \"%s\"\n", sentence);
 #endif
 	
 	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
