@@ -675,11 +675,14 @@ static void initialize_weights() {
 }
 
 static void initialize_epoch() {
+	// TODO
+	/*
 	for(p = 0; p < pattern_max; p++) {
 		p2 = patterns[p];
 		patterns[p] = patterns[p1 = p + random(0, 1) * (pattern_max - p)];
 		patterns[p1] = p2;
 	}
+	*/
 
 	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
 }
@@ -728,19 +731,9 @@ static void normalize_output_layer() {
 }
 
 static void calculate_error() {
-	dt_float error_t[center->context_max][output_max];
-
-	for(c = 0; c < center->context_max; c++) {
-		for(k = 0; k < output_max; k++) {
-			error_t[c][k] = output[k] - (k == center->target[c]->index);
-		}
-	}
-
 	for(k = 0; k < output_max; k++) {
-		error[k] = 0.0;
-
-		for(c = 0; c < center->context_max; c++) {
-			error[k] += error_t[c][k];
+		for(error[k] = c = 0; c < center->context_max; c++) {
+			error[k] += output[k] - (k == center->target[c]->index);
 		}
 	}
 }
@@ -754,18 +747,14 @@ static void update_hidden_layer_weights() {
 }
 
 static void update_input_layer_weights() {
-	dt_float error_t[hidden_max];
+	dt_float ei;
 
 	for(j = 0; j < hidden_max; j++) {
-		error_t[j] = 0.0;
-
-		for(k = 0; k < output_max; k++) {
-			error_t[j] += error[k] * w_ho[j][k];
+		for(ei = k = 0; k < output_max; k++) {
+			ei += error[k] * w_ho[j][k];
 		}
-	}
-
-	for(j = 0; j < hidden_max; j++) {
-		w_ih[p][j] -= alpha * input[p].on * error_t[j];
+		
+		w_ih[p][j] -= alpha * input[p].on * ei;
 	}
 }
 

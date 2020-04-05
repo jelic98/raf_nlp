@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 6
@@ -15,7 +15,7 @@
 #define MONTE_CARLO_EMERGENCY 10
 #define INVALID_INDEX_MAX 10
 #define LOG_PERIOD_PASS 100
-#define LOG_PERIOD_CORPUS 250
+#define LOG_PERIOD_CORPUS 500
 
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
