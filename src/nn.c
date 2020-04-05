@@ -588,7 +588,7 @@ static void initialize_corpus() {
 #endif
 
 	dt_int success, sent_end;
-	dt_char* sep = WORD_DELIMITERS;
+	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
 	xWord* window[WINDOW_MAX] = { 0 };
 
@@ -913,6 +913,7 @@ void nn_start() {
 #endif
 
 	initialize_corpus();
+	initialize_weights();
 }
 
 void nn_finish() {
@@ -947,8 +948,6 @@ void training_run() {
 	echo("Started training");
 #endif
 
-	initialize_weights();
-
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
 		echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
@@ -974,6 +973,10 @@ void training_run() {
 			update_hidden_layer_weights();
 			update_input_layer_weights();
 		}
+
+#ifdef FLAG_BACKUP_WEIGHTS
+		weights_save();
+#endif
 
 #ifdef FLAG_LOG
 		echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
@@ -1064,7 +1067,7 @@ void weights_save() {
 	}
 
 #ifdef FLAG_LOG
-	echo("Finished saving weights");
+	echo_succ("Finished saving weights");
 #endif
 }
 
@@ -1102,7 +1105,7 @@ void weights_load() {
 	}
 
 #ifdef FLAG_LOG
-	echo("Finished loading weights");
+	echo_succ("Finished loading weights");
 #endif
 }
 
@@ -1114,7 +1117,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	memset(vector, 0, HIDDEN_MAX * sizeof(dt_float));
 
 	dt_int index, sent_end;
-	dt_char* sep = WORD_DELIMITERS;
+	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok = strtok(sentence, sep);
 
 	while(tok) {

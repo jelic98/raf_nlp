@@ -2,8 +2,6 @@
 #include "nn.h"
 #include "stmr.h"
 
-// TODO [BACKUP] save weights after each epoch
-
 // TODO [PARSER] multithreading
 
 // TODO [MODEL] negative sampling
