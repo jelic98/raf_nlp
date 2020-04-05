@@ -9,7 +9,6 @@
 // TODO [MODEL] normal distribution for weight initialization
 // TODO [MODEL] run training in batches
 
-// TODO [MISC] add timestamp in log
 // TODO [MISC] all functions should be void
 // TODO [MISC] print memory allocation errors
 

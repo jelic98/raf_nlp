@@ -40,9 +40,26 @@ static dt_int** samples;
 static FILE* flog;
 #endif
 
+#ifdef FLAG_LOG
 static dt_float time_get(clock_t start) {
 	return (dt_float)(clock() - start) / CLOCKS_PER_SEC;
 }
+
+static void timestamp() {
+	time_t now = time(NULL);
+	dt_char s[22];
+	strftime(s, sizeof(s) / sizeof(*s), "%d-%m-%Y %H:%M:%S", gmtime(&now));
+	fprintf(flog, "[%s] ", s);
+}
+
+static void echo(const dt_char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	timestamp();
+	vfprintf(flog, format, args);
+	va_end(args);
+}
+#endif
 
 static dt_int* map_get(const dt_char* word) {
 	dt_uint h = 0;
