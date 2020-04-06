@@ -10,6 +10,7 @@
 // TODO [PARSER] multithreading
 // TODO [MISC] all functions should be void
 // TODO [MISC] match every malloc with free
+// TODO [MISC] isolate modules into separate headers
 
 int main() {
 	nn_start();
