@@ -785,6 +785,7 @@ static void forward_propagate_hidden_layer() {
 }
 
 static void normalize_output_layer() {
+	// L = -1/N * SUM(LOG(SIGM(EMB(POS)*EMB(CENTER) - SUM(EMB(NEG)*EMB(CENTER)))))
 	dt_float out_max = DT_FLOAT_MIN;
 
 	for(k = 0; k < output_max; k++) {
@@ -835,7 +836,7 @@ static void update_input_layer_weights() {
 #ifdef FLAG_NEGATIVE_SAMPLING
 		for(ei = c = 0; c < center->context_max; c++) {
 			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-				k = center->target[c]->index;
+				k = samples[center->target[c]->index][ck];
 				ei += error[k] * w_ho[j][k];
 			}
 		}
