@@ -1,6 +1,6 @@
 ## TODO
 
-Features to be implemented in the future in no particular order.
+Features to be implemented in no particular order.
 
 ### Parser
 
@@ -19,7 +19,7 @@ Features to be implemented in the future in no particular order.
 * match every malloc with free (bug in 3.txt corpus)
 * isolate modules into separate headers
 
-### Paper
+### Note
 
 * parser
 * vocabulary architecture
