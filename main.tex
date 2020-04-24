@@ -1,0 +1,74 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,mathpazo}
+\usepackage{parskip}
+
+\title{SGSN word embedder optimization}
+\author{Lazar Jelić}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+This note provides new insight on time and memory optimization techniques for
+skip-gram word embedding neural network with autoencoder architecture.
+
+\end{abstract}
+
+\section{Introduction}
+
+There are some ways to optimize computations and memory usage in the
+original word2vec implementation. In this note we explore some of them.
+
+\section{Implementation}
+
+We are implementing word embedder using C programming language.
+
+\subsection{Network architecture}
+
+As in the original word2vec implementation, we are using autoencoder
+architecture which is capable of discovering structure within data in order
+to develop a compressed representation of the input. If we pass word from
+vocabulary to the input layer, then this representation will be word embedding.
+
+\medbreak
+
+Network consists of $3$ layers and $2$ weight matrices between them.
+
+The first layer is the input layer which is onehot vector that uniquely represents a given word in the vocabulary.
+We can denote it's vector as $\boldsymbol{i}$ and it's size as $I$.
+
+\medbreak
+
+The second layer is the hidden layer which input is the ouput from the input
+layer.
+We can denote it's vector as $\boldsymbol{h}$ and it's size as $J$.
+
+\medbreak
+
+The third layer is the output layer which input is the ouput from the hidden
+layer.
+We can denote it's vector as $\boldsymbol{o}$ and it's size as $K$.
+
+\medbreak
+
+Weights between input and hidden layer. We can denote this matrix as $V$.
+
+\medbreak
+
+Weights between hidden and output layer. We can denote this matrix as $W$.
+
+\subsection{Backpropagation}
+
+Backpropagation is done using relationships defined by
+
+\begin{align*}
+	&p(w_{c,j} = w_{O,c} | w_I) = y_{c,j} = \frac{e^{u_{c,j}}}{\sum_{j^\prime=1}^V e^u_{j^\prime}} \\
+	&u_{c,j} = u_j = \boldsymbol{v^{\prime\top}} \cdot \boldsymbol{h}
+\end{align*}
+
+\end{document}

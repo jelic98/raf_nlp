@@ -4,3 +4,6 @@
 .DS_Store
 *.out
 *.swp
+*.aux
+*.log
+*.synctex.gz
