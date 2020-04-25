@@ -23,7 +23,6 @@ Features to be implemented in no particular order.
 ### Note
 
 * parser
-* vocabulary architecture
 * negative sampling
 * train/test pseudocode
 * no loss function

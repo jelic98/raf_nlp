@@ -643,6 +643,7 @@ static void initialize_corpus() {
 #endif
 				}
 
+				// TODO Window sliding is ignoring sentence termination?
 				window[WINDOW_MAX - 1] = node;
 
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
@@ -1055,6 +1056,7 @@ void test_run() {
 	dt_char line[LINE_CHARACTER_MAX];
 	dt_int test_count = -1, success = 0, tries_sum = 0, sent_end;
 
+	// TODO Increment test_count only if word is not stop word
 	while(test_count++, fgets(line, LINE_CHARACTER_MAX, ftest)) {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
@@ -1073,6 +1075,7 @@ void test_run() {
 
 #ifdef FLAG_LOG
 	dt_float prec = 100.0 * tries_sum / test_count;
+	// TODO Condition >0.5 is always true since multiplying with 100?
 	echo_cond(prec > 0.5, "Precision: %.1lf%%", prec);
 	echo_succ("Finished test (%lf sec)", time_get(start_time));
 #endif
