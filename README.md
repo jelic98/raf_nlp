@@ -19,11 +19,3 @@ Features to be implemented in no particular order.
 * match every malloc with free (bug in 3.txt corpus)
 * isolate modules into separate headers
 * file read/write binary data instad of text
-
-### Note
-
-* parser
-* negative sampling
-* train/test pseudocode
-* no loss function
-* sentence encoding

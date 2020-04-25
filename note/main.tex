@@ -3,7 +3,23 @@
 \usepackage[T1]{fontenc}
 \usepackage{amsmath}
 \usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{graphicx}
 \usepackage[ruled,vlined]{algorithm2e}
+
+\SetKwProg{Fn}{Function}{ is}{}
+\newcommand{\SetAlgoStyle}{
+	\SetAlgoNoLine
+	\SetAlgoNoEnd
+	\DontPrintSemicolon
+}
+
+\newcommand{\fig}[2]{
+	\begin{figure}[!htb]
+		\center{\includegraphics[width=\textwidth,keepaspectratio]{res/#1}}
+		\caption{\label{fig:caption} #2}
+	\end{figure}
+}
 
 \title{SGSN word embedder optimization}
 \author{Lazar Jelić}
@@ -25,7 +41,8 @@ skip-gram word embedding neural network with autoencoder architecture.
 \section{Introduction}
 
 There are some ways to optimize computations and memory usage in the
-original word2vec implementation. In this note we explore some of them.
+original word2vec implementation. In this note we explore some of them. Source
+code can be found at \url{https://github.com/jelic98/raf_nlp}.
 
 \pagebreak
 
@@ -76,11 +93,34 @@ Vocabulary is stored in memory as BST. Each node has the following
 	\item vocabulary index
 	\item number of occurences in a corpus file
 	\item size of context BoW
-	\item linked list of context BoW
+	\item context BoW as linked list
 	\item auxiliary pointers
 \end{itemize}
 
-\subsection{Corpus initialization}
+\subsection{Parsing pipeline}
+
+Parsing pipeline overview is as follows
+
+\begin{algorithm}[H]
+	\SetAlgoStyle
+	$vocab \gets$ BinarySearchTree()\;
+		\For{$word$ \textbf{in} $vocab$}{
+			clean($word$)\;
+			\If{$word \notin stopWords$}{
+				$center \gets$ createNode($word$)\;
+				insertBST($vocab$, $center$)\;
+				$window[WINDOW\_MAX] \gets center$\;
+				\For{$c \gets 0$ \textbf{to} $WINDOW\_MAX - 1$}{
+					\If{$window[c] \neq center$}{
+						insertList($center.context$, $window[c]$)\;
+						insertList($window[c].context$, $center$)\;
+					}
+					$window[c] = window[c+1]$\;
+				}
+			}
+		}
+	\caption{Parsing pipeline}
+\end{algorithm}
 
 Firstly, we are reading a corpus file, i.e. unfiltered file with sentences.
 While we are doing that, we are cleaning the corpus by removing special
@@ -121,13 +161,14 @@ high-frquency words.
 \subsection{Weights initialization}
 
 For now, we are using just a randomly sampled real numbers from uniform distrubution in the interval
-$[0, 1]$. Model accuracy could increase if we use Gaussian distrubution for
-generating initial weights values.
+$[0, 1]$. Prediction accuracy could increase if we'd sample initial weight values from Gaussian
+distrubution.
 
 \subsection{Training pipeline}
 
 Training phase consists of multiple epochs and in each one of them passing
-every vocabulary word to input layer. Notice that we are done reading the file
+every vocabulary word to input layer. We are not calculating loss function
+because it's value is not required. Notice that we are done reading the file
 and training phase is using only generated vocabulary from previous phase.
 This results in training the network for a particular word only once and
 independent of it's frequency.
@@ -145,17 +186,17 @@ Given a vocabulary $\mathcal{V}$, for each $\boldsymbol{x} \in \mathcal{V}$ run 
 Training pipeline overview is as follows
 
 \begin{algorithm}[H]
-	\SetAlgoLined
+	\SetAlgoStyle
 	\For{$epoch \gets 0$ \textbf{to} $EPOCH\_MAX$}{
-		$shuffled \gets$ shuffle(vocabulary)\;
-		\For{$word$ \textbf{in} $shuffled$}{
-			propagate\_forward()\;
-			normalize\_output()\;
-			sample\_negatives()\;
-			calculate\_error()\;
-			propagate\_backward()\;
+		$vocab \gets$ shuffle(vocab)\;
+		\For{$word$ \textbf{in} $vocab$}{
+			propagateForward()\;
+			normalizeOutput()\;
+			sampleNegatives()\;
+			calculateError()\;
+			propagateBackward()\;
 		}
-		sarialize\_weights()\;
+		sarializeWeights()\;
 	}
 	\caption{Training pipeline}
 \end{algorithm}
@@ -165,14 +206,15 @@ Training pipeline overview is as follows
 Testing pipeline overview is as follows
 
 \begin{algorithm}[H]
-	\SetAlgoLined
-	$pred\_success \gets pred\_total \gets 0$\;
+	\SetAlgoStyle
+	$success \gets total \gets 0$\;
 	\For{$word$ \textbf{in} $test$}{
 		clean($word$)\;
-		\If{$word \notin stop\_words$}{
-			propagate\_forward()\;
-			normalize\_output()\;
-			$pred \gets$ argmax($output$)\;
+		\If{$word \notin stopWords$}{
+			propagateForward()\;
+			normalizeOutput()\;
+			$prob \gets max(output)$
+			$pred \gets$ indexOf($prob$)\;
 			\If{$word = pred$}{
 				$success \gets success + 1$\;
 			}
@@ -183,39 +225,105 @@ Testing pipeline overview is as follows
 	\caption{Testing pipeline}
 \end{algorithm}
 
-\subsection{Backpropagation}
+\subsection{Process of learning}
 
-Backpropagation is done using relationships defined by
+Forawrd propagation of input is done as follows
 
-\addtolength{\jot}{1em}
 \begin{align}
-	&\boldsymbol{h} = \boldsymbol{V} \cdot \boldsymbol{x}^\top \\
 	&h_j = \sum_{i=1}^I x_i \cdot V_{ij} \\
-	&\boldsymbol{y} = \boldsymbol{W} \cdot \boldsymbol{h}^\top \\
 	&y_k = \sum_{j=1}^J h_j \cdot W_{jk} \\
-	&E = \frac{1}{2K} \cdot \sum_{k=1}^K (y_k - t_k)^2 \\
-	&\begin{aligned}
-		\frac{\partial E}{\partial y_k} &= \frac{\partial}{\partial y_k} \Big(\frac{1}{2K} \cdot (y_k - t_k)^2\Big) \\
-		&= \frac{\partial}{\partial y_k} \Big(\frac{1}{2K} \cdot (y_k^2 - 2y_kt_k + t_k^2)\Big) \\
-		&= \frac{1}{2K} \cdot \frac{\partial}{\partial y_k} \Big(y_k^2 - 2y_kt_k + t_k^2\Big) \\
-		&= \frac{1}{2K} \cdot (2y_k - 2) \\
-		&= \frac{1}{2K} \cdot 2 \cdot (y_k - 1) \\
-		&= \frac{1}{K} \cdot (y_k - 1)
-	\end{aligned} \\
-	&\begin{aligned}
-		\frac{\partial y_k}{\partial W_{jk}} = \frac{\partial}{\partial W_{jk}} \Big(h_j \cdot W_{jk}\Big) = h_j
-	\end{aligned} \\
-	&\begin{aligned}
-		\frac{\partial h_j}{\partial V_{ji}} = \frac{\partial}{\partial V_{ij}} \Big(x_i \cdot V_{ij}\Big) = x_i
-	\end{aligned} \\
-	&\begin{aligned}
-		\frac{\partial E}{\partial W_{jk}} = \frac{\partial E}{\partial y_k} \cdot \frac{\partial y_k}{\partial W_{jk}} = \frac{1}{K} \cdot (y_k - 1) \cdot h_j
-	\end{aligned} \\
-	&\begin{aligned}
-		\frac{\partial E}{\partial V_{ij}} &= \frac{\partial E}{\partial y_k} \cdot \frac{\partial y_k}{\partial V_{ij}} \\
-		&= \frac{\partial E}{\partial y_k} \cdot \frac{\partial y_k}{\partial h_j} \cdot \frac{\partial h_j}{\partial V_{ij}} \\
-		&= \frac{1}{K} \cdot (y_k - 1) \cdot W_{jk} \cdot x_i
-	\end{aligned}
+	&E = \frac{1}{2} \cdot \sum_{k=1}^K (y_k - t_k)^2
 \end{align}
+
+Backward error propagation is done using relationships defined by
+
+\begin{align}
+	&W_{jk}^\prime = W_{jk} - \alpha \cdot \frac{\partial E}{\partial W_{jk}}
+	\cdot y_k = W_{jk} - \alpha \cdot (y_k - t_k) \cdot h_j \cdot y_k \\
+	&V_{ij}^\prime = V_{ij} - \alpha \cdot \frac{\partial E}{\partial V_{ij}}
+	\cdot h_j = V_{ij} - \alpha \cdot (y_k - t_k) \cdot W_{jk} \cdot x_i \cdot
+	h_j
+\end{align}
+
+where $\alpha$ is a learning rate hyperparameter which value is decreasing as
+training progresses using simulated annealing technique.
+
+Partial derrivatives we've used are as follows
+
+\begin{align}
+	&\frac{\partial h_j}{\partial V_{ji}} = \frac{\partial}{\partial V_{ij}}
+	\Big(x_i \cdot V_{ij}\Big) = x_i \\
+	&\frac{\partial y_k}{\partial h_j} = \frac{\partial}{\partial h_j}
+	\Big(h_j \cdot W_{jk}\Big) = W_{jk} \\
+	&\frac{\partial y_k}{\partial W_{jk}} = \frac{\partial}{\partial W_{jk}}
+	\Big(h_j \cdot W_{jk}\Big) = h_j \\
+	&\frac{\partial E}{\partial y_k} = \frac{\partial}{\partial y_k}
+	\Big(\frac{1}{2} \cdot (y_k - t_k)^2\Big) = y_k - t_k \\
+	&\frac{\partial E}{\partial W_{jk}} = \frac{\partial E}{\partial y_k} \cdot
+	\frac{\partial y_k}{\partial W_{jk}} = (y_k - t_k) \cdot h_j \\
+	&\frac{\partial E}{\partial V_{ij}} = \frac{\partial E}{\partial y_k} \cdot
+	\frac{\partial y_k}{\partial V_{ij}} = \frac{\partial E}{\partial y_k} \cdot
+	\frac{\partial y_k}{\partial h_j} \cdot \frac{\partial h_j}{\partial V_{ij}}
+	= (y_k - t_k) \cdot W_{jk} \cdot x_i
+\end{align}
+
+\subsection{Hyperparameters}
+
+We are using hyperparameter defined below to tweak our network in order to get the best accuracy and performance.
+
+\begin{itemize}
+	\item $EPOCH\_MAX$ - Total epochs in per training
+	\item $HIDDEN\_MAX$ - Number of neurons in hidden layer
+	\item $WINDOW\_MAX$ - Size of sliding window, i.e. size of context BoW
+	\item $WEIGHT\_MAX$ - Upper bound for initial weight value sampling
+	\item $ALPHA\_MAX$ - Initial learning rate value
+	\item $ALPHA\_MIN$ - Final learning rate value
+	\item $SAMPLES\_MAX$ - Number of negative samples to pick
+	\item $FREQ\_FACTOR$ - Multiplies word's frequency while sampling
+	\item $SAMPLE\_EMERGENCY$ - Upper bound for unsuccessful samplings
+\end{itemize}
+
+\medbreak
+
+Value for $HIDDEN\_MAX$ hyperparameter would preferably be selected using a
+special algorithm proposed by Branislav Milojković.
+
+\subsection{Negative sampling}
+
+Implementation in progress.
+
+\pagebreak
+
+\section{Vector representations of sentences}
+
+Word embeddings on their own are useful for analyzing relationships between
+words, but encoding sentences can give us better semantic understanding of
+larger chunks of text. Sentence encoding is done as follows
+
+\begin{algorithm}[H]
+	\SetAlgoStyle
+	\Fn{encode(sentence)}{
+		\For{$word$ \textbf{in} $sentence$}{
+			clean($word$)\;
+			\If{$word \notin stopWords$}{
+				$i \gets$ indexOf($word$)\;
+				\For{$j \gets 0$ \textbf{to} $HIDDEN\_MAX$}{
+					$vec[j] \gets vec[j] + V[i][j]$\;
+				}
+			}
+		}
+		\Return{$vec$}\;
+	}
+	\caption{Sentence encoding}
+\end{algorithm}
+
+\pagebreak
+
+\section{Results and discussion}
+
+Show charts and tables showing test accuracy and preformance caused by tweaking
+hyperparameters.
+
+\fig{chart}{Caption example}
 
 \end{document}
