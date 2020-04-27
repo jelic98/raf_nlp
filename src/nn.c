@@ -767,9 +767,7 @@ static void initialize_input() {
 
 static void forward_propagate_input_layer() {
 	for(j = 0; j < hidden_max; j++) {
-		hidden[j] = 0.0;
-
-		for(i = 0; i < input_max; i++) {
+		for(hidden[j] = i = 0; i < input_max; i++) {
 			hidden[j] += input[i].on * w_ih[i][j];
 		}
 	}
@@ -777,16 +775,13 @@ static void forward_propagate_input_layer() {
 
 static void forward_propagate_hidden_layer() {
 	for(k = 0; k < output_max; k++) {
-		output[k] = 0.0;
-
-		for(j = 0; j < hidden_max; j++) {
+		for(output[k] = j = 0; j < hidden_max; j++) {
 			output[k] += hidden[j] * w_ho[j][k];
 		}
 	}
 }
 
 static void normalize_output_layer() {
-	// L = -1/N * SUM(LOG(SIGM(EMB(POS)*EMB(CENTER) - SUM(EMB(NEG)*EMB(CENTER)))))
 	dt_float out_max = DT_FLOAT_MIN;
 
 	for(k = 0; k < output_max; k++) {
@@ -815,18 +810,9 @@ static void calculate_error() {
 
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
-#ifdef FLAG_NEGATIVE_SAMPLING
-		for(c = 0; c < center->context_max; c++) {
-			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-				k = samples[center->target[c]->index][ck];
-				w_ho[j][k] -= alpha * hidden[j] * error[k];
-			}
-		}
-#else
 		for(k = 0; k < output_max; k++) {
 			w_ho[j][k] -= alpha * hidden[j] * error[k];
 		}
-#endif
 	}
 }
 
@@ -834,24 +820,26 @@ static void update_input_layer_weights() {
 	dt_float ei;
 
 	for(j = 0; j < hidden_max; j++) {
-#ifdef FLAG_NEGATIVE_SAMPLING
-		for(ei = c = 0; c < center->context_max; c++) {
-			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-				k = samples[center->target[c]->index][ck];
-				ei += error[k] * w_ho[j][k];
-			}
-		}
-#else
 		for(ei = k = 0; k < output_max; k++) {
 			ei += error[k] * w_ho[j][k];
 		}
-#endif
 
 		w_ih[p][j] -= alpha * input[p].on * ei;
 	}
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+/*
+NEGATIVE SAMPLING USAGE:
+#ifdef FLAG_NEGATIVE_SAMPLING
+	for(ei = c = 0; c < center->context_max; c++) {
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			// get index of sampled output neuron
+			k = samples[center->target[c]->index][ck];
+		}
+	}
+#endif
+*/
 static void negative_sampling() {
 	dt_int exit;
 	dt_float freq, rnd;
@@ -1015,10 +1003,10 @@ void training_run() {
 			initialize_input();
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
-			normalize_output_layer();
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
 #endif
+			normalize_output_layer();
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();

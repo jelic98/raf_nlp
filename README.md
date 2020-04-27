@@ -2,10 +2,6 @@
 
 Features to be implemented in no particular order.
 
-### Parser
-
-* multithreading
-
 ### Model
 
 * negative sampling
@@ -15,6 +11,7 @@ Features to be implemented in no particular order.
 
 ### Other
 
+* multithreading
 * all functions should be void
 * match every malloc with free (bug in 3.txt corpus)
 * isolate modules into separate headers
