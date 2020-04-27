@@ -5,7 +5,11 @@
 \usepackage{parskip}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning}
 \usepackage[ruled,vlined]{algorithm2e}
+
+\def\layersep{2.5cm}
 
 \SetKwProg{Fn}{Function}{ is}{}
 \newcommand{\SetAlgoStyle}{
@@ -16,7 +20,7 @@
 
 \newcommand{\fig}[2]{
 	\begin{figure}[!htb]
-		\center{\includegraphics[width=\textwidth,keepaspectratio]{res/#1}}
+		\center{\includegraphics[width=0.75\textwidth,keepaspectratio]{res/#1}}
 		\caption{\label{fig:caption} #2}
 	\end{figure}
 }
@@ -79,6 +83,51 @@ Weights between input and hidden layer. We can denote this matrix as $\boldsymbo
 \medbreak
 
 Weights between hidden and output layer. We can denote this matrix as $\boldsymbol{W}$.
+
+\tikzset{%
+	every neuron/.style={
+		circle,
+		draw,
+		minimum size=1.0cm
+	},
+	neuron missing/.style={
+		draw=none,
+		scale=2,
+		text height=0.25cm,
+		execute at begin node=\color{black}$\vdots$
+  }
+}
+
+\begin{figure}[!htb]
+\begin{center}
+\begin{tikzpicture}[x=1.5cm,y=1.5cm]
+	\foreach \m/\l [count=\y] in {1,2,missing,3}
+		\node [every neuron/.try, neuron \m/.try] (input-\m) at (0,2-\y) {};
+	\foreach \m [count=\y] in {1,missing,2}
+		\node [every neuron/.try, neuron \m/.try] (hidden-\m) at (2,1.5-\y) {};
+	\foreach \m/\l [count=\y] in {1,2,missing,3}
+		\node [every neuron/.try, neuron \m/.try] (output-\m) at (4,2-\y) {};
+	\foreach \l [count=\i] in {1,2,I}
+		\draw [<-] (input-\i) -- ++(-1,0)
+			node[above,xshift=1.5cm,yshift=-0.25cm] {$x_\l$};
+	\foreach \l [count=\i] in {1,J}
+		\node [above,yshift=-0.75cm] at (hidden-\i.north) {$h_\l$};
+	\foreach \l [count=\i] in {1,2,K}
+		\draw [->] (output-\i) -- ++(1,0)
+			node[above,xshift=-1.5cm,yshift=-0.25cm] {$y_\l$};
+	\foreach \i in {1,2,3}
+		\foreach \j in {1,2}
+			\draw [->] (input-\i) -- (hidden-\j);
+	\foreach \i in {1,2}
+		\foreach \j in {1,2,3}
+			\draw [->] (hidden-\i) -- (output-\j);
+	\node [align=center,above] at (0,1.5) {Input};
+	\node [align=center,above] at (2,1.5) {Hidden};
+	\node [align=center,above] at (4,1.5) {Output};
+\end{tikzpicture}
+\caption{\label{fig:caption} Netword layers}
+\end{center}
+\end{figure}
 
 \subsection{Vocabulary architecture}
 
@@ -228,8 +277,7 @@ Testing pipeline overview is as follows
 		\If{$word \notin stopWords$}{
 			propagateForward()\;
 			normalizeOutput()\;
-			$prob \gets max(output)$\;
-			$pred \gets$ indexOf($prob$)\;
+			$pred \gets argmax(output)$\;
 			\If{$word = pred$}{
 				$success \gets success + 1$\;
 			}
@@ -245,9 +293,22 @@ Testing pipeline overview is as follows
 Forawrd propagation of input is done as follows
 
 \begin{align}
-	&h_j = \sum_{i=1}^I x_i \cdot V_{ij} \\
-	&y_k = \sum_{j=1}^J h_j \cdot W_{jk} \\
-	&E = \frac{1}{2} \cdot \sum_{k=1}^K (y_k - t_k)^2 \\	
+	&h_j = \sum_{i=1}^I (x_i \cdot V_{ij}) \\
+	&y_k = \sum_{j=1}^J (h_j \cdot W_{jk}) \\
+	&t_k =
+	\begin{cases}
+		1, &\text{if } \boldsymbol{\mathcal{V}_k} \in \boldsymbol{C} \\
+		0, &\text{otherwise}
+	\end{cases} \\
+	&e_k = y_k - t_k \\
+	&l_j = \sum_{k=1}^K (e_k \cdot W_{jk}) \\
+	&\begin{aligned}
+		E &= -\log P(x_{c,1}, x_{c,2},\ldots,x_{c,C}|x_0) \\
+		&= -\log \prod_{c=1}^C P(x_{c,i}|x_0) \\
+		&= -\log \prod_{c=1}^C softmax(\boldsymbol{y_c}) \\
+		&= -\log \prod_{c=1}^C \frac{e^{y_{c,k^\prime}}}{\sum_{k=1}^K e^{y_{c,k}}} \\
+		&= \sum_{c=1}^C \log\sum_{k=1}^K e^{y_{c,k}} - \sum_{c=1}^C y_{c,k^\prime}
+	\end{aligned}
 \end{align}
 
 \begin{algorithm}[H]
@@ -256,66 +317,72 @@ Forawrd propagation of input is done as follows
 		\For{$j \gets 0$ \textbf{to} $J$}{
 			$h[j] \gets 0$\;
 			\For{$i \gets 0$ \textbf{to} $I$}{
-				$h[j] \gets h[j] + x[i] * V[i][j]$\;
+				$h[j] \gets h[j] + x[i] \cdot V[i, j]$\;
 			}
 		}
 		\For{$k \gets 0$ \textbf{to} $K$}{
 			$y[j] \gets 0$\;
 			\For{$j \gets 0$ \textbf{to} $J$}{
-				$y[j] \gets y[j] + h[i] * W[i][j]$\;
+				$y[j] \gets y[j] + h[i] \cdot W[j, k]$\;
 			}
 		}
 	}
 	\caption{Forward propagation of input}
 \end{algorithm}
 
+Error calculation is as follows
+
+\begin{algorithm}[H]
+	\SetAlgoStyle
+	\Fn{calculateError()}{
+		\For{$k \gets 0$ \textbf{to} $K$}{
+			$e[k] \gets 0$\;
+			\For{$c$ \textbf{in} $context$}{
+				$e[k] \gets e[k] + output[k]$\;
+				\If{$k = indexOf(c)$}{
+					$e[k] \gets e[k] - 1$\;
+				}
+			}
+		}
+	}
+	\caption{Error calculation}
+\end{algorithm}
+
 Backward error propagation is done using relationships defined by
 
 \begin{align}
-	&W_{jk}^\prime = W_{jk} - \alpha \cdot \frac{\partial E}{\partial W_{jk}}
-	\cdot y_k = W_{jk} - \alpha \cdot (y_k - t_k) \cdot h_j \cdot y_k \\
-	&V_{ij}^\prime = V_{ij} - \alpha \cdot \frac{\partial E}{\partial V_{ij}}
-	\cdot h_j = V_{ij} - \alpha \cdot (y_k - t_k) \cdot W_{jk} \cdot x_i \cdot
-	h_j
+	&W_{jk}^\prime = W_{jk} - \alpha \cdot \frac{\partial E}{\partial W_{jk}} =
+	W_{jk} - \alpha \cdot e_k \cdot h_j \\
+	&V_{ij}^\prime = V_{ij} - \alpha \cdot \frac{\partial E}{\partial V_{ij}} =
+	V_{ij} - \alpha \cdot l_j
 \end{align}
 
 where $\alpha$ is a learning rate hyperparameter which is decreasing as
 training progresses using simulated annealing technique.
 
+\begin{algorithm}[H]
+	\SetAlgoStyle
+	\Fn{propagateBackward()}{
+		\For{$j \gets 0$ \textbf{to} $J$}{
+			$eh \gets 0$\;
+			\For{$k \gets 0$ \textbf{to} $K$}{
+				$W[j, k] \gets W[j, k] - \alpha \cdot e[k] \cdot h[j]$\;
+				$eh \gets eh + e[k] \cdot W[j, k]$\;
+			}
+			$V[i, j] \gets V[i, j] - \alpha \cdot eh$\;
+		}
+	}
+	\caption{Backward propagation of error}
+\end{algorithm}
+
 Partial derrivatives we've used are as follows
 
-\begin{align}
-	&\frac{\partial h_j}{\partial V_{ji}} = \frac{\partial}{\partial V_{ij}}
-	\Big(x_i \cdot V_{ij}\Big) = x_i \\
-	&\frac{\partial y_k}{\partial h_j} = \frac{\partial}{\partial h_j}
-	\Big(h_j \cdot W_{jk}\Big) = W_{jk} \\
-	&\frac{\partial y_k}{\partial W_{jk}} = \frac{\partial}{\partial W_{jk}}
-	\Big(h_j \cdot W_{jk}\Big) = h_j \\
-	&\frac{\partial E}{\partial y_k} = \frac{\partial}{\partial y_k}
-	\Big(\frac{1}{2} \cdot (y_k - t_k)^2\Big) = y_k - t_k \\
-	&\frac{\partial E}{\partial W_{jk}} = \frac{\partial E}{\partial y_k} \cdot
-	\frac{\partial y_k}{\partial W_{jk}} = (y_k - t_k) \cdot h_j \\
-	&\frac{\partial E}{\partial V_{ij}} = \frac{\partial E}{\partial y_k} \cdot
-	\frac{\partial y_k}{\partial V_{ij}} = \frac{\partial E}{\partial y_k} \cdot
-	\frac{\partial y_k}{\partial h_j} \cdot \frac{\partial h_j}{\partial V_{ij}}
-	= (y_k - t_k) \cdot W_{jk} \cdot x_i
-\end{align}
-
-Here is the specific loss function for skip-gram word2vec architecture.
-
-\begin{align}
-	&\begin{aligned}
-		L &= -\log P(x_{c,1}, x_{c,2},\ldots,x_{c,C}|x_0) \\
-		&= -\log \prod_{c=1}^C P(x_{c,i}|x_0) \\
-		&= -\log \prod_{c=1}^C softmax(\boldsymbol{y}) \\
-		&= -\log \prod_{c=1}^C \frac{e^{y_{c,k^\prime}}}{\sum_{k=1}^K e^{y_{c,k}}} \\
-		&= \sum_{c=1}^C \log\sum_{k=1}^K e^{y_{c,k}} - \sum_{c=1}^C y_{c,k^\prime}
-	\end{aligned} \\
-	&\frac{\partial L}{\partial W_{jk}} = \sum_{c=1}^C \sum_{k=1}^K
-	\frac{\partial L}{\partial y_{c,k}} \cdot \frac{\partial y_{c,k}}{\partial
+\begin{align}	
+	&\frac{\partial E}{\partial W_{jk}} = \sum_{c=1}^C \sum_{k=1}^K
+	\frac{\partial E}{\partial y_{c,k}} \cdot \frac{\partial y_{c,k}}{\partial
 	W_{jk}} \\
-	&\frac{\partial L}{\partial V_{ij}} = \sum_{c=1}^C \sum_{k=1}^K
-	\frac{\partial L}{\partial y_{c,k}} \cdot \frac{\partial y_{c,k}}{\partial
+	&\frac{\partial E}{\partial V_{ij}} = \sum_{c=1}^C \sum_{k=1}^K
+	\frac{\partial E}{\partial y_{c,k}} \cdot \frac{\partial y_{c,k}}{\partial
 	V_{ij}}
 \end{align}
 
@@ -372,6 +439,6 @@ larger chunks of text. Sentence encoding is done as follows
 TODO Show charts and tables showing test accuracy and preformance caused by
 tweaking the hyperparameters.
 
-\fig{chart}{Caption example}
+\fig{chart}{Very useful dot}
 
 \end{document}

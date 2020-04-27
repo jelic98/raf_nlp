@@ -811,20 +811,20 @@ static void calculate_error() {
 static void update_hidden_layer_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			w_ho[j][k] -= alpha * hidden[j] * error[k];
+			w_ho[j][k] -= alpha * error[k] * hidden[j];
 		}
 	}
 }
 
 static void update_input_layer_weights() {
-	dt_float ei;
+	dt_float eh;
 
 	for(j = 0; j < hidden_max; j++) {
-		for(ei = k = 0; k < output_max; k++) {
-			ei += error[k] * w_ho[j][k];
+		for(eh = k = 0; k < output_max; k++) {
+			eh += error[k] * w_ho[j][k];
 		}
 
-		w_ih[p][j] -= alpha * input[p].on * ei;
+		w_ih[p][j] -= alpha * eh;
 	}
 }
 
