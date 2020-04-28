@@ -8,6 +8,7 @@ Features to be implemented in no particular order.
 * dropout rate for weights
 * normal distribution for weight initialization
 * run training in batches
+* adam optimizer?
 
 ### Other
 
