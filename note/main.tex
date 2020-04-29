@@ -27,10 +27,24 @@
 \begin{filecontents}{\jobname.bib}
 @misc{1301.3781,
 	author = {Tomas Mikolov and Kai Chen and Greg Corrado and Jeffrey Dean},
-	yitle = {Efficient Estimation of Word Representations in Vector Space},
+	title = {Efficient Estimation of Word Representations in Vector Space},
 	year = {2013},
 	eprint = {arXiv:1301.3781},
-    note = {\url{https://arxiv.org/abs/1301.3781}}
+	note = {\url{https://arxiv.org/abs/1301.3781}}
+},
+@misc{1411.2738,
+	author = {Xin Rong},
+	title = {word2vec Parameter Learning Explained},
+	year = {2014},
+	eprint = {arXiv:1411.2738},
+	note = {\url{https://arxiv.org/abs/1411.2738}}
+},
+@misc{1704.03956,
+	author = {Nobuhiro Kaji and Hayato Kobayashi},
+	title = {Incremental Skip-gram Model with Negative Sampling},
+	year = {2017},
+	eprint = {arXiv:1704.03956},
+	note = {\url{https://arxiv.org/abs/1704.03956}}
 }
 \end{filecontents}
 
@@ -229,8 +243,9 @@ high-frquency words.
 \subsection{Weights initialization}
 
 For now, we are using just a randomly sampled real numbers from uniform distrubution in the interval
-$[0, 1]$. Prediction accuracy could potentially increase if we'd sample initial weight values from Gaussian
-distrubution.
+$[0, 1]$. Prediction accuracy could potentially increase if we'd sample initial
+weight values from Gaussian distrubution. Also, it's a good idea to drop
+some weights during a forward propagation phase to avoid overfitting.
 
 \subsection{Training pipeline}
 
@@ -295,7 +310,7 @@ Testing pipeline overview is as follows
 
 \subsection{Process of learning}
 
-Forawrd propagation of input is done as follows
+As defined in~\cite{1411.2738}, forawrd propagation of input is done as follows
 
 \begin{align}
 	&h_j = \sum_{i=1}^I (x_i \cdot V_{ij}) \\
@@ -367,7 +382,8 @@ Backward error propagation is done using relationships defined by
 \end{align}
 
 where $\alpha$ is a learning rate hyperparameter which is decreasing as
-training progresses using simulated annealing technique.
+training progresses using simulated annealing technique. Can we use
+Adam optimizer to speed up gradient descent? Also, can we implement cross-validation?
 
 \begin{algorithm}[H]
 	\caption{Backward propagation of error}
@@ -417,7 +433,11 @@ Value for $J$ hyperparameter would preferably be selected using an algorithm pro
 
 \subsection{Negative sampling}
 
-Implementation in progress.
+Implementation proposed by~\cite{1704.03956} is in progress.
+
+\subsection{Multithreading}
+
+Implementation is in progress.
 
 \section{Vector representations of sentences}
 
