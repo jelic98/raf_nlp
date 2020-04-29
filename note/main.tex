@@ -1,15 +1,14 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{amsmath}
+\usepackage{amsmath,amsfonts}
 \usepackage{parskip}
 \usepackage{hyperref}
 \usepackage{graphicx}
+\usepackage{filecontents}
 \usepackage{tikz}
 \usetikzlibrary{calc,positioning}
 \usepackage[ruled,vlined]{algorithm2e}
-
-\def\layersep{2.5cm}
 
 \SetKwProg{Fn}{Function}{ is}{}
 \newcommand{\SetAlgoStyle}{
@@ -24,6 +23,16 @@
 		\caption{\label{fig:caption} #2}
 	\end{figure}
 }
+
+\begin{filecontents}{\jobname.bib}
+@misc{1301.3781,
+	author = {Tomas Mikolov and Kai Chen and Greg Corrado and Jeffrey Dean},
+	yitle = {Efficient Estimation of Word Representations in Vector Space},
+	year = {2013},
+	eprint = {arXiv:1301.3781},
+    note = {\url{https://arxiv.org/abs/1301.3781}}
+}
+\end{filecontents}
 
 \title{SGSN word embedder optimization}
 \author{Lazar Jelić}
@@ -43,7 +52,7 @@ skip-gram word embedding neural network with autoencoder architecture.
 \section{Introduction}
 
 There are some ways to optimize computations and memory usage in the
-original word2vec implementation. In this note we explore some of them. Source
+original word2vec implementation~\cite{1301.3781}. In this note we explore some of them. Source
 code can be found at \url{https://github.com/jelic98/raf_nlp}.
 
 \section{Implementation}
@@ -121,7 +130,7 @@ layer multiplied by the corresponding weight in a matrix $\boldsymbol{W}$.
 	\node [align=center,above] at (2,1.5) {Hidden};
 	\node [align=center,above] at (4,1.5) {Output};
 \end{tikzpicture}
-\caption{\label{fig:caption} Netword layers}
+\caption{\label{fig:caption} Network layers}
 \end{center}
 \end{figure}
 
@@ -464,5 +473,8 @@ center word.}
 \section{Results and discussion}
 
 \fig{chart}{Very useful dot}
+
+\bibliographystyle{plain}
+\bibliography{\jobname}
 
 \end{document}
