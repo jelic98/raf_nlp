@@ -5,7 +5,6 @@ Features to be implemented in no particular order.
 ### Model
 
 * negative sampling
-* dropout rate for weights
 * normal distribution for weight initialization
 * run training in batches
 * adam optimizer?

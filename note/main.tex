@@ -45,6 +45,20 @@
 	year = {2017},
 	eprint = {arXiv:1704.03956},
 	note = {\url{https://arxiv.org/abs/1704.03956}}
+},
+@misc{1206.6426,
+	author = {Andriy Mnih and Yee Whye Teh},
+	title = {A Fast and Simple Algorithm for Training Neural Probabilistic Language Models},
+	year = {2012},
+	eprint = {arXiv:1206.6426},
+	note = {\url{https://arxiv.org/abs/1206.6426}}
+},
+@misc{1512.05287,
+	author = {Yarin Gal and Zoubin Ghahramani},
+	title = {A Theoretically Grounded Application of Dropout in Recurrent Neural Networks},
+	year = {2015},
+	eprint = {arXiv:1512.05287},
+	note = {\url{https://arxiv.org/abs/1512.05287}}
 }
 \end{filecontents}
 
@@ -165,8 +179,7 @@ Vocabulary is stored in memory as BST. Each node has the following
 
 For now, we are using just a randomly sampled real numbers from uniform distrubution in the interval
 $[0, WEIGHT\_MAX]$. Prediction accuracy could potentially increase if we sample initial
-weight values from Gaussian distrubution. Also, it's a good idea to drop
-some weights during a forward propagation phase to avoid overfitting.
+weight values from Gaussian distrubution.
 
 \subsection{Parsing pipeline}
 
@@ -301,7 +314,9 @@ As defined in~\cite{1411.2738}, forawrd propagation of input is done as follows
 	&y_k = \sum_{j=1}^J (h_j \cdot W_{jk})
 \end{align}
 
-where $k^\prime$ is and index of $c^{th}$ context word
+where $k^\prime$ is and index of $c^{th}$ context word. Also, as stated
+in~\cite{1512.05287} it's a good idea to dropout some neurons during a forward
+propagation phase to avoid overfitting. We are using dropout in the output layer.
 
 \begin{algorithm}[H]
 	\caption{Forward propagation of input}
@@ -315,6 +330,10 @@ where $k^\prime$ is and index of $c^{th}$ context word
 		}
 		\For{$k \gets 0$ \textbf{to} $K$}{
 			$y[k] \gets 0$\;
+			$p \gets$ random($0$, $1$)\;
+			\If{$p < DROPOUT\_RATE$}{
+				\textbf{continue}\;
+			}
 			\For{$j \gets 0$ \textbf{to} $J$}{
 				$y[k] \gets y[k] + h[j] \cdot W[j, k]$\;
 			}
@@ -429,6 +448,7 @@ We are using hyperparameters defined below to tweak our network in order to get 
 	\item $WEIGHT\_MAX$ - Upper bound for initial weight value sampling
 	\item $ALPHA\_MAX$ - Initial learning rate value
 	\item $ALPHA\_MIN$ - Final learning rate value
+	\item $DROPOUT\_RATE$ - Probability of neuron dropout
 	\item $SAMPLE\_MAX$ - Number of negative samples to pick
 	\item $SAMPLE\_FACTOR$ - Normalized frequency averaged across all words
 	\item $SAMPLE\_EXIT$ - Upper bound for unsuccessful samplings
@@ -442,7 +462,9 @@ Value for $J$ hyperparameter would preferably be selected using an algorithm pro
 
 \subsection{Negative sampling}
 
+Negative sampling is a special case of Noise Contrastive Estimation (NCE)~\cite{1206.6426}.
 Implementation proposed by~\cite{1704.03956} is in progress.
+Take a look at \url{https://mc.ai/skip-gram-model-broken-down/}.
 
 \subsection{Multithreading}
 

@@ -774,6 +774,12 @@ static void forward_propagate_input_layer() {
 
 static void forward_propagate_hidden_layer() {
 	for(k = 0; k < output_max; k++) {
+#ifdef FLAG_DROPOUT
+		if(random(0, 1) < DROPOUT_RATE_MAX) {
+			continue;
+		}
+#endif
+
 		for(output[k] = j = 0; j < hidden_max; j++) {
 			output[k] += hidden[j] * w_ho[j][k];
 		}
