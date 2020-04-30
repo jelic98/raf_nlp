@@ -816,14 +816,14 @@ static void update_hidden_layer_weights() {
 }
 
 static void update_input_layer_weights() {
-	dt_float eh;
+	dt_float l;
 
 	for(j = 0; j < hidden_max; j++) {
-		for(eh = k = 0; k < output_max; k++) {
-			eh += error[k] * w_ho[j][k];
+		for(l = k = 0; k < output_max; k++) {
+			l += error[k] * w_ho[j][k];
 		}
 
-		w_ih[p][j] -= alpha * eh;
+		w_ih[p][j] -= alpha * l;
 	}
 }
 

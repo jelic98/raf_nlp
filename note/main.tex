@@ -204,7 +204,7 @@ collections include
 \begin{itemize}
 	\item onehot word representation array
 	\item input, hidden and output network layer
-	\item input-hidden and hidden-output weight matrices
+	\item input$\rightarrow$hidden and hidden$\rightarrow$output weight matrices
 	\item prediction errors array
 	\item training order array
 	\item helper sampling matrix for NS phase
@@ -261,7 +261,7 @@ independent of it's frequency.
 To illustrate the idea mentioned above, let's compare original word2vec and our implementation.
 
 \textbf{Original word2vec implementation.}
-Initialize sliding window at the beginning of the file. For each center word $\boldsymbol{x}$, create context BoW $\boldsymbol{C}$. For each context word $\boldsymbol{c_i} \in \boldsymbol{C}$, run training for pair $(\boldsymbol{x}, \boldsymbol{c_i})$ and calculate error vector $\boldsymbol{e}$ at the output layer. This way we run $|\boldsymbol{C}|$ training passes for each center word.
+Initialize sliding window at the beginning of the file. For each center word $\boldsymbol{x}$, create context BoW $\boldsymbol{C}$. For each context word $\boldsymbol{c} \in \boldsymbol{C}$, run training for pair $(\boldsymbol{x}, \boldsymbol{c})$ and calculate error vector $\boldsymbol{e}$ at the output layer. This way we run $|\boldsymbol{C}|$ training passes for each center word.
 
 \textbf{Our implementation.}
 Given a vocabulary $\mathcal{V}$, for each $\boldsymbol{x} \in \mathcal{V}$ run training for pair $(\boldsymbol{x}, \boldsymbol{C})$, where $\boldsymbol{C}$ is a context BoW of center word $\boldsymbol{x}$. This way we run only one training pass for each center word.
@@ -272,12 +272,12 @@ Training pipeline overview is as follows
 	\caption{Training pipeline}
 	\SetAlgoStyle
 	\For{$epoch \gets 0$ \textbf{to} $EPOCH\_MAX$}{
-		$vocab \gets$ shuffle(vocab)\;
+		$vocab \gets$ shuffle($vocab$)\;
 		\For{$word$ \textbf{in} $vocab$}{
 			propagateForward()\;
 			sampleNegatives()\;
 			normalizeOutput()\;
-			calculateError()\;
+			calculateLoss()\;
 			propagateBackward()\;
 		}
 		sarializeWeights()\;
@@ -314,23 +314,7 @@ As defined in~\cite{1411.2738}, forawrd propagation of input is done as follows
 
 \begin{align}
 	&h_j = \sum_{i=1}^I (x_i \cdot V_{ij}) \\
-	&y_k = \sum_{j=1}^J (h_j \cdot W_{jk}) \\
-	&t_k =
-	\begin{cases}
-		1, &\text{if } \boldsymbol{\mathcal{V}_k} \in \boldsymbol{C} \\
-		0, &\text{otherwise}
-	\end{cases} \\
-	&e_k = y_k - t_k \\
-	&l_j = \sum_{k=1}^K (e_k \cdot W_{jk}) \\
-	&\begin{aligned}
-		E &= -\log P(x_{c_1}, x_{c_2},\ldots,x_{c_C}|x_0) \\
-		&= -\log \prod_{c=1}^C P(x_{c_i}|x_0) \\
-		&= -\log \prod_{c=1}^C softmax(\boldsymbol{y_c}) \\
-		&= -\log \prod_{c=1}^C \frac{e^{y_{c_{k^\prime}}}}{\sum_{k=1}^K
-		e^{y_{c_k}}} \\
-		&= \sum_{c=1}^C \log\sum_{k=1}^K e^{y_{c_k}} - \sum_{c=1}^C
-		y_{c_{k^\prime}}
-	\end{aligned}
+	&y_k = \sum_{j=1}^J (h_j \cdot W_{jk})
 \end{align}
 
 where $k^\prime$ is and index of $c^{th}$ context word
@@ -354,18 +338,30 @@ where $k^\prime$ is and index of $c^{th}$ context word
 	}
 \end{algorithm}
 
-Error calculation is as follows
+Loss calculation is as follows
+
+\begin{align}
+	\begin{aligned}
+		L &= -\log P(x_{c_1}, x_{c_2},\ldots,x_{c_C}|x_0) \\
+		&= -\log \prod_{c=1}^C P(x_{c_i}|x_0) \\
+		&= -\log \prod_{c=1}^C softmax(\boldsymbol{y_c}) \\
+		&= -\log \prod_{c=1}^C \frac{e^{y_{c_{k^\prime}}}}{\sum_{k=1}^K
+		e^{y_{c_k}}} \\
+		&= \sum_{c=1}^C \log\sum_{k=1}^K e^{y_{c_k}} - \sum_{c=1}^C
+		y_{c_{k^\prime}}
+	\end{aligned}
+\end{align}
 
 \begin{algorithm}[H]
-	\caption{Error calculation}
+	\caption{Loss calculation}
 	\SetAlgoStyle
-	\Fn{calculateError()}{
+	\Fn{calculateLoss()}{
 		\For{$k \gets 0$ \textbf{to} $K$}{
-			$e[k] \gets 0$\;
+			$l[k] \gets 0$\;
 			\For{$c$ \textbf{in} $context$}{
-				$e[k] \gets e[k] + output[k]$\;
+				$l[k] \gets l[k] + output[k]$\;
 				\If{$k = indexOf(c)$}{
-					$e[k] \gets e[k] - 1$\;
+					$l[k] \gets l[k] - 1$\;
 				}
 			}
 		}
@@ -375,41 +371,64 @@ Error calculation is as follows
 Backward error propagation is done using relationships defined by
 
 \begin{align}
-	&W_{jk}^\prime = W_{jk} - \alpha \cdot \frac{\partial E}{\partial W_{jk}} =
-	W_{jk} - \alpha \cdot e_k \cdot h_j \\
-	&V_{ij}^\prime = V_{ij} - \alpha \cdot \frac{\partial E}{\partial V_{ij}} =
-	V_{ij} - \alpha \cdot l_j
+	&W_{jk}^\prime = W_{jk} - \Delta W_{jk} =
+	W_{jk} - \alpha \cdot l_k \cdot h_j \\
+	&V_{ij}^\prime = V_{ij} - \Delta V_{ij} =
+	V_{ij} - \alpha \cdot \sum_{k=1}^K (l_k \cdot W_{jk} \cdot x_i)
 \end{align}
 
 where $\alpha$ is a learning rate hyperparameter which is decreasing as
-training progresses using simulated annealing technique. Can we use
-Adam optimizer to speed up gradient descent? Also, can we implement cross-validation?
+training progresses using simulated annealing technique.
+Partial derrivatives we've used for applying delta rule are as follows
+
+\begin{align}
+	&\begin{aligned}
+		\Delta W_{jk} &= \alpha \cdot \frac{\partial L}{\partial W_{jk}} \\
+		&= \alpha \cdot \sum_{k=1}^K \sum_{c=1}^C \frac{\partial L}{\partial y_{c_k}}
+		\cdot \frac{\partial y_{c_k}}{\partial W_{jk}} \\
+		&= \alpha \cdot \sum_{k=1}^K \sum_{c=1}^C l_{c_k} \cdot h_j \\
+		&= \alpha \cdot l_k \cdot h_j
+	\end{aligned} \\
+	&\begin{aligned}
+		\Delta V_{ij} &= \alpha \cdot \frac{\partial L}{\partial V_{ij}} \\
+		&= \alpha \cdot \sum_{k=1}^K \sum_{c=1}^C \frac{\partial L}{\partial y_{c_k}}
+		\cdot \frac{\partial y_{c_k}}{\partial h_j} \cdot
+		\frac{\partial h_j}{\partial V_{ij}} \\
+		&= \alpha \cdot \sum_{k=1}^K \sum_{c=1}^C l_{c_k} \cdot W_{jk} \cdot x_i \\
+		&= \alpha \cdot \sum_{k=1}^K (l_k \cdot W_{jk} \cdot x_i)
+	\end{aligned}
+\end{align}
+
+where $l_{c_k}$ represents a loss for $c^{th}$ context word on $k^{th}$ output layer
+neuron and it's calculated by
+
+\begin{align}
+	&l_{c_k} = y_{c_k} - t_{c_k} \\
+	&t_k =
+	\begin{cases}
+		1, &\text{if } \boldsymbol{\mathcal{V}_k} \in \boldsymbol{C} \\
+		0, &\text{otherwise}
+	\end{cases}
+\end{align}
+
+Can we use Adam optimizer to speed up gradient descent?
+Also, can we implement cross-validation?
 
 \begin{algorithm}[H]
 	\caption{Backward propagation of error}
 	\SetAlgoStyle
 	\Fn{propagateBackward()}{
+		$i \gets$ indexOf($word$)\;
 		\For{$j \gets 0$ \textbf{to} $J$}{
-			$eh \gets 0$\;
+			$lw \gets 0$\;
 			\For{$k \gets 0$ \textbf{to} $K$}{
-				$W[j, k] \gets W[j, k] - \alpha \cdot e[k] \cdot h[j]$\;
-				$eh \gets eh + e[k] \cdot W[j, k]$\;
+				$W[j, k] \gets W[j, k] - \alpha \cdot l[k] \cdot h[j]$\;
+				$lw \gets lw + l[k] \cdot W[j, k]$\;
 			}
-			$V[i, j] \gets V[i, j] - \alpha \cdot eh$\;
+			$V[i, j] \gets V[i, j] - \alpha \cdot lw$\;
 		}
 	}
 \end{algorithm}
-
-Partial derrivatives we've used are as follows
-
-\begin{align}	
-	&\frac{\partial E}{\partial W_{jk}} = \sum_{c=1}^C \sum_{k=1}^K
-	\frac{\partial E}{\partial y_{c_k}} \cdot \frac{\partial y_{c_k}}{\partial
-	W_{jk}} \\
-	&\frac{\partial E}{\partial V_{ij}} = \sum_{c=1}^C \sum_{k=1}^K
-	\frac{\partial E}{\partial y_{c_k}} \cdot \frac{\partial y_{c_k}}{\partial
-	V_{ij}}
-\end{align}
 
 \subsection{Hyperparameters}
 
@@ -417,19 +436,21 @@ We are using hyperparameters defined below to tweak our network in order to get 
 
 \begin{itemize}
 	\item $J$ - Number of neurons in the hidden layer
-	\item $EPOCH\_MAX$ - Total epochs per training
 	\item $C$ - Size of sliding window, i.e. size of context BoW
+	\item $EPOCH\_MAX$ - Total epochs per training
 	\item $WEIGHT\_MAX$ - Upper bound for initial weight value sampling
 	\item $ALPHA\_MAX$ - Initial learning rate value
 	\item $ALPHA\_MIN$ - Final learning rate value
 	\item $SAMPLES\_MAX$ - Number of negative samples to pick
-	\item $SAMPLE\_FACTOR$ - Average normalized frequency of every word
+	\item $SAMPLE\_FACTOR$ - Normalized frequency averaged across all words
 	\item $SAMPLE\_EXIT$ - Upper bound for unsuccessful samplings
 \end{itemize}
 
 \medbreak
 
 Value for $J$ hyperparameter would preferably be selected using an algorithm proposed by Branislav Milojković.
+
+\section{Optimization}
 
 \subsection{Negative sampling}
 
@@ -476,9 +497,8 @@ we can predict next word just by running statistical test on our vocabulary?
 	\end{aligned}
 \end{align}
 
-where $\phi(x_i)$ denotes normalized or even better
-non-normalized (arithmetic underflow problem) frequency of
-a word $x_i$ and $\phi_{x_0}(x_{c_i})$ denotes frequency of
+where $\phi(x_i)$ denotes non-normalized (arithmetic underflow problem)
+frequency of a word $x_i$ and $\phi_{x_0}(x_{c_i})$ denotes frequency of
 a word $x_{c_i}$ in context BoW of a word $x_0$
 
 What if we use some rules to score each word in a context BoW? Can we agree
@@ -491,6 +511,8 @@ higher impact on classification result than a word which is $n$ places after our
 center word.}
 
 \section{Results and discussion}
+
+Run embedder on a large dataset and generate accuracy and performance report.
 
 \fig{chart}{Very useful dot}
 
