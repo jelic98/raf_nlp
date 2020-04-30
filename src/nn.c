@@ -831,7 +831,7 @@ static void update_input_layer_weights() {
 /*
 NEGATIVE SAMPLING USAGE:
 #ifdef FLAG_NEGATIVE_SAMPLING
-	for(ei = c = 0; c < center->context_max; c++) {
+	for(c = 0; c < center->context_max; c++) {
 		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			// get index of sampled output neuron
 			k = samples[center->target[c]->index][ck];
@@ -1086,7 +1086,7 @@ void weights_save() {
 			fprintf(fwih, "%s%lf", j ? " " : "", w_ih[i][j]);
 		}
 
-		fprintf(fwih, "");
+		fprintf(fwih, "\n");
 	}
 
 	for(j = 0; j < hidden_max; j++) {
@@ -1094,7 +1094,7 @@ void weights_save() {
 			fprintf(fwho, "%s%lf", k ? " " : "", w_ho[j][k]);
 		}
 
-		fprintf(fwho, "");
+		fprintf(fwho, "\n");
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {

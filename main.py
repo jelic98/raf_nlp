@@ -11,8 +11,8 @@ for line in file:
     if total < 0:
         break
     data = line.split(" ")
-    x.append(data[1])
-    y.append(data[0])
+    x.append(data[10])
+    y.append(data[11])
     total -= 1
 
 file.close()
