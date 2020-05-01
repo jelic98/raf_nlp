@@ -346,10 +346,13 @@ static void node_release(xWord* root) {
 		root->context = NULL;
 	}
 
+	if(root->word) {
+		free(root->word);
+		root->word = NULL;
+	}
+
 	root->left = root->right = root->next = NULL;
 	root->index = root->prob = root->context_max = root->freq = 0;
-	free(root->word);
-	root->word = NULL;
 	free(root);
 }
 
@@ -404,7 +407,13 @@ static void invalid_index_print() {
 static dt_int word_to_index(const dt_char* word) {
 	dt_int index = *map_get(word);
 
-	return index < pattern_max ? index : -1;
+	if(index < pattern_max) {
+		return index;
+	}
+
+	echo_fail("%s not found in corpus", word);
+
+	return -1;
 }
 
 static void word_lower(dt_char* word) {
@@ -1031,10 +1040,10 @@ void training_run() {
 #endif
 }
 
-void test_run() {
+void testing_run() {
 #ifdef FLAG_LOG
 	clock_t start_time = clock();
-	echo("Started test");
+	echo("Started testing");
 #endif
 
 	FILE* ftest = fopen(TEST_PATH, "r");
@@ -1054,7 +1063,7 @@ void test_run() {
 		word_clean(line, &sent_end);
 
 		if(!word_stop(line)) {
-			test_predict(line, 5, &success);
+			test_predict(line, WINDOW_MAX, &success);
 			test_count++, tries_sum += success;
 		}
 	}
@@ -1068,7 +1077,7 @@ void test_run() {
 #ifdef FLAG_LOG
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
-	echo_succ("Finished test (%lf sec)", time_get(start_time));
+	echo_succ("Finished testing (%lf sec)", time_get(start_time));
 #endif
 }
 

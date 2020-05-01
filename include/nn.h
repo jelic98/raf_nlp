@@ -34,7 +34,7 @@
 // Flags
 #define FLAG_LOG
 #define FLAG_DEBUG
-#define FLAG_DROPOUT
+//#define FLAG_DROPOUT
 //#define FLAG_NEGATIVE_SAMPLING
 //#define FLAG_STEM
 //#define FLAG_BACKUP_WEIGHTS
@@ -65,7 +65,10 @@
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-#define random(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
+#define limit_norm(x, a, b, m, s) ({dt_float _x = (x) * (s) + (m); _x > a && _x < b ? _x : m;})
+#define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
+#define random_norm(a, b) ({dt_float _m = (a + (b - a) * 0.5); limit_norm(sqrt(-2.0 * log(random_unif(0.0, 1.0))) * cos(2.0 * M_PI * random_unif(0.0, 1.0)), a, b, _m, _m * 0.3);})
+#define random(a, b) random_norm(a, b)
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
@@ -114,7 +117,7 @@ typedef union xBit {
 void nn_start();
 void nn_finish();
 void training_run();
-void test_run();
+void testing_run();
 void weights_save();
 void weights_load();
 void sentence_encode(dt_char*, dt_float*);
