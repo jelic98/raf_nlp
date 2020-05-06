@@ -7,6 +7,7 @@ Features to be implemented in no particular order.
 * negative sampling
 * run training in batches
 * adam optimizer?
+* speed up forward propagation (input to hidden layer)
 
 ### Other
 
