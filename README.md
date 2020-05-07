@@ -4,10 +4,9 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* negative sampling
 * run training in batches
 * adam optimizer?
-* speed up forward propagation (input to hidden layer)
+* flag for fixed weights
 
 ### Other
 
@@ -16,3 +15,6 @@ Features to be implemented in no particular order.
 * match every malloc with free (bug in 3.txt corpus)
 * isolate modules into separate headers
 * file read/write binary data instad of text
+
+### Note
+* speed up forward propagation (input to hidden layer)

@@ -3,7 +3,7 @@
 static clock_t elapsed_time;
 
 static dt_int epoch;
-static dt_float alpha, sum;
+static dt_float alpha;
 static xWord* center;
 
 static dt_int input_max, hidden_max, output_max, pattern_max;
@@ -775,9 +775,7 @@ static void initialize_input() {
 
 static void forward_propagate_input_layer() {
 	for(j = 0; j < hidden_max; j++) {
-		for(hidden[j] = i = 0; i < input_max; i++) {
-			hidden[j] += input[i].on * w_ih[i][j];
-		}
+		hidden[j] = w_ih[p][j];
 	}
 }
 
@@ -795,6 +793,71 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
+#ifdef FLAG_NEGATIVE_SAMPLING
+static void negative_sampling() {
+	dt_int exit;
+	dt_float freq, rnd;
+
+	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
+
+	for(c = 0; c < center->context_max; c++) {
+		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
+
+		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k);
+
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			if(ck) {
+				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
+					samples[c][ck] = (dt_int) random(0, pattern_max);
+					freq = (dt_float) index_to_word(samples[c][ck])->freq / corpus_freq_sum;
+					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
+
+					if(samples[c][ck] != samples[c][0] && rnd > freq) {
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	//echo("Center: %s", index_to_word(p)->word);
+	for(c = 0; c < center->context_max; c++) {
+		//echo("Context: %s", index_to_word(center->target[c]->index)->word);
+		dt_float neu1e[hidden_max];
+
+		for(j = 0; j < hidden_max; j++) {
+			neu1e[j] = 0.0;
+		}
+
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX && samples[c][ck] != -1; ck++) {
+			k = samples[c][ck];
+			//echo("Sample: %d %s", !ck, index_to_word(k)->word);
+
+			dt_float f = 0.0;
+
+			for(j = 0; j < hidden_max; j++) {
+				f += hidden[j] * w_ho[j][k];
+			}
+
+			f = 1.0 / (1.0 + exp(f));
+
+			dt_float g = alpha * (!ck - f);
+
+			for(j = 0; j < hidden_max; j++) {
+				neu1e[j] += g * w_ho[j][k];
+			}
+
+			for(j = 0; j < hidden_max; j++) {
+				w_ho[j][k] += g * hidden[j];
+			}
+		}
+
+		for(j = 0; j < hidden_max; j++) {
+			w_ih[p][j] += neu1e[j];
+		}
+	}
+}
+#else
 static void normalize_output_layer() {
 	dt_float out_max = DT_FLOAT_MIN;
 
@@ -803,7 +866,7 @@ static void normalize_output_layer() {
 	}
 
 	dt_float out_exp[output_max];
-	sum = 0.0;
+	dt_float sum = 0.0;
 
 	for(k = 0; k < output_max; k++) {
 		sum += out_exp[k] = exp(output[k] - out_max);
@@ -841,46 +904,6 @@ static void update_input_layer_weights() {
 		w_ih[p][j] -= alpha * l;
 	}
 }
-
-#ifdef FLAG_NEGATIVE_SAMPLING
-/*
-NEGATIVE SAMPLING USAGE:
-#ifdef FLAG_NEGATIVE_SAMPLING
-	for(c = 0; c < center->context_max; c++) {
-		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-			// get index of sampled output neuron
-			k = samples[center->target[c]->index][ck];
-		}
-	}
-#endif
-*/
-static void negative_sampling() {
-	dt_int exit;
-	dt_float freq, rnd;
-
-	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
-
-	for(c = 0; c < center->context_max; c++) {
-		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
-
-		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k)
-			;
-
-		for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-			if(k) {
-				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					samples[c][k] = random(0, pattern_max);
-					freq = (dt_float) index_to_word(samples[c][k])->freq / corpus_freq_sum;
-					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
-
-					if(samples[c][k] != samples[c][0] && rnd > freq) {
-						break;
-					}
-				}
-			}
-		}
-	}
-}
 #endif
 
 static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
@@ -899,7 +922,10 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
+
+#ifndef FLAG_NEGATIVE_SAMPLING
 	normalize_output_layer();
+#endif
 
 	xWord pred[output_max];
 
@@ -1019,11 +1045,12 @@ void training_run() {
 			forward_propagate_hidden_layer();
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
-#endif
+#else
 			normalize_output_layer();
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
+#endif
 		}
 
 #ifdef FLAG_BACKUP_WEIGHTS
