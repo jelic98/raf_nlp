@@ -322,11 +322,9 @@ propagation phase to avoid overfitting. We are using dropout in the output layer
 	\caption{Forward propagation of input}
 	\SetAlgoStyle
 	\Fn{propagateForward()}{
+		$i \gets$ indexOf($word$)\;
 		\For{$j \gets 0$ \textbf{to} $J$}{
-			$h[j] \gets 0$\;
-			\For{$i \gets 0$ \textbf{to} $I$}{
-				$h[j] \gets h[j] + x[i] \cdot V[i, j]$\;
-			}
+			$h[j] \gets V[i, j]$\;
 		}
 		\For{$k \gets 0$ \textbf{to} $K$}{
 			$y[k] \gets 0$\;
