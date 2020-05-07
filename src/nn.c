@@ -793,71 +793,6 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-static void negative_sampling() {
-	dt_int exit;
-	dt_float freq, rnd;
-
-	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
-
-	for(c = 0; c < center->context_max; c++) {
-		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
-
-		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k);
-
-		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-			if(ck) {
-				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					samples[c][ck] = (dt_int) random(0, pattern_max);
-					freq = (dt_float) index_to_word(samples[c][ck])->freq / corpus_freq_sum;
-					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
-
-					if(samples[c][ck] != samples[c][0] && rnd > freq) {
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	//echo("Center: %s", index_to_word(p)->word);
-	for(c = 0; c < center->context_max; c++) {
-		//echo("Context: %s", index_to_word(center->target[c]->index)->word);
-		dt_float neu1e[hidden_max];
-
-		for(j = 0; j < hidden_max; j++) {
-			neu1e[j] = 0.0;
-		}
-
-		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX && samples[c][ck] != -1; ck++) {
-			k = samples[c][ck];
-			//echo("Sample: %d %s", !ck, index_to_word(k)->word);
-
-			dt_float f = 0.0;
-
-			for(j = 0; j < hidden_max; j++) {
-				f += hidden[j] * w_ho[j][k];
-			}
-
-			f = 1.0 / (1.0 + exp(f));
-
-			dt_float g = alpha * (!ck - f);
-
-			for(j = 0; j < hidden_max; j++) {
-				neu1e[j] += g * w_ho[j][k];
-			}
-
-			for(j = 0; j < hidden_max; j++) {
-				w_ho[j][k] += g * hidden[j];
-			}
-		}
-
-		for(j = 0; j < hidden_max; j++) {
-			w_ih[p][j] += neu1e[j];
-		}
-	}
-}
-#else
 static void normalize_output_layer() {
 	dt_float out_max = DT_FLOAT_MIN;
 
@@ -877,6 +812,54 @@ static void normalize_output_layer() {
 	}
 }
 
+#ifdef FLAG_NEGATIVE_SAMPLING
+static void negative_sampling() {
+	dt_int exit;
+	dt_float freq, rnd;
+
+	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
+
+	for(c = 0; c < center->context_max; c++) {
+		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
+
+		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k);
+
+		for(ck = 1; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
+				samples[c][ck] = (dt_int) random(0, pattern_max);
+				freq = (dt_float) index_to_word(samples[c][ck])->freq / corpus_freq_sum;
+				rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
+
+				if(samples[c][ck] != samples[c][0] && rnd > freq) {
+					break;
+				}
+			}
+		}
+		
+		dt_float e, delta_ih[hidden_max];
+		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
+
+		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX && samples[c][ck] != -1; ck++) {	
+			k = samples[c][ck];
+			
+			for(j = 0; j < hidden_max; j++) {
+				e += w_ih[p][j] * w_ho[j][k];
+			}
+
+			dt_float delta_ho = alpha * (!ck - 1.0 / (1.0 + exp(e)));
+
+			for(j = 0; j < hidden_max; j++) {
+				delta_ih[j] += delta_ho * w_ho[j][k];
+				w_ho[j][k] += delta_ho * w_ih[p][j];
+			}
+		}
+
+		for(j = 0; j < hidden_max; j++) {
+			w_ih[p][j] += delta_ih[j];
+		}
+	}
+}
+#else
 static void calculate_error() {
 	for(k = 0; k < output_max; k++) {
 		for(error[k] = c = 0; c < center->context_max; c++) {
@@ -922,11 +905,8 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
-
-#ifndef FLAG_NEGATIVE_SAMPLING
 	normalize_output_layer();
-#endif
-
+	
 	xWord pred[output_max];
 
 	for(k = 0; k < output_max; k++) {
@@ -1041,11 +1021,11 @@ void training_run() {
 			}
 #endif
 			initialize_input();
-			forward_propagate_input_layer();
-			forward_propagate_hidden_layer();
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
 #else
+			forward_propagate_input_layer();
+			forward_propagate_hidden_layer();
 			normalize_output_layer();
 			calculate_error();
 			update_hidden_layer_weights();
