@@ -793,25 +793,6 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
-static void normalize_output_layer() {
-	dt_float out_max = DT_FLOAT_MIN;
-
-	for(k = 0; k < output_max; k++) {
-		out_max = max(out_max, output_raw[k] = output[k]);
-	}
-
-	dt_float out_exp[output_max];
-	dt_float sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += out_exp[k] = exp(output[k] - out_max);
-	}
-
-	for(k = 0; k < output_max; k++) {
-		output[k] = out_exp[k] / sum;
-	}
-}
-
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void negative_sampling() {
 	dt_int exit;
@@ -825,6 +806,7 @@ static void negative_sampling() {
 		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k);
 
 		for(ck = 1; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+#ifdef FLAG_MONTE_CARLO
 			for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 				samples[c][ck] = (dt_int) random(0, pattern_max);
 				freq = (dt_float) index_to_word(samples[c][ck])->freq / corpus_freq_sum;
@@ -834,6 +816,9 @@ static void negative_sampling() {
 					break;
 				}
 			}
+#else
+			samples[c][ck] = (dt_int) random(0, pattern_max);
+#endif
 		}
 		
 		dt_float e, delta_ih[hidden_max];
@@ -860,6 +845,25 @@ static void negative_sampling() {
 	}
 }
 #else
+static void normalize_output_layer() {
+	dt_float out_max = DT_FLOAT_MIN;
+
+	for(k = 0; k < output_max; k++) {
+		out_max = max(out_max, output_raw[k] = output[k]);
+	}
+
+	dt_float out_exp[output_max];
+	dt_float sum = 0.0;
+
+	for(k = 0; k < output_max; k++) {
+		sum += out_exp[k] = exp(output[k] - out_max);
+	}
+
+	for(k = 0; k < output_max; k++) {
+		output[k] = out_exp[k] / sum;
+	}
+}
+
 static void calculate_error() {
 	for(k = 0; k < output_max; k++) {
 		for(error[k] = c = 0; c < center->context_max; c++) {
@@ -905,8 +909,11 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
+
+#ifndef FLAG_NEGATIVE_SAMPLING
 	normalize_output_layer();
-	
+#endif
+
 	xWord pred[output_max];
 
 	for(k = 0; k < output_max; k++) {
@@ -919,7 +926,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	xWord* center = index_to_word(p);
 
-	for(index = 1, k = 0; k < count; k++, index++) {
+	for(index = 1, k = 0; k < count; k++) {
 		if(!strcmp(pred[k].word, word)) {
 			count++;
 			continue;
@@ -943,7 +950,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		}
 
 #ifdef FLAG_LOG
-		echo("#%d\t%lf\t%s", index, pred[k].prob, pred[k].word);
+		echo("#%d\t%lf\t%s", index++, pred[k].prob, pred[k].word);
 #endif
 	}
 

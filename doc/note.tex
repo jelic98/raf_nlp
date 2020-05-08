@@ -175,6 +175,10 @@ Vocabulary is stored in memory as BST. Each node has the following
 	\item auxiliary pointers
 \end{itemize}
 
+Unlike in word2vec implementation, we are not performing vocabulary reduction in
+order to lower the chances of word hash collisions. That's because we determine
+map size after vocabulary is built so vocabulary and map have the same size.
+
 \subsection{Weights initialization}
 
 For now, we are using just a randomly sampled real numbers from uniform distrubution in the interval

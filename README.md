@@ -14,15 +14,12 @@ Features to be implemented in no particular order.
 
 ### Other
 
-* scan through vocabulary if word is not found in the map
+* scan vocabulary if word is not found in the map
 * file read/write binary data instad of text
 * match every malloc with free (bug in 3.txt corpus)
 * multithreading
-* all api functions should be void
+* all functions should be void
 * isolate modules into separate headers
-
-### Note
-* vocabulary reduction is not required
 
 ### Random
 
