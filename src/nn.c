@@ -91,6 +91,19 @@ static void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt
 	}
 }
 
+static void vector_normalize(dt_float* vector, dt_int size) {
+	dt_float sum;
+	dt_int q;
+
+	for(sum = q = 0; q < size; q++) {
+		sum += vector[q] * vector[q];
+	}
+	
+	for(q = 0; q < size; q++) {
+		vector[q] /= sum;
+	}
+}
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
@@ -1220,4 +1233,6 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 
 		tok = strtok(NULL, sep);
 	}
+
+	vector_normalize(vector, hidden_max);
 }
