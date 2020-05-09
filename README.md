@@ -12,12 +12,10 @@ Features to be implemented in no particular order.
 
 ### Other
 
+* file read/write binary data instead of text
 * scan vocabulary if word is not found in the map
-* file read/write binary data instad of text
 * match every malloc with free (bug in 3.txt corpus)
 * multithreading
-* all functions should be void
-* isolate modules into separate headers
 
 ### Random
 
