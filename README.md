@@ -4,7 +4,6 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* normally distribute indexes by 1/freq to form unigram table
 * sort vocabulary by frequency for faster fetrievals
 * cross validation
 * adam optimizer?

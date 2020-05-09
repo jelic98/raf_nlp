@@ -28,7 +28,7 @@ static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_int ck, corpus_freq_sum, corpus_freq_max;
-static dt_int** samples;
+static xWord** samples;
 #endif
 
 #ifdef FLAG_LOG_FILE
@@ -89,6 +89,20 @@ static void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt
 #endif
 		exit(1);
 	}
+}
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+static dt_int cmp_freq(const void* a, const void* b) {
+	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+}
+#endif
+
+static dt_int cmp_word(const void* a, const void* b) {
+	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
 static dt_int* map_get(const dt_char* word) {
@@ -277,6 +291,26 @@ static void bst_target(xWord* root) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+static void bst_extract(xWord* root, xWord** samples) {
+	if(root) {
+		*(samples + root->index) = root;
+		bst_extract(root->left, samples);
+		bst_extract(root->right, samples);
+	}
+}
+
+static void bst_sample(xWord* root) {
+	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
+	memcheck(copies);
+	bst_extract(root, copies);
+	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
+	
+	for(p = 0; p < pattern_max; p++) {
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
+		samples[ck] = copies[p];
+	}
+}
+
 static void bst_freq_sum(xWord* root, dt_int* sum) {
 	if(root) {
 		*sum += root->freq;
@@ -530,14 +564,10 @@ static void resources_allocate() {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	samples = (dt_int**) calloc(pattern_max, sizeof(dt_int*));
+	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(samples);
-	for(p = 0; p < pattern_max; p++) {
-		samples[p] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
-		memcheck(samples[p]);
-	}
 #ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "samples", pattern_max, NEGATIVE_SAMPLES_MAX);
+	echo_info("Dimension of %s: %dx%d", "samples", 1, pattern_max);
 #endif
 #endif
 
@@ -581,9 +611,6 @@ static void resources_release() {
 	error = NULL;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-	for(p = 0; p < pattern_max; p++) {
-		free(samples[p]);
-	}
 	free(samples);
 	samples = NULL;
 #endif
@@ -714,8 +741,8 @@ static void initialize_corpus() {
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_LOG
 	echo("Calculating word frequency");
-#endif
-
+#endif	
+	bst_sample(corpus);
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
 	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
 #endif
@@ -729,12 +756,6 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));
 #endif
-}
-
-static dt_int cmp_words(const void* a, const void* b) {
-	dt_float diff = (*(xWord*) a).prob - (*(xWord*) b).prob;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
 static void initialize_weights() {
@@ -795,43 +816,39 @@ static void forward_propagate_hidden_layer() {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void negative_sampling() {
+	dt_float e, delta_ih[hidden_max], delta_ho;
+
+#ifdef FLAG_MONTE_CARLO
 	dt_int exit;
 	dt_float freq, rnd;
-
 	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
+#endif
 
 	for(c = 0; c < center->context_max; c++) {
-		memset(samples[c], -1, NEGATIVE_SAMPLES_MAX * sizeof(dt_int));
-
-		for(samples[c][0] = k = 0; k < output_max && k != center->target[c]->index; samples[c][0] = ++k);
-
-		for(ck = 1; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-#ifdef FLAG_MONTE_CARLO
-			for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-				samples[c][ck] = (dt_int) random(0, pattern_max);
-				freq = (dt_float) index_to_word(samples[c][ck])->freq / corpus_freq_sum;
-				rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
-
-				if(samples[c][ck] != samples[c][0] && rnd > freq) {
-					break;
-				}
-			}
-#else
-			samples[c][ck] = (dt_int) random(0, pattern_max);
-#endif
-		}
-		
-		dt_float e, delta_ih[hidden_max];
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
-		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX && samples[c][ck] != -1; ck++) {	
-			k = samples[c][ck];
-			
+		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			if(ck) {
+#ifdef FLAG_MONTE_CARLO
+				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
+					k = (dt_int) random(0, pattern_max);
+					freq = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
+					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
+
+					if(k != center->target[c] && rnd > freq) {
+						break;
+					}
+				}
+#else
+				k = (dt_int) random(0, pattern_max);
+#endif
+			}
+
 			for(j = 0; j < hidden_max; j++) {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
-			dt_float delta_ho = alpha * (!ck - 1.0 / (1.0 + exp(e)));
+			delta_ho = alpha * (!ck - 1.0 / (1.0 + exp(e)));
 
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
@@ -914,25 +931,25 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	normalize_output_layer();
 #endif
 
-	xWord pred[output_max];
+	xWord* pred[pattern_max];
 
 	for(k = 0; k < output_max; k++) {
 		dt_int index = k;
-		pred[k] = *index_to_word(index);
-		pred[k].prob = output[k];
+		pred[k] = index_to_word(index);
+		pred[k]->prob = output[k];
 	}
 
-	qsort(pred, output_max, sizeof(xWord), cmp_words);
+	qsort(pred, pattern_max, sizeof(xWord*), cmp_word);
 
 	xWord* center = index_to_word(p);
 
 	for(index = 1, k = 0; k < count; k++) {
-		if(!strcmp(pred[k].word, word)) {
+		if(!strcmp(pred[k]->word, word)) {
 			count++;
 			continue;
 		}
 
-		dt_int context_index = word_to_index(pred[k].word);
+		dt_int context_index = word_to_index(pred[k]->word);
 
 		if(!index_valid(context_index)) {
 			continue;
@@ -950,7 +967,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		}
 
 #ifdef FLAG_LOG
-		echo("#%d\t%lf\t%s", index++, pred[k].prob, pred[k].word);
+		echo("#%d\t%lf\t%s", index++, pred[k]->prob, pred[k]->word);
 #endif
 	}
 
