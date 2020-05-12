@@ -165,14 +165,12 @@ static xWord* list_insert(xWord* root, xWord** node) {
 
 static xContext* list_context_insert(xContext* root, xWord* word, dt_int* success) {
 	*success = 1;
-	xContext* node = node_context_create(word);
 
 	if(root) {
 		xContext* tmp = root;
 
 		while(tmp->next) {
-			if(tmp->word == node->word) {
-				node_context_release(node);
+			if(tmp->word == word) {
 				*success = 0;
 				return root;
 			}
@@ -180,14 +178,12 @@ static xContext* list_context_insert(xContext* root, xWord* word, dt_int* succes
 			tmp = tmp->next;
 		}
 
-		tmp->next = node;
+		tmp->next = node_context_create(word);
 
 		return root;
-	} else {
-		return node;
 	}
 
-	return node;
+	return node_context_create(word);
 }
 
 static dt_int list_contains(xWord* root, const dt_char* word) {
@@ -208,7 +204,7 @@ static void list_context_print(xContext* root) {
 
 	while(root) {
 #ifdef FLAG_LOG
-		echo("Context #%d:\t%s", ++index, root->word->word);
+		echo("Context #%d:\t%s %p", ++index, root->word->word, root);
 #endif
 		root = root->next;
 	}
@@ -301,9 +297,11 @@ static void bst_target(xWord* root) {
 			tmp = tmp->next;
 		}
 
-		list_context_release(root->context);
-		root->context = NULL;
-
+		if(root->context) {
+			list_context_release(root->context);
+			root->context = NULL;
+		}
+		
 		bst_target(root->left);
 		bst_target(root->right);
 	}
@@ -391,19 +389,14 @@ static xContext* node_context_create(xWord* word) {
 }
 
 static void node_release(xWord* root) {
-	if(root->target) {
-		free(root->target);
-		root->target = NULL;
-	}
-
-	if(root->context) {
-		list_context_release(root->context);
-		root->context = NULL;
-	}
-
 	if(root->word) {
 		free(root->word);
 		root->word = NULL;
+	}
+
+	if(root->target) {
+		free(root->target);
+		root->target = NULL;
 	}
 
 	root->left = root->right = root->next = NULL;
@@ -413,6 +406,7 @@ static void node_release(xWord* root) {
 
 static void node_context_release(xContext* root) {
 	root->word = NULL;
+	root->next = NULL;
 	free(root);
 }
 

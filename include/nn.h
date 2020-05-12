@@ -55,8 +55,8 @@
 #endif
 
 // Paths
-#define CORPUS_PATH "res/corpus/2.txt"
-#define TEST_PATH "res/test/2.txt"
+#define CORPUS_PATH "res/corpus/3.txt"
+#define TEST_PATH "res/test/3.txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
@@ -101,10 +101,10 @@ typedef struct xWord {
 	dt_uint context_max;
 	dt_float prob;
 	dt_int index;
-	struct xWord** target;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;
+	struct xWord** target;
 	struct xContext* context;
 } xWord;
 
