@@ -204,7 +204,7 @@ static void list_context_print(xContext* root) {
 
 	while(root) {
 #ifdef FLAG_LOG
-		echo("Context #%d:\t%s %p", ++index, root->word->word, root);
+		echo("Context #%d:\t%s", ++index, root->word->word);
 #endif
 		root = root->next;
 	}
@@ -297,10 +297,8 @@ static void bst_target(xWord* root) {
 			tmp = tmp->next;
 		}
 
-		if(root->context) {
-			list_context_release(root->context);
-			root->context = NULL;
-		}
+		list_context_release(root->context);
+		root->context = NULL;
 		
 		bst_target(root->left);
 		bst_target(root->right);
@@ -401,6 +399,7 @@ static void node_release(xWord* root) {
 
 	root->left = root->right = root->next = NULL;
 	root->index = root->prob = root->context_max = root->freq = 0;
+	root->context = NULL;
 	free(root);
 }
 
