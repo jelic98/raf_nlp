@@ -1148,8 +1148,8 @@ void weights_save() {
 	echo("Started saving weights");
 #endif
 
-	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
-	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "wb");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "wb");
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
@@ -1159,19 +1159,11 @@ void weights_save() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		for(j = 0; j < hidden_max; j++) {
-			fprintf(fwih, "%s%lf", j ? " " : "", w_ih[i][j]);
-		}
-
-		fprintf(fwih, "\n");
+		fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			fprintf(fwho, "%s%lf", k ? " " : "", w_ho[j][k]);
-		}
-
-		fprintf(fwho, "\n");
+		fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
@@ -1190,8 +1182,8 @@ void weights_load() {
 	echo("Started loading weights");
 #endif
 
-	FILE* fwih = fopen(WEIGHTS_IH_PATH, "r");
-	FILE* fwho = fopen(WEIGHTS_HO_PATH, "r");
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "rb");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "rb");
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
@@ -1201,15 +1193,11 @@ void weights_load() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		for(j = 0; j < hidden_max; j++) {
-			fscanf(fwih, "%lf", &w_ih[i][j]);
-		}
+		fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			fscanf(fwho, "%lf", &w_ho[j][k]);
-		}
+		fread(w_ho[j], sizeof(dt_float), output_max, fwho);
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
