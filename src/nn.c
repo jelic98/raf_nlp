@@ -65,7 +65,6 @@ static void echo_color(eColor color, const dt_char* format, ...) {
 	timestamp();
 	color_set(color);
 	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
-	memcheck(f);
 	strcpy(f, format);
 	strcat(f, "\n");
 	vfprintf(flog, f, args);
