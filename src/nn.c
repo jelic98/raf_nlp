@@ -54,21 +54,29 @@ static void timestamp() {
 	fprintf(flog, "[%s.%03d] ", s, tv.tv_usec / 1000);
 }
 
+#ifdef FLAG_COLOR_LOG
 static void color_set(eColor color) {
 	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
 }
+#endif
 
 static void echo_color(eColor color, const dt_char* format, ...) {
 	va_list args;
 	va_start(args, format);
+#ifdef FLAG_COLOR_LOG
 	color_set(GRAY);
+#endif
 	timestamp();
+#ifdef FLAG_COLOR_LOG
 	color_set(color);
+#endif
 	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
 	strcpy(f, format);
 	strcat(f, "\n");
 	vfprintf(flog, f, args);
+#ifdef FLAG_COLOR_LOG
 	color_set(NONE);
+#endif
 	va_end(args);
 }
 #endif

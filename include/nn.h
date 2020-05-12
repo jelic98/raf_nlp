@@ -44,6 +44,7 @@
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
 //#define FLAG_PRINT_INDEX_ERRORS
+#define FLAG_COLOR_LOG
 
 #ifdef FLAG_LOG
 #define FLAG_LOG_FILE
