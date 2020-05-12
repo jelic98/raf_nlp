@@ -876,17 +876,10 @@ static void negative_sampling() {
 }
 #else
 static void normalize_output_layer() {
-	dt_float out_max = DT_FLOAT_MIN;
+	dt_float sum, out_exp[output_max];
 
-	for(k = 0; k < output_max; k++) {
-		out_max = max(out_max, output_raw[k] = output[k]);
-	}
-
-	dt_float out_exp[output_max];
-	dt_float sum = 0.0;
-
-	for(k = 0; k < output_max; k++) {
-		sum += out_exp[k] = exp(output[k] - out_max);
+	for(sum = k = 0; k < output_max; k++) {
+		sum += out_exp[k] = exp(output_raw[k] = output[k]);
 	}
 
 	for(k = 0; k < output_max; k++) {
