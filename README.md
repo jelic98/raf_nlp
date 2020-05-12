@@ -6,7 +6,7 @@ Features to be implemented in no particular order.
 
 * sort vocabulary by frequency for faster retrievals
 * adam optimizer?
-* cross validation
+* mini batching?
 * normalize word vectors
 
 ### Other
