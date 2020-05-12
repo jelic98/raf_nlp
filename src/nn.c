@@ -863,6 +863,8 @@ static void negative_sampling() {
 #else
 				k = samples[(dt_int) random(0, pattern_max)]->index;
 #endif
+			}else {
+				for(k = 0; k < output_max && k != center->target[c]->index; k++);
 			}
 
 			for(j = 0; j < hidden_max; j++) {

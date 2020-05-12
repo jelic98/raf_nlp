@@ -5,8 +5,8 @@ Features to be implemented in no particular order.
 ### Model
 
 * sort vocabulary by frequency for faster retrievals
-* cross validation
 * adam optimizer?
+* cross validation
 * normalize word vectors
 
 ### Other
