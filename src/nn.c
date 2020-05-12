@@ -850,6 +850,18 @@ static void forward_propagate_hidden_layer() {
 	}
 }
 
+static void normalize_output_layer() {
+	dt_float sum, out_exp[output_max];
+
+	for(sum = k = 0; k < output_max; k++) {
+		sum += out_exp[k] = exp(output_raw[k] = output[k]);
+	}
+
+	for(k = 0; k < output_max; k++) {
+		output[k] = out_exp[k] / sum;
+	}
+}
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void negative_sampling() {
 	dt_float e, delta_ih[hidden_max], delta_ho;
@@ -900,18 +912,6 @@ static void negative_sampling() {
 	}
 }
 #else
-static void normalize_output_layer() {
-	dt_float sum, out_exp[output_max];
-
-	for(sum = k = 0; k < output_max; k++) {
-		sum += out_exp[k] = exp(output_raw[k] = output[k]);
-	}
-
-	for(k = 0; k < output_max; k++) {
-		output[k] = out_exp[k] / sum;
-	}
-}
-
 static void calculate_error() {
 	for(k = 0; k < output_max; k++) {
 		for(error[k] = c = 0; c < center->context_max; c++) {
@@ -957,10 +957,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
-
-#ifndef FLAG_NEGATIVE_SAMPLING
 	normalize_output_layer();
-#endif
 
 	xWord* pred[pattern_max];
 
@@ -1078,6 +1075,7 @@ void training_run() {
 			initialize_input();
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
+			normalize_output_layer();
 #else
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
