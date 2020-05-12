@@ -27,8 +27,12 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int ck, corpus_freq_sum, corpus_freq_max;
+static dt_int ck;
+#ifdef FLAG_MONTE_CARLO
+static dt_int corpus_freq_sum, corpus_freq_max;
+#else
 static xWord** samples;
+#endif
 #endif
 
 #ifdef FLAG_LOG_FILE
@@ -98,18 +102,20 @@ static void vector_normalize(dt_float* vector, dt_int size) {
 	for(sum = q = 0; q < size; q++) {
 		sum += vector[q] * vector[q];
 	}
-	
+
 	for(q = 0; q < size; q++) {
 		vector[q] /= sum;
 	}
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+#ifndef FLAG_MONTE_CARLO
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
+#endif
 #endif
 
 static dt_int cmp_word(const void* a, const void* b) {
@@ -304,26 +310,7 @@ static void bst_target(xWord* root) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static void bst_extract(xWord* root, xWord** samples) {
-	if(root) {
-		*(samples + root->index) = root;
-		bst_extract(root->left, samples);
-		bst_extract(root->right, samples);
-	}
-}
-
-static void bst_sample(xWord* root) {
-	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
-	memcheck(copies);
-	bst_extract(root, copies);
-	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
-	
-	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
-		samples[ck] = copies[p];
-	}
-}
-
+#ifdef FLAG_MONTE_CARLO
 static void bst_freq_sum(xWord* root, dt_int* sum) {
 	if(root) {
 		*sum += root->freq;
@@ -339,6 +326,27 @@ static void bst_freq_max(xWord* root, dt_int* max) {
 		bst_freq_max(root->right, max);
 	}
 }
+#else
+static void bst_extract(xWord* root, xWord** samples) {
+	if(root) {
+		*(samples + root->index) = root;
+		bst_extract(root->left, samples);
+		bst_extract(root->right, samples);
+	}
+}
+
+static void bst_sample(xWord* root) {
+	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
+	memcheck(copies);
+	bst_extract(root, copies);
+	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
+
+	for(p = 0; p < pattern_max; p++) {
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
+		samples[ck] = copies[p];
+	}
+}
+#endif
 #endif
 
 #ifdef FLAG_PRINT_CORPUS
@@ -577,10 +585,12 @@ static void resources_allocate() {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+#ifndef FLAG_MONTE_CARLO
 	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(samples);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "samples", 1, pattern_max);
+#endif
 #endif
 #endif
 
@@ -624,8 +634,10 @@ static void resources_release() {
 	error = NULL;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+#ifndef FLAG_MONTE_CARLO
 	free(samples);
 	samples = NULL;
+#endif
 #endif
 }
 
@@ -754,10 +766,13 @@ static void initialize_corpus() {
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_LOG
 	echo("Calculating word frequency");
-#endif	
-	bst_sample(corpus);
+#endif
+#ifdef FLAG_MONTE_CARLO
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
 	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
+#else
+	bst_sample(corpus);
+#endif
 #endif
 
 	if(fclose(fin) == EOF || fclose(fstop) == EOF) {
@@ -841,8 +856,7 @@ static void negative_sampling() {
 
 #ifdef FLAG_MONTE_CARLO
 	dt_int exit;
-	dt_float freq, rnd;
-	dt_float max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
+	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 #endif
 
 	for(c = 0; c < center->context_max; c++) {
@@ -852,19 +866,20 @@ static void negative_sampling() {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					k = samples[(dt_int) random(0, pattern_max)]->index;
-					freq = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
-					rnd = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
+					k = (dt_int) random(0, pattern_max);
+					f = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
+					r = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
 
-					if(k != center->target[c] && rnd > freq) {
+					if(k != center->target[c]->index && r > f) {
 						break;
 					}
 				}
 #else
 				k = samples[(dt_int) random(0, pattern_max)]->index;
 #endif
-			}else {
-				for(k = 0; k < output_max && k != center->target[c]->index; k++);
+			} else {
+				for(k = 0; k < output_max && k != center->target[c]->index; k++)
+					;
 			}
 
 			for(j = 0; j < hidden_max; j++) {
