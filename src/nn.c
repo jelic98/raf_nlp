@@ -778,13 +778,21 @@ static void initialize_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[i][j] = random(0, INITIAL_WEIGHT_MAX);
+#ifdef FLAG_FIXED_INITIAL_WEIGHTS
+			w_ih[i][j] = INITIAL_WEIGHT;
+#else
+			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
+#endif
 		}
 	}
 
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
-			w_ho[j][k] = random(0, INITIAL_WEIGHT_MAX);
+#ifdef FLAG_FIXED_INITIAL_WEIGHTS
+			w_ho[j][k] = INITIAL_WEIGHT;
+#else
+			w_ho[j][k] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
+#endif
 		}
 	}
 
