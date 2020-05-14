@@ -3,15 +3,15 @@
 
 #include "lib.h"
 
-#define EPOCH_MAX 1
-#define HIDDEN_MAX 50
-#define WINDOW_MAX 5
-#define NEGATIVE_SAMPLES_MAX 6
-#define LEARNING_RATE_MAX 0.025
-#define LEARNING_RATE_MIN 0.001
-#define INITIAL_WEIGHT 0.25
+#define EPOCH_MAX 2
+#define HIDDEN_MAX 70
+#define WINDOW_MAX 10
+#define NEGATIVE_SAMPLES_MAX 10
+#define LEARNING_RATE_MAX 0.0025
+#define LEARNING_RATE_MIN 0.0001
+#define INITIAL_WEIGHT 0.025
 #define INITIAL_WEIGHT_MIN 0.0
-#define INITIAL_WEIGHT_MAX 0.5
+#define INITIAL_WEIGHT_MAX 0.05
 #define DROPOUT_RATE_MAX 0.2
 
 #define MONTE_CARLO_FACTOR 1.0
@@ -34,17 +34,17 @@
 #define WORD_THRESHOLD 16
 
 // Flags
-#define FLAG_LOG
 #define FLAG_DEBUG
-//#define FLAG_DROPOUT
+#define FLAG_LOG
+#define FLAG_COLOR_LOG
 #define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_DROPOUT
 //#define FLAG_MONTE_CARLO
 //#define FLAG_STEM
 //#define FLAG_FIXED_INITIAL_WEIGHTS
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
 //#define FLAG_PRINT_INDEX_ERRORS
-#define FLAG_COLOR_LOG
 
 #ifdef FLAG_LOG
 #define FLAG_LOG_FILE
@@ -56,8 +56,8 @@
 #endif
 
 // Paths
-#define CORPUS_PATH "res/corpus/2.txt"
-#define TEST_PATH "res/test/2.txt"
+#define CORPUS_PATH "res/corpus/3.txt"
+#define TEST_PATH "res/test/3.txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"

@@ -13,7 +13,6 @@ static dt_int p, p1, p2;
 static xBit* input;
 static dt_float* hidden;
 static dt_float* output;
-static dt_float* output_raw;
 static dt_float** w_ih;
 static dt_float** w_ho;
 static dt_float* error;
@@ -38,8 +37,6 @@ static xWord** samples;
 #ifdef FLAG_LOG_FILE
 static FILE* flog;
 #endif
-
-static void memcheck_log(void*, const dt_char*, const dt_char*, dt_int);
 
 #ifdef FLAG_LOG
 static dt_float time_get(clock_t start) {
@@ -110,8 +107,20 @@ static void vector_normalize(dt_float* vector, dt_int size) {
 		sum += vector[q] * vector[q];
 	}
 
-	for(q = 0; q < size; q++) {
+	for(sum = sqrt(sum), q = 0; q < size; q++) {
 		vector[q] /= sum;
+	}
+}
+
+static void vector_softmax(dt_float* vector, dt_int size) {
+	dt_float sum, vector_exp[size];
+
+	for(sum = k = 0; k < size; k++) {
+		sum += vector_exp[k] = exp(vector[k]);
+	}
+
+	for(k = 0; k < output_max; k++) {
+		vector[k] = vector_exp[k] / sum;
 	}
 }
 
@@ -306,7 +315,7 @@ static void bst_target(xWord* root) {
 
 		list_context_release(root->context);
 		root->context = NULL;
-		
+
 		bst_target(root->left);
 		bst_target(root->right);
 	}
@@ -546,12 +555,6 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
 #endif
 
-	output_raw = (dt_float*) calloc(output_max, sizeof(dt_float));
-	memcheck(output_raw);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "output_raw", 1, output_max);
-#endif
-
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	memcheck(w_ih);
 	for(i = 0; i < input_max; i++) {
@@ -611,9 +614,6 @@ static void resources_release() {
 
 	free(output);
 	output = NULL;
-
-	free(output_raw);
-	output_raw = NULL;
 
 	for(i = 0; i < input_max; i++) {
 		free(w_ih[i]);
@@ -764,14 +764,27 @@ static void initialize_corpus() {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+#ifdef FLAG_MONTE_CARLO
 #ifdef FLAG_LOG
 	echo("Calculating word frequency");
 #endif
-#ifdef FLAG_MONTE_CARLO
+
 	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
 	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
+
+#ifdef FLAG_LOG
+	echo_succ("Done calculating word frequency");
+#endif
 #else
+#ifdef FLAG_LOG
+	echo_succ("Creating sampling distribution");
+#endif
+
 	bst_sample(corpus);
+	
+#ifdef FLAG_LOG
+	echo_succ("Done creating sampling distribution");
+#endif
 #endif
 #endif
 
@@ -847,18 +860,6 @@ static void forward_propagate_hidden_layer() {
 		for(output[k] = j = 0; j < hidden_max; j++) {
 			output[k] += hidden[j] * w_ho[j][k];
 		}
-	}
-}
-
-static void normalize_output_layer() {
-	dt_float sum, out_exp[output_max];
-
-	for(sum = k = 0; k < output_max; k++) {
-		sum += out_exp[k] = exp(output_raw[k] = output[k]);
-	}
-
-	for(k = 0; k < output_max; k++) {
-		output[k] = out_exp[k] / sum;
 	}
 }
 
@@ -957,7 +958,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
-	normalize_output_layer();
+	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
 
@@ -1073,13 +1074,13 @@ void training_run() {
 			}
 #endif
 			initialize_input();
+			vector_normalize(w_ih[p], hidden_max);
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
-			normalize_output_layer();
 #else
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
-			normalize_output_layer();
+			vector_softmax(output, output_max);
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
