@@ -777,7 +777,7 @@ static void initialize_corpus() {
 #endif
 #else
 #ifdef FLAG_LOG
-	echo_succ("Creating sampling distribution");
+	echo("Creating sampling distribution");
 #endif
 
 	bst_sample(corpus);
