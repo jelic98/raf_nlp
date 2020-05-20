@@ -4,6 +4,7 @@ Features to be implemented in no particular order.
 
 ### Model
 
+* add logarithm to softmax function
 * adam optimizer?
 * mini batching?
 

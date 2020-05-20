@@ -3,9 +3,3 @@
 .DS_Store
 *.out
 *.swp
-*.aux
-*.log
-*.bib
-*.blg
-*.pdf
-*.synctex.gz
