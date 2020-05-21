@@ -4,12 +4,12 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* add logarithm to softmax function
 * adam optimizer?
 * mini batching?
 
 ### Other
 
+* fix gaussian random function (produces numbers out of range)
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst

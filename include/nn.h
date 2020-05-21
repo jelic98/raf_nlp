@@ -3,6 +3,8 @@
 
 #include "lib.h"
 
+#define TEST_INDEX "3"
+
 #define EPOCH_MAX 2
 #define HIDDEN_MAX 70
 #define WINDOW_MAX 10
@@ -56,8 +58,8 @@
 #endif
 
 // Paths
-#define CORPUS_PATH "res/corpus/3.txt"
-#define TEST_PATH "res/test/3.txt"
+#define CORPUS_PATH "res/corpus/" TEST_INDEX ".txt"
+#define TEST_PATH "res/test/" TEST_INDEX ".txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define WEIGHTS_IH_PATH "out/weights-ih.txt"
 #define WEIGHTS_HO_PATH "out/weights-ho.txt"
@@ -73,7 +75,7 @@
 #define limit_norm(x, a, b, m, s) ({dt_float _x = (x) * (s) + (m); _x > a && _x < b ? _x : m;})
 #define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
 #define random_norm(a, b) ({dt_float _m = (a + (b - a) * 0.5); limit_norm(sqrt(-2.0 * log(random_unif(0.0, 1.0))) * cos(2.0 * M_PI * random_unif(0.0, 1.0)), a, b, _m, _m * 0.3);})
-#define random(a, b) random_norm(a, b)
+#define random(a, b) random_unif(a, b)
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
