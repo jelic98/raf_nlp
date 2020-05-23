@@ -803,29 +803,31 @@ static void initialize_corpus() {
 #ifdef FLAG_INTERACTIVE_MODE
 	echo("Entering interactive mode");
 	
-	dt_char cmd[COMMAND_LENGTH] = {0};
+	dt_char cmd[LINE_CHARACTER_MAX] = {0};
 
-	while(strcmp(cmd, "exit")) {
-		memset(cmd, 0, COMMAND_LENGTH * sizeof(dt_char));
+	while(1) {
 		echo("Command?");
 		scanf("%s", cmd);
 
 		if(!strcmp(cmd, "target")) {
-			dt_char word[LINE_CHARACTER_MAX];
 			echo("Center word?");
-			scanf("%s", word);
+			scanf("%s", cmd);
 
-			dt_int index = word_to_index(word);
+			dt_int index = word_to_index(cmd);
 
 			if(!index_valid(index)) {
 				continue;
 			}
 		
 			xWord* center = index_to_word(index);
-		
+
 			for(c = 0; c < center->context_max; c++) {
 				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
 			}
+		}else if(!strcmp(cmd, "exit")) {
+			break;
+		}else {
+			echo_fail(ERROR_COMMAND);
 		}
 	}
 

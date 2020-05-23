@@ -22,7 +22,6 @@
 #define LOG_PERIOD_PASS 100
 #define LOG_PERIOD_CORPUS 500
 #define BACKTRACE_DEPTH 10
-#define COMMAND_LENGTH 20
 
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
@@ -47,7 +46,7 @@
 //#define FLAG_FIXED_INITIAL_WEIGHTS
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
-#define FLAG_INTERACTIVE_MODE
+//#define FLAG_INTERACTIVE_MODE
 //#define FLAG_PRINT_INDEX_ERRORS
 
 #ifdef FLAG_LOG
@@ -70,6 +69,7 @@
 // Messages
 #define ERROR_FILE "File error occurred"
 #define ERROR_MEMORY "Memory error occurred"
+#define ERROR_COMMAND "Command error occurred"
 
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
