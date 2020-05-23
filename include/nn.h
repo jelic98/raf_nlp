@@ -8,7 +8,7 @@
 #define EPOCH_MAX 2
 #define HIDDEN_MAX 70
 #define WINDOW_MAX 10
-#define NEGATIVE_SAMPLES_MAX 10
+#define NEGATIVE_SAMPLES_MAX 6
 #define LEARNING_RATE_MAX 0.0025
 #define LEARNING_RATE_MIN 0.0001
 #define INITIAL_WEIGHT 0.025
@@ -22,6 +22,7 @@
 #define LOG_PERIOD_PASS 100
 #define LOG_PERIOD_CORPUS 500
 #define BACKTRACE_DEPTH 10
+#define COMMAND_LENGTH 20
 
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
@@ -46,6 +47,7 @@
 //#define FLAG_FIXED_INITIAL_WEIGHTS
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_PRINT_CORPUS
+#define FLAG_INTERACTIVE_MODE
 //#define FLAG_PRINT_INDEX_ERRORS
 
 #ifdef FLAG_LOG

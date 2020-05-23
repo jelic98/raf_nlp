@@ -799,6 +799,38 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));
 #endif
+
+#ifdef FLAG_INTERACTIVE_MODE
+	echo("Entering interactive mode");
+	
+	dt_char cmd[COMMAND_LENGTH] = {0};
+
+	while(strcmp(cmd, "exit")) {
+		memset(cmd, 0, COMMAND_LENGTH * sizeof(dt_char));
+		echo("Command?");
+		scanf("%s", cmd);
+
+		if(!strcmp(cmd, "target")) {
+			dt_char word[LINE_CHARACTER_MAX];
+			echo("Center word?");
+			scanf("%s", word);
+
+			dt_int index = word_to_index(word);
+
+			if(!index_valid(index)) {
+				continue;
+			}
+		
+			xWord* center = index_to_word(index);
+		
+			for(c = 0; c < center->context_max; c++) {
+				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
+			}
+		}
+	}
+
+	echo_succ("Exiting interactive mode");
+#endif
 }
 
 static void initialize_weights() {
@@ -987,7 +1019,6 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 		if(index == 1) {
 			*success = 0;
-
 			for(c = 0; c < center->context_max; c++) {
 				if(center->target[c]->index == context_index) {
 					*success = 1;
