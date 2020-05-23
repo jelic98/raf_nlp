@@ -76,6 +76,7 @@
 #define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
 #define random_norm(a, b) ({dt_float _m = (a + (b - a) * 0.5); limit_norm(sqrt(-2.0 * log(random_unif(0.0, 1.0))) * cos(2.0 * M_PI * random_unif(0.0, 1.0)), a, b, _m, _m * 0.3);})
 #define random(a, b) random_unif(a, b)
+#define random_int(a, b) ((dt_int) min(max(a, random(a, b)), b))
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;

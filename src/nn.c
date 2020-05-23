@@ -354,9 +354,11 @@ static void bst_sample(xWord* root) {
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
 
 	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
 		samples[ck] = copies[p];
 	}
+
+	free(copies);
 }
 #endif
 #endif
@@ -832,7 +834,7 @@ static void initialize_weights() {
 static void initialize_epoch() {
 	for(p = 0; p < pattern_max; p++) {
 		p2 = patterns[p];
-		patterns[p] = patterns[p1 = p + random(0, 1) * (pattern_max - p)];
+		patterns[p] = patterns[p1 = random_int(p + 1, pattern_max - 1)];
 		patterns[p1] = p2;
 	}
 
@@ -879,7 +881,7 @@ static void negative_sampling() {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					k = (dt_int) random(0, pattern_max);
+					k = random_int(0, pattern_max - 1);
 					f = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
 					r = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
 
@@ -888,11 +890,10 @@ static void negative_sampling() {
 					}
 				}
 #else
-				k = samples[(dt_int) random(0, pattern_max)]->index;
+				k = samples[random_int(0, pattern_max - 1)]->index;
 #endif
 			} else {
-				for(k = 0; k < output_max && k != center->target[c]->index; k++)
-					;
+				k = center->target[c]->index;
 			}
 
 			for(j = 0; j < hidden_max; j++) {
