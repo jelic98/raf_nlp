@@ -258,9 +258,9 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 		} else if(cmp > 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
+			root->freq++;
 			node_release(*node);
 			*node = root;
-			root->freq++;
 		}
 
 		return root;
@@ -387,7 +387,7 @@ static void bst_release(xWord* root) {
 static xWord* node_create(const dt_char* word) {
 	xWord* node = (xWord*) calloc(1, sizeof(xWord));
 	memcheck(node);
-	node->word = (dt_char*) calloc(strlen(word), sizeof(dt_char));
+	node->word = (dt_char*) calloc(strlen(word) + 1, sizeof(dt_char));
 	memcheck(node->word);
 	strcpy(node->word, word);
 	node->index = node->prob = node->context_max = node->freq = 0;
