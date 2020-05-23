@@ -9,6 +9,7 @@ Features to be implemented in no particular order.
 
 ### Other
 
+* corpus has random size in multiple runs (words not connecting properly)
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst
