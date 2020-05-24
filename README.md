@@ -9,8 +9,8 @@ Features to be implemented in no particular order.
 
 ### Other
 
-* add matrix to track which word is in context of which word
-* corpus has random size in multiple runs (words not connecting properly)
+* find n maximums instead of sorting whole array
+* add pmi to track context connections to avaid list context contains
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst
