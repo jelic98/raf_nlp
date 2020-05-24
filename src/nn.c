@@ -20,6 +20,7 @@ static dt_int* patterns;
 
 static xWord* corpus;
 static xWord* stops;
+static xWord** vocab;
 static xWord** onehot;
 
 static dt_int invalid_index[INVALID_INDEX_MAX];
@@ -271,28 +272,6 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	return *node;
 }
 
-static xWord* bst_get(xWord* node, dt_int* index) {
-	if(node) {
-		xWord* word = bst_get(node->left, index);
-
-		if(word) {
-			return word;
-		}
-
-		if(!(*index)--) {
-			return node;
-		}
-
-		word = bst_get(node->right, index);
-
-		if(word) {
-			return word;
-		}
-	}
-
-	return NULL;
-}
-
 static void bst_to_map(xWord* root, dt_int* index) {
 	if(root) {
 		bst_to_map(root->left, index);
@@ -321,6 +300,14 @@ static void bst_target(xWord* root) {
 
 		bst_target(root->left);
 		bst_target(root->right);
+	}
+}
+
+static void bst_flatten(xWord* root, xWord** arr) {
+	if(root) {
+		*(arr + root->index) = root;
+		bst_flatten(root->left, arr);
+		bst_flatten(root->right, arr);
 	}
 }
 
@@ -431,7 +418,7 @@ static void node_context_release(xContext* root) {
 }
 
 static xWord* index_to_word(dt_int index) {
-	return bst_get(corpus, &index);
+	return vocab[index];
 }
 
 static dt_int index_valid(dt_int index) {
@@ -538,6 +525,12 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
+	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
+	memcheck(vocab);
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
+#endif
+
 	onehot = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(onehot);
 #ifdef FLAG_LOG
@@ -610,6 +603,9 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
+	free(vocab);
+	vocab = NULL;
+
 	free(onehot);
 	onehot = NULL;
 
@@ -770,6 +766,16 @@ static void initialize_corpus() {
 	echo_succ("Done building word targets");
 #endif
 
+#ifdef FLAG_LOG
+	echo("Flattening vocabulary");
+#endif
+	
+	bst_flatten(corpus, vocab);
+
+#ifdef FLAG_LOG
+	echo_succ("Done flattening vocabulary");
+#endif
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_MONTE_CARLO
 #ifdef FLAG_LOG
@@ -786,7 +792,7 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo("Creating sampling distribution");
 #endif
-
+	
 	bst_sample(corpus);
 	
 #ifdef FLAG_LOG

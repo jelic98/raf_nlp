@@ -9,6 +9,7 @@ Features to be implemented in no particular order.
 
 ### Other
 
+* keep words in array instead of binary tree
 * find n maximums instead of sorting whole array
 * add pmi to track context connections to avaid list context contains
 * scan vocabulary if word is not found in the map
