@@ -298,9 +298,7 @@ static void bst_to_map(xWord* root, dt_int* index) {
 		bst_to_map(root->left, index);
 		
 		root->index = (*index)++;
-
-		xWord** entry = map_get(root->word);
-		*entry = root;
+		*map_get(root->word) = root;
 		
 		bst_to_map(root->right, index);
 	}
@@ -482,7 +480,9 @@ static dt_int word_to_index(const dt_char* word) {
 		return index;
 	}
 
+#ifdef FLAG_LOG
 	echo_fail("%s not found in corpus", word);
+#endif
 
 	return -1;
 }
@@ -818,7 +818,7 @@ static void initialize_corpus() {
 			echo("Center word?");
 			scanf("%s", cmd);
 
-			xWord* center = (*map_get(cmd))->word;
+			xWord* center = *map_get(cmd);
 
 			for(c = 0; c < center->context_max; c++) {
 				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
