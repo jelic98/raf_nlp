@@ -134,7 +134,7 @@ static dt_int cmp_freq(const void* a, const void* b) {
 #endif
 #endif
 
-static dt_int cmp_word(const void* a, const void* b) {
+static dt_int cmp_prob(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
@@ -1002,7 +1002,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		pred[k]->prob = output[k];
 	}
 
-	qsort(pred, pattern_max, sizeof(xWord*), cmp_word);
+	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
 
 	xWord* center = index_to_word(p);
 
