@@ -20,7 +20,7 @@ static dt_int* patterns;
 
 static xWord* corpus;
 static xWord* stops;
-static dt_int* onehot;
+static xWord** onehot;
 
 static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
@@ -140,7 +140,7 @@ static dt_int cmp_word(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static dt_int* map_get(const dt_char* word) {
+static xWord** map_get(const dt_char* word) {
 	dt_uint h = 0;
 
 	for(size_t i = 0; word[i]; i++) {
@@ -296,7 +296,12 @@ static xWord* bst_get(xWord* node, dt_int* index) {
 static void bst_to_map(xWord* root, dt_int* index) {
 	if(root) {
 		bst_to_map(root->left, index);
-		*map_get(root->word) = root->index = (*index)++;
+		
+		root->index = (*index)++;
+
+		xWord** entry = map_get(root->word);
+		*entry = root;
+		
 		bst_to_map(root->right, index);
 	}
 }
@@ -471,7 +476,7 @@ static void invalid_index_print() {
 #endif
 
 static dt_int word_to_index(const dt_char* word) {
-	dt_int index = *map_get(word);
+	dt_int index = (*map_get(word))->index;
 
 	if(index < pattern_max) {
 		return index;
@@ -533,7 +538,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	onehot = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	onehot = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(onehot);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "onehot", 1, pattern_max);
@@ -813,13 +818,7 @@ static void initialize_corpus() {
 			echo("Center word?");
 			scanf("%s", cmd);
 
-			dt_int index = word_to_index(cmd);
-
-			if(!index_valid(index)) {
-				continue;
-			}
-		
-			xWord* center = index_to_word(index);
+			xWord* center = (*map_get(cmd))->word;
 
 			for(c = 0; c < center->context_max; c++) {
 				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
