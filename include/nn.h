@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "3"
+#define TEST_INDEX "2"
 
 #define EPOCH_MAX 2
 #define HIDDEN_MAX 70
@@ -45,7 +45,6 @@
 //#define FLAG_STEM
 //#define FLAG_FIXED_INITIAL_WEIGHTS
 //#define FLAG_BACKUP_WEIGHTS
-//#define FLAG_PRINT_CORPUS
 //#define FLAG_INTERACTIVE_MODE
 //#define FLAG_PRINT_INDEX_ERRORS
 

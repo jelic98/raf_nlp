@@ -18,9 +18,8 @@ static dt_float** w_ho;
 static dt_float* error;
 static dt_int* patterns;
 
-static xWord* corpus;
+static xWord* vocab;
 static xWord* stops;
-static xWord** vocab;
 static xWord** onehot;
 
 static dt_int invalid_index[INVALID_INDEX_MAX];
@@ -215,19 +214,6 @@ static dt_int list_contains(xWord* root, const dt_char* word) {
 	return 0;
 }
 
-#ifdef FLAG_PRINT_CORPUS
-static void list_context_print(xContext* root) {
-	dt_int index = 0;
-
-	while(root) {
-#ifdef FLAG_LOG
-		echo("Context #%d:\t%s", ++index, root->word->word);
-#endif
-		root = root->next;
-	}
-}
-#endif
-
 static void list_release(xWord* root) {
 	xWord* node;
 
@@ -272,75 +258,54 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	return *node;
 }
 
-static void bst_to_map(xWord* root, dt_int* index) {
+static void bst_flatten(xWord* root, xWord* arr, dt_int* index) {
 	if(root) {
-		bst_to_map(root->left, index);
-		
-		root->index = (*index)++;
-		*map_get(root->word) = root;
-		
-		bst_to_map(root->right, index);
+		bst_flatten(root->left, arr, index);
+		arr[root->index = (*index)++] = *root;
+		bst_flatten(root->right, arr, index);
 	}
 }
 
-static void bst_target(xWord* root) {
-	if(root) {
+static void vocab_map(xWord* vocab) {
+	for(p = 0; p < pattern_max; p++) {
+		*map_get(vocab[p].word) = vocab + p;
+	}
+}
+
+static void vocab_target(xWord* vocab) {
+	for(p = 0; p < pattern_max; p++) {
 		dt_int index = 0;
-		root->target = (xWord**) calloc(root->context_max, sizeof(xWord*));
-		memcheck(root->target);
-		xContext* tmp = root->context;
+		vocab[p].target = (xWord**) calloc(vocab[p].context_max, sizeof(xWord*));
+		memcheck(vocab[p].target);
+		xContext* tmp = vocab[p].context;
 
 		while(tmp) {
-			root->target[index++] = tmp->word;
+			vocab[p].target[index++] = tmp->word;
 			tmp = tmp->next;
 		}
 
-		list_context_release(root->context);
-		root->context = NULL;
-
-		bst_target(root->left);
-		bst_target(root->right);
-	}
-}
-
-static void bst_flatten(xWord* root, xWord** arr) {
-	if(root) {
-		*(arr + root->index) = root;
-		bst_flatten(root->left, arr);
-		bst_flatten(root->right, arr);
+		list_context_release(vocab[p].context);
+		vocab[p].context = NULL;
 	}
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_MONTE_CARLO
-static void bst_freq_sum(xWord* root, dt_int* sum) {
-	if(root) {
-		*sum += root->freq;
-		bst_freq_sum(root->left, sum);
-		bst_freq_sum(root->right, sum);
-	}
-}
-
-static void bst_freq_max(xWord* root, dt_int* max) {
-	if(root) {
-		*max = max(*max, root->freq);
-		bst_freq_max(root->left, max);
-		bst_freq_max(root->right, max);
+static void vocab_freq(xWord* vocab, dt_int* sum, dt_int* max) {
+	for(*sum = *max = p = 0; p < pattern_max; p++) {
+		*sum += vocab[p]->freq;
+		*max = max(*max, vocab[p]->freq);
 	}
 }
 #else
-static void bst_extract(xWord* root, xWord** samples) {
-	if(root) {
-		*(samples + root->index) = root;
-		bst_extract(root->left, samples);
-		bst_extract(root->right, samples);
-	}
-}
-
-static void bst_sample(xWord* root) {
+static void vocab_sample(xWord* vocab) {
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
-	bst_extract(root, copies);
+
+	for(p = 0; p < pattern_max; p++) {
+		copies[p] = vocab + p;
+	}
+
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
 
 	for(p = 0; p < pattern_max; p++) {
@@ -352,27 +317,6 @@ static void bst_sample(xWord* root) {
 }
 #endif
 #endif
-
-#ifdef FLAG_PRINT_CORPUS
-static void bst_print(xWord* root) {
-	if(root) {
-		bst_print(root->left);
-#ifdef FLAG_LOG
-		echo_info("Corpus #%d:\t%s (%d)", root->index, root->word, root->freq);
-		list_context_print(root->context);
-#endif
-		bst_print(root->right);
-	}
-}
-#endif
-
-static void bst_release(xWord* root) {
-	if(root) {
-		bst_release(root->left);
-		bst_release(root->right);
-		node_release(root);
-	}
-}
 
 static xWord* node_create(const dt_char* word) {
 	xWord* node = (xWord*) calloc(1, sizeof(xWord));
@@ -418,7 +362,7 @@ static void node_context_release(xContext* root) {
 }
 
 static xWord* index_to_word(dt_int index) {
-	return vocab[index];
+	return vocab + index;
 }
 
 static dt_int index_valid(dt_int index) {
@@ -525,7 +469,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
+	vocab = (xWord*) calloc(pattern_max, sizeof(xWord));
 	memcheck(vocab);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
@@ -603,8 +547,15 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
+	for(p = 0; p < pattern_max; p++) {
+		// TODO node_release(vocab + p);
+	}
+
 	free(vocab);
 	vocab = NULL;
+
+	list_release(stops);
+	stops = NULL;
 
 	free(onehot);
 	onehot = NULL;
@@ -680,6 +631,7 @@ static void initialize_corpus() {
 	dt_int success, sent_end;
 	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
+	xWord* corpus;
 	xWord* window[WINDOW_MAX] = { 0 };
 
 #ifdef FLAG_LOG
@@ -742,38 +694,34 @@ static void initialize_corpus() {
 	}
 
 #ifdef FLAG_LOG
-	echo("Creating corpus map");
+	echo("Flattening corpus");
 #endif
 
 	dt_int index = 0;
-	bst_to_map(corpus, &index);
+	bst_flatten(corpus, vocab, &index);
+
+#ifdef FLAG_LOG
+	echo_succ("Done flattening corpus");
+#endif
+
+#ifdef FLAG_LOG
+	echo("Creating corpus map");
+#endif
+
+	vocab_map(vocab);
 
 #ifdef FLAG_LOG
 	echo_succ("Done creating corpus map");
-#endif
-
-#ifdef FLAG_PRINT_CORPUS
-	bst_print(corpus);
 #endif
 
 #ifdef FLAG_LOG
 	echo("Building word targets");
 #endif
 
-	bst_target(corpus);
+	vocab_target(vocab);
 
 #ifdef FLAG_LOG
 	echo_succ("Done building word targets");
-#endif
-
-#ifdef FLAG_LOG
-	echo("Flattening vocabulary");
-#endif
-	
-	bst_flatten(corpus, vocab);
-
-#ifdef FLAG_LOG
-	echo_succ("Done flattening vocabulary");
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -782,8 +730,7 @@ static void initialize_corpus() {
 	echo("Calculating word frequency");
 #endif
 
-	bst_freq_sum(corpus, (corpus_freq_sum = 0, &corpus_freq_sum));
-	bst_freq_max(corpus, (corpus_freq_max = 0, &corpus_freq_max));
+	vocab_freq(vocab, &corpus_freq_sum, &corpus_freq_max);
 
 #ifdef FLAG_LOG
 	echo_succ("Done calculating word frequency");
@@ -792,9 +739,9 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo("Creating sampling distribution");
 #endif
-	
-	bst_sample(corpus);
-	
+
+	vocab_sample(vocab);
+
 #ifdef FLAG_LOG
 	echo_succ("Done creating sampling distribution");
 #endif
@@ -813,7 +760,7 @@ static void initialize_corpus() {
 
 #ifdef FLAG_INTERACTIVE_MODE
 	echo("Entering interactive mode");
-	
+
 	dt_char cmd[LINE_CHARACTER_MAX] = {0};
 
 	while(1) {
@@ -1076,12 +1023,6 @@ void nn_finish() {
 #ifdef FLAG_PRINT_INDEX_ERRORS
 	invalid_index_print();
 #endif
-
-	bst_release(corpus);
-	corpus = NULL;
-
-	list_release(stops);
-	stops = NULL;
 
 	resources_release();
 
