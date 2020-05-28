@@ -161,7 +161,7 @@ static xWord* list_insert(xWord* root, xWord** node) {
 
 		while(tmp->next) {
 			if(!strcmp(tmp->word, (*node)->word)) {
-				//node_release(*node);
+				node_release(*node);
 				*node = tmp;
 				return root;
 			}
@@ -224,7 +224,7 @@ static void list_release(xWord* root) {
 	while(root) {
 		node = root;
 		root = root->next;
-		//node_release(node);
+		node_release(node);
 	}
 }
 
@@ -248,7 +248,7 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
 			root->freq++;
-			//node_release(*node);
+			node_release(*node);
 			*node = root;
 		}
 
@@ -960,13 +960,13 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 			count++;
 			continue;
 		}
-
+		
 		dt_int context_index = word_to_index(pred[k]->word);
 
 		if(!index_valid(context_index)) {
 			continue;
 		}
-
+	
 		if(index == 1) {
 			*success = 0;
 			for(c = 0; c < center->context_max; c++) {
