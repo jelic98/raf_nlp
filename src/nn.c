@@ -242,9 +242,9 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	if(root) {
 		dt_int cmp = strcmp(root->word, (*node)->word);
 
-		if(cmp > 0) {
+		if(cmp < 0) {
 			root->left = bst_insert(root->left, node, success);
-		} else if(cmp < 0) {
+		} else if(cmp > 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
 			root->freq++;
@@ -966,7 +966,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		if(!index_valid(context_index)) {
 			continue;
 		}
-	
+
 		if(index == 1) {
 			*success = 0;
 			for(c = 0; c < center->context_max; c++) {
