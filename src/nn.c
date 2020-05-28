@@ -317,9 +317,10 @@ static void vocab_sample(xWord** vocab) {
 static xWord* node_create(const dt_char* word) {
 	xWord* node = (xWord*) calloc(1, sizeof(xWord));
 	memcheck(node);
-	node->word = (dt_char*) calloc(strlen(word) + 1, sizeof(dt_char));
+	node->word = (dt_char*) calloc(strlen(word) + 2, sizeof(dt_char));
 	memcheck(node->word);
 	strcpy(node->word, word);
+	node->word[strlen(node->word) + 1] = '*';
 	node->index = node->prob = node->context_max = node->freq = 0;
 	node->left = node->right = node->next = NULL;
 	node->context = NULL;
@@ -335,9 +336,7 @@ static xContext* node_context_create(xWord* word) {
 }
 
 static void node_release(xWord* root) {
-	echo_fail("%s %d %d", root->word, root->index, pattern_max);
-	
-	if(root->word) {
+	if(root->word && root->word[strlen(root->word) + 1] == '*') {
 		free(root->word);
 		root->word = NULL;
 	}
@@ -351,7 +350,6 @@ static void node_release(xWord* root) {
 	root->index = root->prob = root->context_max = root->freq = 0;
 	root->context = NULL;
 	free(root);
-	echo("OK");
 }
 
 static void node_context_release(xContext* root) {
