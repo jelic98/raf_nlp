@@ -10,7 +10,7 @@ Features to be implemented in no particular order.
 ### Other
 
 * find n maximums instead of sorting whole array
-* add pmi to track context connections to avaid list context contains
+* add pmi to track context connections to avaid bst context contains
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst

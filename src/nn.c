@@ -18,8 +18,8 @@ static dt_float** w_ho;
 static dt_float* error;
 static dt_int* patterns;
 
-static xWord* vocab;
 static xWord* stops;
+static xWord** vocab;
 static xWord** onehot;
 
 static dt_int invalid_index[INVALID_INDEX_MAX];
@@ -161,7 +161,7 @@ static xWord* list_insert(xWord* root, xWord** node) {
 
 		while(tmp->next) {
 			if(!strcmp(tmp->word, (*node)->word)) {
-				node_release(*node);
+				//node_release(*node);
 				*node = tmp;
 				return root;
 			}
@@ -224,7 +224,7 @@ static void list_release(xWord* root) {
 	while(root) {
 		node = root;
 		root = root->next;
-		node_release(node);
+		//node_release(node);
 	}
 }
 
@@ -242,13 +242,13 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	if(root) {
 		dt_int cmp = strcmp(root->word, (*node)->word);
 
-		if(cmp < 0) {
+		if(cmp > 0) {
 			root->left = bst_insert(root->left, node, success);
-		} else if(cmp > 0) {
+		} else if(cmp < 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
 			root->freq++;
-			node_release(*node);
+			//node_release(*node);
 			*node = root;
 		}
 
@@ -260,28 +260,28 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	return *node;
 }
 
-static void bst_flatten(xWord* root, xWord* arr, dt_int* index) {
+static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	if(root) {
 		bst_flatten(root->left, arr, index);
-		arr[root->index = (*index)++] = *root;
+		arr[root->index = (*index)++] = root;
 		bst_flatten(root->right, arr, index);
 	}
 }
 
-static void vocab_map(xWord* vocab) {
+static void vocab_map(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
-		*map_get(vocab[p].word) = vocab + p;
+		*map_get(vocab[p]->word) = vocab[p];
 	}
 }
 
-static void vocab_target(xWord* vocab) {
+static void vocab_target(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
-		vocab[p].target = (xWord**) calloc(vocab[p].context_max, sizeof(xWord*));
-		memcheck(vocab[p].target);
+		vocab[p]->target = (xWord**) calloc(vocab[p]->context_max, sizeof(xWord*));
+		memcheck(vocab[p]->target);
 		dt_int index = 0;
-		context_flatten(vocab[p].context, vocab[p].target, &index);
-		context_release(vocab[p].context);
-		vocab[p].context = NULL;
+		context_flatten(vocab[p]->context, vocab[p]->target, &index);
+		context_release(vocab[p]->context);
+		vocab[p]->context = NULL;
 	}
 }
 
@@ -294,12 +294,12 @@ static void vocab_freq(xWord* vocab, dt_int* sum, dt_int* max) {
 	}
 }
 #else
-static void vocab_sample(xWord* vocab) {
+static void vocab_sample(xWord** vocab) {
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
 
 	for(p = 0; p < pattern_max; p++) {
-		copies[p] = vocab + p;
+		copies[p] = vocab[p];
 	}
 
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
@@ -335,6 +335,8 @@ static xContext* node_context_create(xWord* word) {
 }
 
 static void node_release(xWord* root) {
+	echo_fail("%s %d %d", root->word, root->index, pattern_max);
+	
 	if(root->word) {
 		free(root->word);
 		root->word = NULL;
@@ -344,11 +346,12 @@ static void node_release(xWord* root) {
 		free(root->target);
 		root->target = NULL;
 	}
-
+	
 	root->left = root->right = root->next = NULL;
 	root->index = root->prob = root->context_max = root->freq = 0;
 	root->context = NULL;
 	free(root);
+	echo("OK");
 }
 
 static void node_context_release(xContext* root) {
@@ -358,7 +361,7 @@ static void node_context_release(xContext* root) {
 }
 
 static xWord* index_to_word(dt_int index) {
-	return vocab + index;
+	return vocab[index];
 }
 
 static dt_int index_valid(dt_int index) {
@@ -465,7 +468,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	vocab = (xWord*) calloc(pattern_max, sizeof(xWord));
+	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
@@ -544,9 +547,8 @@ static void resources_allocate() {
 
 static void resources_release() {
 	for(p = 0; p < pattern_max; p++) {
-		node_release(vocab + p);
+		node_release(vocab[p]);
 	}
-
 	free(vocab);
 	vocab = NULL;
 
@@ -941,7 +943,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
-	// TODO vector_softmax(output, output_max);
+	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
 
@@ -1020,7 +1022,7 @@ void nn_finish() {
 	invalid_index_print();
 #endif
 
-	// TODO resources_release();
+	resources_release();
 
 #ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
