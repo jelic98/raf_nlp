@@ -3,12 +3,12 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "2"
+#define TEST_INDEX "4"
 
-#define EPOCH_MAX 2
+#define EPOCH_MAX 1
 #define HIDDEN_MAX 70
-#define WINDOW_MAX 10
-#define NEGATIVE_SAMPLES_MAX 6
+#define WINDOW_MAX 5
+#define NEGATIVE_SAMPLES_MAX 4
 #define LEARNING_RATE_MAX 0.0025
 #define LEARNING_RATE_MIN 0.0001
 #define INITIAL_WEIGHT 0.025
@@ -115,7 +115,8 @@ typedef struct xWord {
 
 typedef struct xContext {
 	xWord* word;
-	struct xContext* next;
+	struct xContext* left;
+	struct xContext* right;
 } xContext;
 
 typedef union xBit {

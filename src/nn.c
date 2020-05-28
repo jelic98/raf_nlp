@@ -179,27 +179,31 @@ static xWord* list_insert(xWord* root, xWord** node) {
 	return *node;
 }
 
-static xContext* list_context_insert(xContext* root, xWord* word, dt_int* success) {
-	*success = 1;
+static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
+	*success = 0;
 
 	if(root) {
-		xContext* tmp = root;
+		dt_int cmp = strcmp(root->word->word, word->word);
 
-		while(tmp->next) {
-			if(tmp->word == word) {
-				*success = 0;
-				return root;
-			}
-
-			tmp = tmp->next;
+		if(cmp < 0) {
+			root->left = context_insert(root->left, word, success);
+		} else if(cmp > 0) {
+			root->right = context_insert(root->right, word, success);
 		}
-
-		tmp->next = node_context_create(word);
 
 		return root;
 	}
 
+	*success = 1;
 	return node_context_create(word);
+}
+
+static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
+	if(root) {
+		context_flatten(root->left, arr, index);
+		arr[(*index)++] = root->word;
+		context_flatten(root->right, arr, index);
+	}
 }
 
 static dt_int list_contains(xWord* root, const dt_char* word) {
@@ -224,13 +228,11 @@ static void list_release(xWord* root) {
 	}
 }
 
-static void list_context_release(xContext* root) {
-	xContext* node;
-
-	while(root) {
-		node = root;
-		root = root->next;
-		node_context_release(node);
+static void context_release(xContext* root) {
+	if(root) {
+		context_release(root->left);
+		context_release(root->right);
+		node_context_release(root);
 	}
 }
 
@@ -274,17 +276,11 @@ static void vocab_map(xWord* vocab) {
 
 static void vocab_target(xWord* vocab) {
 	for(p = 0; p < pattern_max; p++) {
-		dt_int index = 0;
 		vocab[p].target = (xWord**) calloc(vocab[p].context_max, sizeof(xWord*));
 		memcheck(vocab[p].target);
-		xContext* tmp = vocab[p].context;
-
-		while(tmp) {
-			vocab[p].target[index++] = tmp->word;
-			tmp = tmp->next;
-		}
-
-		list_context_release(vocab[p].context);
+		dt_int index = 0;
+		context_flatten(vocab[p].context, vocab[p].target, &index);
+		context_release(vocab[p].context);
 		vocab[p].context = NULL;
 	}
 }
@@ -357,7 +353,7 @@ static void node_release(xWord* root) {
 
 static void node_context_release(xContext* root) {
 	root->word = NULL;
-	root->next = NULL;
+	root->left = root->right = NULL;
 	free(root);
 }
 
@@ -548,7 +544,7 @@ static void resources_allocate() {
 
 static void resources_release() {
 	for(p = 0; p < pattern_max; p++) {
-		// TODO node_release(vocab + p);
+		node_release(vocab + p);
 	}
 
 	free(vocab);
@@ -663,10 +659,10 @@ static void initialize_corpus() {
 
 				for(c = 0; c < WINDOW_MAX - 1; c++) {
 					if(window[c] && strcmp(window[c]->word, node->word)) {
-						node->context = list_context_insert(node->context, window[c], &success);
+						node->context = context_insert(node->context, window[c], &success);
 						node->context_max += success;
 
-						window[c]->context = list_context_insert(window[c]->context, node, &success);
+						window[c]->context = context_insert(window[c]->context, node, &success);
 						window[c]->context_max += success;
 					}
 
@@ -945,7 +941,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 
 	forward_propagate_input_layer();
 	forward_propagate_hidden_layer();
-	vector_softmax(output, output_max);
+	// TODO vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
 
@@ -1024,7 +1020,7 @@ void nn_finish() {
 	invalid_index_print();
 #endif
 
-	resources_release();
+	// TODO resources_release();
 
 #ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
