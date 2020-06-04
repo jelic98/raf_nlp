@@ -4,8 +4,15 @@ Features to be implemented in no particular order.
 
 ### Model
 
+* simplify sigmoi
+* simplify sigmoidd
+* initialize input weights inverse proportionally to word frequency
 * adam optimizer?
 * mini batching?
+
+### Parser
+
+* frequency word filtering
 
 ### Other
 

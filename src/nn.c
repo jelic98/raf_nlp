@@ -1123,8 +1123,13 @@ void weights_save() {
 	echo("Started saving weights");
 #endif
 
+#ifdef FLAG_BINARY_OUTPUT
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "wb");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "wb");
+#else
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "w");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "w");
+#endif
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
@@ -1134,11 +1139,27 @@ void weights_save() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+		#ifdef FLAG_BINARY_OUTPUT
+			fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+		#else
+			for(j = 0; j < hidden_max; j++) {
+				fprintf(fwih, j ? " %lf" : "%lf", w_ih[i][j]);
+			}
+
+			fprintf(fwih, "\n");
+		#endif
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
+		#ifdef FLAG_BINARY_OUTPUT
+			fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
+		#else
+			for(k = 0; k < output_max; k++) {
+				fprintf(fwho, k ? " %lf" : "%lf", w_ho[j][k]);
+			}
+
+			fprintf(fwho, "\n");
+		#endif
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
@@ -1157,8 +1178,13 @@ void weights_load() {
 	echo("Started loading weights");
 #endif
 
+#ifdef FLAG_BINARY_INPUT
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "rb");
 	FILE* fwho = fopen(WEIGHTS_HO_PATH, "rb");
+#else
+	FILE* fwih = fopen(WEIGHTS_IH_PATH, "r");
+	FILE* fwho = fopen(WEIGHTS_HO_PATH, "r");
+#endif
 
 	if(!fwih || !fwho) {
 #ifdef FLAG_LOG
@@ -1168,11 +1194,23 @@ void weights_load() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+		#ifdef FLAG_BINARY_INPUT
+			fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+		#else
+			for(j = 0; j < hidden_max; j++) {
+				fscanf(fwih, "%lf", &w_ih[i][j]);
+			}
+		#endif
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		fread(w_ho[j], sizeof(dt_float), output_max, fwho);
+		#ifdef FLAG_BINARY_INPUT
+			fread(w_ho[j], sizeof(dt_float), output_max, fwho);
+		#else
+			for(k = 0; k < output_max; k++) {
+				fscanf(fwho, "%lf", &w_ho[j][k]);
+			}
+		#endif
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
