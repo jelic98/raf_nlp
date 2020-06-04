@@ -268,6 +268,29 @@ static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	}
 }
 
+#ifdef FLAG_BACKUP_VOCABULARY
+static void vocab_save(xWord** vocab) {
+	FILE* fvoc = fopen(VOCABULARY_PATH, "w");
+
+	if(!fvoc) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+		return;
+	}
+	
+	for(p = 0; p < pattern_max; p++) {
+		fprintf(fvoc, "%s\n", vocab[p]->word);
+	}
+
+	if(fclose(fvoc) == EOF) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+	}
+}
+#endif
+
 static void vocab_map(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
 		*map_get(vocab[p]->word) = vocab[p];
@@ -701,14 +724,26 @@ static void initialize_corpus() {
 #endif
 
 #ifdef FLAG_LOG
+	echo_succ("Done creating corpus map");
+#endif
+
+#ifdef FLAG_BACKUP_VOCABULARY
+#ifdef FLAG_LOG
+	echo("Saving vocabulary");
+#endif
+
+	vocab_save(vocab);
+
+#ifdef FLAG_LOG
+	echo_succ("Done saving vocabulary");
+#endif
+#endif
+
+#ifdef FLAG_LOG
 	echo("Creating corpus map");
 #endif
 
 	vocab_map(vocab);
-
-#ifdef FLAG_LOG
-	echo_succ("Done creating corpus map");
-#endif
 
 #ifdef FLAG_LOG
 	echo("Building word targets");
@@ -1143,7 +1178,7 @@ void weights_save() {
 			fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
 		#else
 			for(j = 0; j < hidden_max; j++) {
-				fprintf(fwih, j ? " %lf" : "%lf", w_ih[i][j]);
+				fprintf(fwih, j ? "\t%lf" : "%lf", w_ih[i][j]);
 			}
 
 			fprintf(fwih, "\n");
@@ -1155,7 +1190,7 @@ void weights_save() {
 			fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
 		#else
 			for(k = 0; k < output_max; k++) {
-				fprintf(fwho, k ? " %lf" : "%lf", w_ho[j][k]);
+				fprintf(fwho, k ? "\t%lf" : "%lf", w_ho[j][k]);
 			}
 
 			fprintf(fwho, "\n");

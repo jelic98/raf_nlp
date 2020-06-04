@@ -44,11 +44,12 @@
 //#define FLAG_MONTE_CARLO
 //#define FLAG_STEM
 //#define FLAG_FIXED_INITIAL_WEIGHTS
+#define FLAG_BACKUP_VOCABULARY
 //#define FLAG_BACKUP_WEIGHTS
-//#define FLAG_INTERACTIVE_MODE
-//#define FLAG_PRINT_INDEX_ERRORS
 //#define FLAG_BINARY_INPUT
 //#define FLAG_BINARY_OUTPUT
+//#define FLAG_INTERACTIVE_MODE
+//#define FLAG_PRINT_INDEX_ERRORS
 
 #ifdef FLAG_LOG
 #define FLAG_LOG_FILE
@@ -63,8 +64,9 @@
 #define CORPUS_PATH "res/corpus/" TEST_INDEX ".txt"
 #define TEST_PATH "res/test/" TEST_INDEX ".txt"
 #define STOP_PATH "res/misc/stop.txt"
-#define WEIGHTS_IH_PATH "out/weights-ih.txt"
-#define WEIGHTS_HO_PATH "out/weights-ho.txt"
+#define VOCABULARY_PATH "out/vocab.tsv"
+#define WEIGHTS_IH_PATH "out/weights-ih.tsv"
+#define WEIGHTS_HO_PATH "out/weights-ho.tsv"
 #define LOG_PATH "out/log.txt"
 
 // Messages
