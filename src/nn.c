@@ -185,9 +185,9 @@ static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 	if(root) {
 		dt_int cmp = strcmp(root->word->word, word->word);
 
-		if(cmp < 0) {
+		if(cmp > 0) {
 			root->left = context_insert(root->left, word, success);
-		} else if(cmp > 0) {
+		} else if(cmp < 0) {
 			root->right = context_insert(root->right, word, success);
 		}
 
@@ -242,9 +242,9 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	if(root) {
 		dt_int cmp = strcmp(root->word, (*node)->word);
 
-		if(cmp < 0) {
+		if(cmp > 0) {
 			root->left = bst_insert(root->left, node, success);
-		} else if(cmp > 0) {
+		} else if(cmp < 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
 			root->freq++;
@@ -278,7 +278,7 @@ static void vocab_save(xWord** vocab) {
 #endif
 		return;
 	}
-	
+
 	for(p = 0; p < pattern_max; p++) {
 		fprintf(fvoc, "%s\n", vocab[p]->word);
 	}
@@ -368,7 +368,7 @@ static void node_release(xWord* root) {
 		free(root->target);
 		root->target = NULL;
 	}
-	
+
 	root->left = root->right = root->next = NULL;
 	root->index = root->prob = root->context_max = root->freq = 0;
 	root->context = NULL;
@@ -723,10 +723,6 @@ static void initialize_corpus() {
 	echo_succ("Done flattening corpus");
 #endif
 
-#ifdef FLAG_LOG
-	echo_succ("Done creating corpus map");
-#endif
-
 #ifdef FLAG_BACKUP_VOCABULARY
 #ifdef FLAG_LOG
 	echo("Saving vocabulary");
@@ -744,6 +740,10 @@ static void initialize_corpus() {
 #endif
 
 	vocab_map(vocab);
+
+#ifdef FLAG_LOG
+	echo_succ("Done creating corpus map");
+#endif
 
 #ifdef FLAG_LOG
 	echo("Building word targets");
@@ -995,7 +995,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 			count++;
 			continue;
 		}
-		
+
 		dt_int context_index = word_to_index(pred[k]->word);
 
 		if(!index_valid(context_index)) {
@@ -1150,7 +1150,7 @@ void testing_run() {
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
 	echo_succ("Finished testing (%lf sec)", time_get(start_time));
-#endif
+#endif	
 }
 
 void weights_save() {
@@ -1174,27 +1174,27 @@ void weights_save() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		#ifdef FLAG_BINARY_OUTPUT
-			fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
-		#else
-			for(j = 0; j < hidden_max; j++) {
-				fprintf(fwih, j ? "\t%lf" : "%lf", w_ih[i][j]);
-			}
+#ifdef FLAG_BINARY_OUTPUT
+		fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+#else
+		for(j = 0; j < hidden_max; j++) {
+			fprintf(fwih, j ? "\t%lf" : "%lf", w_ih[i][j]);
+		}
 
-			fprintf(fwih, "\n");
-		#endif
+		fprintf(fwih, "\n");
+#endif
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		#ifdef FLAG_BINARY_OUTPUT
-			fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
-		#else
-			for(k = 0; k < output_max; k++) {
-				fprintf(fwho, k ? "\t%lf" : "%lf", w_ho[j][k]);
-			}
+#ifdef FLAG_BINARY_OUTPUT
+		fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
+#else
+		for(k = 0; k < output_max; k++) {
+			fprintf(fwho, k ? "\t%lf" : "%lf", w_ho[j][k]);
+		}
 
-			fprintf(fwho, "\n");
-		#endif
+		fprintf(fwho, "\n");
+#endif
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
@@ -1229,23 +1229,23 @@ void weights_load() {
 	}
 
 	for(i = 0; i < input_max; i++) {
-		#ifdef FLAG_BINARY_INPUT
-			fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
-		#else
-			for(j = 0; j < hidden_max; j++) {
-				fscanf(fwih, "%lf", &w_ih[i][j]);
-			}
-		#endif
+#ifdef FLAG_BINARY_INPUT
+		fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
+#else
+		for(j = 0; j < hidden_max; j++) {
+			fscanf(fwih, "%lf", &w_ih[i][j]);
+		}
+#endif
 	}
 
 	for(j = 0; j < hidden_max; j++) {
-		#ifdef FLAG_BINARY_INPUT
-			fread(w_ho[j], sizeof(dt_float), output_max, fwho);
-		#else
-			for(k = 0; k < output_max; k++) {
-				fscanf(fwho, "%lf", &w_ho[j][k]);
-			}
-		#endif
+#ifdef FLAG_BINARY_INPUT
+		fread(w_ho[j], sizeof(dt_float), output_max, fwho);
+#else
+		for(k = 0; k < output_max; k++) {
+			fscanf(fwho, "%lf", &w_ho[j][k]);
+		}
+#endif
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {

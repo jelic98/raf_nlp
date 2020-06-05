@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "3"
+#define TEST_INDEX "2"
 
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
@@ -39,7 +39,7 @@
 #define FLAG_DEBUG
 #define FLAG_LOG
 #define FLAG_COLOR_LOG
-#define FLAG_NEGATIVE_SAMPLING
+//#define FLAG_NEGATIVE_SAMPLING
 //#define FLAG_DROPOUT
 //#define FLAG_MONTE_CARLO
 //#define FLAG_STEM
