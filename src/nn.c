@@ -996,16 +996,10 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 			continue;
 		}
 
-		dt_int context_index = word_to_index(pred[k]->word);
-
-		if(!index_valid(context_index)) {
-			continue;
-		}
-
 		if(index == 1) {
 			*success = 0;
 			for(c = 0; c < center->context_max; c++) {
-				if(center->target[c]->index == context_index) {
+				if(strcmp(center->target[c]->word, pred[k]->word)) {
 					*success = 1;
 					break;
 				}
@@ -1150,7 +1144,7 @@ void testing_run() {
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
 	echo_succ("Finished testing (%lf sec)", time_get(start_time));
-#endif	
+#endif
 }
 
 void weights_save() {
