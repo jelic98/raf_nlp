@@ -12,7 +12,7 @@ Features to be implemented in no particular order.
 
 ### Parser
 
-* frequency word filtering
+* alphabetical reorder changes word indices (compare indices instead of word in testing)
 
 ### Other
 

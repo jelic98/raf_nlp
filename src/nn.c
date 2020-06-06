@@ -22,6 +22,11 @@ static xWord* stops;
 static xWord** vocab;
 static xWord** onehot;
 
+#ifdef FLAG_FILTER_VOCABULARY
+static xWord** filter;
+static dt_int filter_max;
+#endif
+
 static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
@@ -190,10 +195,10 @@ static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 		} else if(cmp < 0) {
 			root->right = context_insert(root->right, word, success);
 		}
-
+	
 		return root;
 	}
-
+	
 	*success = 1;
 	return node_context_create(word);
 }
@@ -205,6 +210,19 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 		context_flatten(root->right, arr, index);
 	}
 }
+
+
+#ifdef FLAG_FILTER_VOCABULARY
+static dt_int filter_contains(xWord** filter, const dt_char* word) {
+	for(p = 0; p < filter_max; p++) {
+		if(!strcmp(filter[p]->word, word)) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+#endif
 
 static dt_int list_contains(xWord* root, const dt_char* word) {
 	while(root) {
@@ -263,10 +281,47 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	if(root) {
 		bst_flatten(root->left, arr, index);
+
+#ifdef FLAG_FILTER_VOCABULARY
+		if(root->freq > 0) {
+			arr[root->index = (*index)++] = root;
+		}
+#else
 		arr[root->index = (*index)++] = root;
+#endif
+
 		bst_flatten(root->right, arr, index);
 	}
 }
+
+#ifdef FLAG_FILTER_VOCABULARY
+static void vocab_filter(xWord* corpus) {
+	xWord** vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
+	memcheck(vocab);
+
+	dt_int index = 0;
+	bst_flatten(corpus, vocab, &index);
+
+	for(p = 0; p < pattern_max; p++) {
+		vocab[p]->index = 0;
+	}
+	
+	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
+
+	dt_int old_pattern_max = pattern_max;
+	pattern_max = input_max = output_max -= filter_max = output_max * FILTER_RATIO;
+
+	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
+	memcheck(filter);
+
+	for(p = pattern_max; p < old_pattern_max; p++) {
+		vocab[p]->freq = 0;
+		filter[p - pattern_max] = vocab[p];
+	}
+
+	free(vocab);
+}
+#endif
 
 #ifdef FLAG_BACKUP_VOCABULARY
 static void vocab_save(xWord** vocab) {
@@ -467,8 +522,7 @@ static dt_int word_stop(const dt_char* word) {
 	}
 
 	const dt_char* p;
-	for(p = word; *p && (isalpha(*p) || *p == '-'); p++)
-		;
+	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);
 
 	return *p || list_contains(stops, word);
 }
@@ -567,6 +621,12 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
+	for(p = 0; p < filter_max; p++) {
+		node_release(filter[p]);
+	}
+	free(filter);
+	filter = NULL;
+
 	for(p = 0; p < pattern_max; p++) {
 		node_release(vocab[p]);
 	}
@@ -704,6 +764,19 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo_succ("Done reading corpus file");
 	echo_info("Corpus size: %d words", pattern_max);
+#endif
+
+#ifdef FLAG_FILTER_VOCABULARY
+#ifdef FLAG_LOG
+	echo("Filtering vocabulary");
+#endif
+
+	vocab_filter(corpus);
+
+#ifdef FLAG_LOG
+	echo_succ("Done filtering vocabulary");
+	echo_info("Corpus size: %d words", pattern_max);
+#endif
 #endif
 
 	resources_allocate();
@@ -893,7 +966,7 @@ static void negative_sampling() {
 
 	for(c = 0; c < center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-
+		
 		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
@@ -918,7 +991,7 @@ static void negative_sampling() {
 			}
 
 			delta_ho = alpha * (!ck - 1.0 / (1.0 + exp(e)));
-
+		
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
 				w_ho[j][k] += delta_ho * w_ih[p][j];
@@ -967,7 +1040,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 #endif
 
 	dt_int index = word_to_index(word);
-
+	
 	if(!index_valid(index)) {
 		return;
 	}
@@ -997,9 +1070,8 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		}
 
 		if(index == 1) {
-			*success = 0;
-			for(c = 0; c < center->context_max; c++) {
-				if(strcmp(center->target[c]->word, pred[k]->word)) {
+			for(*success = 0, c = 0; c < center->context_max; c++) {
+				if(!strcmp(center->target[c]->word, pred[k]->word)) {
 					*success = 1;
 					break;
 				}
@@ -1071,7 +1143,6 @@ void training_run() {
 #endif
 
 		initialize_epoch();
-
 		for(p1 = 0; p1 < pattern_max; p1++) {
 #ifdef FLAG_LOG
 			if(!(p1 % LOG_PERIOD_PASS)) {
@@ -1128,10 +1199,21 @@ void testing_run() {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 
-		if(!word_stop(line)) {
-			test_predict(line, WINDOW_MAX, &success);
-			test_count++, tries_sum += success;
+#ifdef FLAG_FILTER_VOCABULARY
+		dt_int skip = word_stop(line) || filter_contains(filter, line);
+#else
+		dt_int skip = word_stop(line);
+#endif
+		
+		if(skip) {
+#ifdef FLAG_LOG
+			echo_info("Skipping word %s", line);
+#endif
+			continue;
 		}
+		
+		test_predict(line, WINDOW_MAX, &success);
+		test_count++, tries_sum += success;
 	}
 
 	if(fclose(ftest) == EOF) {
