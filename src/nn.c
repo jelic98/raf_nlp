@@ -621,11 +621,13 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
+#ifdef FLAG_FILTER_VOCABULARY
 	for(p = 0; p < filter_max; p++) {
 		node_release(filter[p]);
 	}
 	free(filter);
 	filter = NULL;
+#endif
 
 	for(p = 0; p < pattern_max; p++) {
 		node_release(vocab[p]);
