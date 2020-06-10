@@ -6,6 +6,10 @@ static dt_int epoch;
 static dt_float alpha;
 static xWord* center;
 
+#ifdef FLAG_CALCULATE_LOSS
+static dt_float loss;
+#endif
+
 static dt_int input_max, hidden_max, output_max, pattern_max;
 static dt_int i, j, k, c;
 static dt_int p, p1, p2;
@@ -129,14 +133,12 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 	}
 }
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-#ifndef FLAG_MONTE_CARLO
+#if defined(FLAG_FILTER_VOCABULARY) || defined(FLAG_NEGATIVE_SAMPLING)
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
-#endif
 #endif
 
 static dt_int cmp_prob(const void* a, const void* b) {
@@ -901,7 +903,7 @@ static void initialize_weights() {
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
 #ifdef FLAG_FIXED_INITIAL_WEIGHTS
-			w_ih[i][j] = INITIAL_WEIGHT;
+			w_ih[i][j] = INITIAL_WEIGHT_FIX;
 #else
 			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
@@ -911,7 +913,7 @@ static void initialize_weights() {
 	for(j = 0; j < hidden_max; j++) {
 		for(k = 0; k < output_max; k++) {
 #ifdef FLAG_FIXED_INITIAL_WEIGHTS
-			w_ho[j][k] = INITIAL_WEIGHT;
+			w_ho[j][k] = INITIAL_WEIGHT_FIX;
 #else
 			w_ho[j][k] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
@@ -925,12 +927,16 @@ static void initialize_weights() {
 
 static void initialize_epoch() {
 	for(p = 0; p < pattern_max; p++) {
-		p2 = patterns[p];
+		p2 = patterns[p] = p;
 		patterns[p] = patterns[p1 = random_int(p + 1, pattern_max - 1)];
 		patterns[p1] = p2;
 	}
 
+#ifdef FLAG_FIXED_LEARNING_RATE
+	alpha = LEARNING_RATE_FIX;
+#else
 	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
+#endif
 }
 
 static void initialize_input() {
@@ -958,6 +964,10 @@ static void forward_propagate_hidden_layer() {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+static dt_float sigmoid(dt_float x) {
+	return 1.0 / (1.0 + exp(-x));
+}
+
 static void negative_sampling() {
 	dt_float e, delta_ih[hidden_max], delta_ho;
 
@@ -968,7 +978,7 @@ static void negative_sampling() {
 
 	for(c = 0; c < center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-		
+
 		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
@@ -992,20 +1002,44 @@ static void negative_sampling() {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
-			delta_ho = alpha * (!ck - 1.0 / (1.0 + exp(e)));
+			if(ck) {
+				loss -= log(sigmoid(e));
+			} else {
+				loss -= log(sigmoid(-e));
+			}
+
+			delta_ho = alpha * (!ck - sigmoid(e));
 		
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
-				w_ho[j][k] += delta_ho * w_ih[p][j];
+				w_ho[j][k] -= delta_ho * w_ih[p][j];
 			}
 		}
 
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[p][j] += delta_ih[j];
+			w_ih[p][j] -= delta_ih[j];
 		}
 	}
 }
 #else
+#ifdef FLAG_CALCULATE_LOSS
+static void calculate_loss() {
+	dt_float sum;
+
+	for(sum = c = 0; c < center->context_max; c++) {
+		sum += output[center->target[c]->index];
+	}
+	
+	loss = -sum;
+
+	for(sum = k = 0; k < output_max; k++) {
+		sum += exp(output[k]);
+	}
+
+	loss += center->context_max * log(sum);
+}
+#endif
+
 static void calculate_error() {
 	for(k = 0; k < output_max; k++) {
 		for(error[k] = c = 0; c < center->context_max; c++) {
@@ -1138,7 +1172,7 @@ void training_run() {
 	echo("Started training");
 #endif
 
-	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+	for(loss = epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
 		echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
 		elapsed_time = clock();
@@ -1152,13 +1186,15 @@ void training_run() {
 			}
 #endif
 			initialize_input();
-			vector_normalize(w_ih[p], hidden_max);
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
 #else
 			forward_propagate_input_layer();
 			forward_propagate_hidden_layer();
 			vector_softmax(output, output_max);
+#ifdef FLAG_CALCULATE_LOSS
+			calculate_loss();
+#endif
 			calculate_error();
 			update_hidden_layer_weights();
 			update_input_layer_weights();
@@ -1171,6 +1207,9 @@ void training_run() {
 
 #ifdef FLAG_LOG
 		echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
+#ifdef FLAG_CALCULATE_LOSS
+		echo_info("Loss %lf", loss);
+#endif
 #endif
 	}
 

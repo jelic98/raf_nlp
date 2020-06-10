@@ -4,15 +4,14 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* simplify sigmoi
-* simplify sigmoidd
+* check weights normalization
 * initialize input weights inverse proportionally to word frequency
 * adam optimizer?
 * mini batching?
 
 ### Parser
 
-* alphabetical reorder changes word indices (compare indices instead of word in testing)
+* [URGENT] alphabetical reorder changes word indices (compare indices instead of word in testing)
 
 ### Other
 
