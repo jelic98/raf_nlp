@@ -4,6 +4,7 @@ Features to be implemented in no particular order.
 
 ### Model
 
+* loss in negative sampling is increasing over time
 * check weights normalization
 * initialize input weights inverse proportionally to word frequency
 * adam optimizer?

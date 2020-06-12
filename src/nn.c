@@ -975,11 +975,10 @@ static void negative_sampling() {
 	dt_int exit;
 	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 #endif
-
 	for(c = 0; c < center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-
-		for(e = ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+		
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
@@ -998,7 +997,7 @@ static void negative_sampling() {
 				k = center->target[c]->index;
 			}
 
-			for(j = 0; j < hidden_max; j++) {
+			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
@@ -1008,16 +1007,16 @@ static void negative_sampling() {
 				loss -= log(sigmoid(-e));
 			}
 
-			delta_ho = alpha * (!ck - sigmoid(e));
+			delta_ho = alpha * (sigmoid(e) - !ck);
 		
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
 				w_ho[j][k] -= delta_ho * w_ih[p][j];
 			}
 		}
-
+	
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[p][j] -= delta_ih[j];
+			w_ih[p][j] -= delta_ih[j] / (1.0 * center->context_max);
 		}
 	}
 }
