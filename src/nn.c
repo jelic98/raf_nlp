@@ -12,7 +12,7 @@ static dt_float loss;
 
 static dt_int input_max, hidden_max, output_max, pattern_max;
 static dt_int i, j, k, c;
-static dt_int p, p1, p2;
+static dt_int p, p1;
 
 static xBit* input;
 static dt_float* hidden;
@@ -133,7 +133,8 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 	}
 }
 
-#if defined(FLAG_FILTER_VOCABULARY) || defined(FLAG_NEGATIVE_SAMPLING)
+#if defined(FLAG_FILTER_VOCABULARY)\
+	|| defined(FLAG_NEGATIVE_SAMPLING) && !defined(FLAG_MONTE_CARLO)
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
@@ -367,7 +368,7 @@ static void vocab_target(xWord** vocab) {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifdef FLAG_MONTE_CARLO
-static void vocab_freq(xWord* vocab, dt_int* sum, dt_int* max) {
+static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 	for(*sum = *max = p = 0; p < pattern_max; p++) {
 		*sum += vocab[p]->freq;
 		*max = max(*max, vocab[p]->freq);
@@ -926,10 +927,12 @@ static void initialize_weights() {
 }
 
 static void initialize_epoch() {
+	dt_int tmp;
+
 	for(p = 0; p < pattern_max; p++) {
-		p2 = patterns[p] = p;
+		tmp = patterns[p] = p;
 		patterns[p] = patterns[p1 = random_int(p + 1, pattern_max - 1)];
-		patterns[p1] = p2;
+		patterns[p1] = tmp;
 	}
 
 #ifdef FLAG_FIXED_LEARNING_RATE
@@ -993,10 +996,25 @@ static void negative_sampling() {
 #else
 				k = samples[random_int(0, pattern_max - 1)]->index;
 #endif
+				
+				dt_int b, c;
+				
+				for(;;) {
+					k = samples[random_int(0, pattern_max - 1)]->index;
+					for(c = b = 0; b < center->context_max; b++) {
+						if(center->target[b]->index == k) {
+							c = 1;
+							break;
+						}
+					}
+					if(c == 0) {
+						break;
+					}
+				}	
 			} else {
 				k = center->target[c]->index;
 			}
-
+			
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
