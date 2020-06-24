@@ -4,9 +4,10 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* loss in negative sampling is increasing over time
-* check weights normalization
+* [URGENT] loss is increasing over time with and without negative sampling
+* raise frequencies to the power of 3/4 before flattening vocabulary
 * initialize input weights inverse proportionally to word frequency
+* check weights normalization
 * adam optimizer?
 * mini batching?
 
@@ -20,7 +21,7 @@ Features to be implemented in no particular order.
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst
-* multithreading
+* multithreading?
 
 ### Random
 

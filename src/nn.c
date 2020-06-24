@@ -1049,7 +1049,7 @@ static void calculate_loss() {
 		sum += output[center->target[c]->index];
 	}
 	
-	loss = -sum;
+	loss -= sum;
 
 	for(sum = k = 0; k < output_max; k++) {
 		sum += exp(output[k]);
