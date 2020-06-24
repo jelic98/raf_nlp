@@ -935,6 +935,8 @@ static void initialize_epoch() {
 		patterns[p1] = tmp;
 	}
 
+	loss = 0;
+
 #ifdef FLAG_FIXED_LEARNING_RATE
 	alpha = LEARNING_RATE_FIX;
 #else
@@ -1189,13 +1191,14 @@ void training_run() {
 	echo("Started training");
 #endif
 
-	for(loss = epoch = 0; epoch < EPOCH_MAX; epoch++) {
+	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
 		echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
 		elapsed_time = clock();
 #endif
 
 		initialize_epoch();
+
 		for(p1 = 0; p1 < pattern_max; p1++) {
 #ifdef FLAG_LOG
 			if(!(p1 % LOG_PERIOD_PASS)) {
