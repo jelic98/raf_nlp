@@ -927,12 +927,8 @@ static void initialize_weights() {
 }
 
 static void initialize_epoch() {
-	dt_int tmp;
-
 	for(p = 0; p < pattern_max; p++) {
-		tmp = patterns[p] = p;
-		patterns[p] = patterns[p1 = random_int(p + 1, pattern_max - 1)];
-		patterns[p1] = tmp;
+		patterns[p] = p;
 	}
 
 	loss = 0;
@@ -1004,7 +1000,7 @@ static void negative_sampling() {
 				for(;;) {
 					k = samples[random_int(0, pattern_max - 1)]->index;
 					for(c = b = 0; b < center->context_max; b++) {
-						if(center->target[b]->index == k) {
+						if(center->target[b]->index == k || p == k) {
 							c = 1;
 							break;
 						}
@@ -1016,15 +1012,15 @@ static void negative_sampling() {
 			} else {
 				k = center->target[c]->index;
 			}
-			
+		
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
 			if(ck) {
-				loss -= log(sigmoid(e));
-			} else {
 				loss -= log(sigmoid(-e));
+			} else {
+				loss -= log(sigmoid(e));
 			}
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
@@ -1206,6 +1202,8 @@ void training_run() {
 			}
 #endif
 			initialize_input();
+
+			vector_normalize(w_ih[p], hidden_max);
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling();
 #else

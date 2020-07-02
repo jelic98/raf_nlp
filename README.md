@@ -4,12 +4,9 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* [URGENT] loss is increasing over time with and without negative sampling
 * raise frequencies to the power of 3/4 before flattening vocabulary
 * initialize input weights inverse proportionally to word frequency
 * check weights normalization
-* adam optimizer?
-* mini batching?
 
 ### Parser
 
