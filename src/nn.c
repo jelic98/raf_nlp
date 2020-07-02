@@ -1017,11 +1017,7 @@ static void negative_sampling() {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
-			if(ck) {
-				loss -= log(sigmoid(-e));
-			} else {
-				loss -= log(sigmoid(e));
-			}
+			loss -= log(sigmoid(ck ? -e : e));
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
 		
