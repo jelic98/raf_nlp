@@ -396,7 +396,7 @@ static void vocab_sample(xWord** vocab) {
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
 	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
 		samples[ck] = copies[p];
 	}
 
@@ -995,7 +995,7 @@ static void negative_sampling() {
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					k = random_int(0, pattern_max - 1);
 					f = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
-					r = random(0, 1) * max_freq * MONTE_CARLO_FACTOR;
+					r = random(0, 1) * max_freq;
 
 					if(k != center->target[c]->index && r > f) {
 						break;
