@@ -1120,24 +1120,27 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
 
 	xWord* center = index_to_word(p);
+	dt_int s;
 
-	for(index = 1, k = 0; k < count; k++) {
+	for(*success = 0, index = 1, k = 0; k < count; k++) {
 		if(!strcmp(pred[k]->word, word)) {
 			count++;
 			continue;
 		}
 
-		if(index == 1) {
-			for(*success = 0, c = 0; c < center->context_max; c++) {
-				if(!strcmp(center->target[c]->word, pred[k]->word)) {
+		for(s = c = 0; c < center->context_max; c++) {
+			if(!strcmp(center->target[c]->word, pred[k]->word)) {
+				if(index == 1) {
 					*success = 1;
-					break;
 				}
+
+				s = 1;
+				break;
 			}
 		}
 
 #ifdef FLAG_LOG
-		echo("#%d\t%lf\t%s", index++, pred[k]->prob, pred[k]->word);
+		echo("#%d\t%s\t%lf\t%s", index++, s ? "OK" : ".", pred[k]->prob, pred[k]->word);
 #endif
 	}
 
