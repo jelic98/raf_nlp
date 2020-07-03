@@ -144,7 +144,7 @@ static dt_int cmp_freq(const void* a, const void* b) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
 static dt_int cmp_freq_dist(const void* a, const void* b) {
-	dt_int diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
+	dt_float diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
@@ -396,10 +396,10 @@ static void vocab_sample(xWord** vocab) {
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
 	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2;
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
 		samples[ck] = copies[p];
 	}
-
+	
 	free(copies);
 }
 #endif
@@ -1003,21 +1003,6 @@ static void negative_sampling() {
 				}
 #else
 				k = samples[random_int(0, pattern_max - 1)]->index;
-				
-				dt_int b, c;
-				
-				for(;;) {
-					k = samples[random_int(0, pattern_max - 1)]->index;
-					for(c = b = 0; b < center->context_max; b++) {
-						if(center->target[b]->index == k || p == k) {
-							c = 1;
-							break;
-						}
-					}
-					if(c == 0) {
-						break;
-					}
-				}
 #endif	
 			} else {
 				k = center->target[c]->index;
