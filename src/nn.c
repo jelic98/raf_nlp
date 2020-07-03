@@ -36,11 +36,8 @@ static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_int ck;
-#ifdef FLAG_MONTE_CARLO
 static dt_int corpus_freq_sum, corpus_freq_max;
-#else
 static xWord** samples;
-#endif
 #endif
 
 #ifdef FLAG_LOG_FILE
@@ -133,13 +130,22 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 	}
 }
 
-#if defined(FLAG_FILTER_VOCABULARY)\
-	|| defined(FLAG_NEGATIVE_SAMPLING) && !defined(FLAG_MONTE_CARLO)
+#ifdef FLAG_FILTER_VOCABULARY
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
+#endif
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+#ifndef FLAG_MONTE_CARLO
+static dt_int cmp_freq_dist(const void* a, const void* b) {
+	dt_int diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+}
+#endif
 #endif
 
 static dt_int cmp_prob(const void* a, const void* b) {
@@ -367,32 +373,32 @@ static void vocab_target(xWord** vocab) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-#ifdef FLAG_MONTE_CARLO
 static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 	for(*sum = *max = p = 0; p < pattern_max; p++) {
 		*sum += vocab[p]->freq;
 		*max = max(*max, vocab[p]->freq);
 	}
 }
-#else
+
 static void vocab_sample(xWord** vocab) {
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
 
 	for(p = 0; p < pattern_max; p++) {
+		vocab[p]->freq_dist = pow(vocab[p]->freq, 0.75) / pow(corpus_freq_sum, 0.75);
 		copies[p] = vocab[p];
 	}
 
-	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
+	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
 	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
-		samples[ck] = copies[p];
+		//ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
+		//samples[ck] = copies[p];
+		samples[p] = copies[p];
 	}
 
 	free(copies);
 }
-#endif
 #endif
 
 static xWord* node_create(const dt_char* word) {
@@ -834,7 +840,6 @@ static void initialize_corpus() {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-#ifdef FLAG_MONTE_CARLO
 #ifdef FLAG_LOG
 	echo("Calculating word frequency");
 #endif
@@ -844,7 +849,7 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo_succ("Done calculating word frequency");
 #endif
-#else
+
 #ifdef FLAG_LOG
 	echo("Creating sampling distribution");
 #endif
@@ -853,7 +858,6 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 	echo_succ("Done creating sampling distribution");
-#endif
 #endif
 #endif
 
@@ -1008,7 +1012,7 @@ static void negative_sampling() {
 					if(c == 0) {
 						break;
 					}
-				}	
+				}
 			} else {
 				k = center->target[c]->index;
 			}

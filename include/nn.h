@@ -111,10 +111,11 @@ typedef double dt_float;
 
 typedef struct xWord {
 	dt_char* word;
-	dt_uint freq;
-	dt_uint context_max;
-	dt_float prob;
 	dt_int index;
+	dt_uint context_max;
+	dt_uint freq;
+	dt_float freq_dist;
+	dt_float prob;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;

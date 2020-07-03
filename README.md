@@ -4,7 +4,6 @@ Features to be implemented in no particular order.
 
 ### Model
 
-* raise frequencies to the power of 3/4 before flattening vocabulary
 * initialize input weights inverse proportionally to word frequency
 * check weights normalization
 
