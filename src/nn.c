@@ -396,9 +396,8 @@ static void vocab_sample(xWord** vocab) {
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
 	for(p = 0; p < pattern_max; p++) {
-		//ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
-		//samples[ck] = copies[p];
-		samples[p] = copies[p];
+		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - 1;
+		samples[ck] = copies[p];
 	}
 
 	free(copies);
