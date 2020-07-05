@@ -994,14 +994,14 @@ static void negative_sampling() {
 #ifdef FLAG_MONTE_CARLO
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					k = random_int(0, pattern_max - 1);
-					f = (dt_float) index_to_word(k)->freq / corpus_freq_sum;
+					f = 1.0 * index_to_word(k)->freq / corpus_freq_sum;
 					r = random(0, 1) * max_freq;
-
+					
 					if(k != center->target[c]->index && r > f) {
 						break;
 					}
 				}
-#else
+#else	
 				k = samples[random_int(0, pattern_max - 1)]->index;
 #endif	
 			} else {
