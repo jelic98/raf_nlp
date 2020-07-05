@@ -3,12 +3,12 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "4"
+#define TEST_INDEX "2"
 
-#define EPOCH_MAX 1
-#define HIDDEN_MAX 100
+#define EPOCH_MAX 200
+#define HIDDEN_MAX 50
 #define WINDOW_MAX 5
-#define NEGATIVE_SAMPLES_MAX 6
+#define NEGATIVE_SAMPLES_MAX 15
 #define LEARNING_RATE_FIX 0.01
 #define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
@@ -41,6 +41,7 @@
 #define FLAG_LOG
 #define FLAG_COLOR_LOG
 #define FLAG_NEGATIVE_SAMPLING
+#define FLAG_UNIGRAM_DISTRIBUTION
 #define FLAG_CALCULATE_LOSS
 //#define FLAG_DROPOUT
 //#define FLAG_MONTE_CARLO

@@ -143,11 +143,13 @@ static dt_int cmp_freq(const void* a, const void* b) {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
+#ifndef FLAG_UNIGRAM_DISTRIBUTION
 static dt_int cmp_freq_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
+#endif
 #endif
 #endif
 
@@ -385,6 +387,18 @@ static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 
 #ifndef FLAG_MONTE_CARLO
 static void vocab_sample(xWord** vocab) {
+#ifdef FLAG_UNIGRAM_DISTRIBUTION
+	samples = (xWord**) calloc(corpus_freq_sum, sizeof(xWord*));
+	memcheck(samples);
+
+	dt_int tmp;
+
+	for(tmp = p = 0; p < pattern_max; p++) {
+		for(c = 0; c < vocab[p]->freq; c++) {
+			samples[tmp++] = vocab[p];
+		}
+	}
+#else
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
 
@@ -401,6 +415,7 @@ static void vocab_sample(xWord** vocab) {
 	}
 	
 	free(copies);
+#endif
 }
 #endif
 #endif
@@ -620,10 +635,12 @@ static void resources_allocate() {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
+#ifndef FLAG_UNIGRAM_DISTRIBUTION
 	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(samples);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "samples", 1, pattern_max);
+#endif
 #endif
 #endif
 #endif
@@ -1002,7 +1019,11 @@ static void negative_sampling() {
 					}
 				}
 #else	
+#ifdef FLAG_UNIGRAM_DISTRIBUTION
+				k = samples[random_int(0, corpus_freq_sum - 1)]->index;
+#else
 				k = samples[random_int(0, pattern_max - 1)]->index;
+#endif
 #endif	
 			} else {
 				k = center->target[c]->index;
