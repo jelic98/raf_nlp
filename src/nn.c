@@ -1012,7 +1012,9 @@ static void negative_sampling() {
 				e += w_ih[p][j] * w_ho[j][k];
 			}
 
+#ifdef FLAG_CALCULATE_LOSS
 			loss -= log(sigmoid(ck ? -e : e));
+#endif	
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
 		
