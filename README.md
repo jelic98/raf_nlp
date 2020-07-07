@@ -18,7 +18,6 @@ Features to be implemented in no particular order.
 * scan vocabulary if word is not found in the map
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst
-* multithreading?
 
 ### Random
 

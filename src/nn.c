@@ -4,23 +4,18 @@ static clock_t elapsed_time;
 
 static dt_int epoch;
 static dt_float alpha;
-static xWord* center;
 
 #ifdef FLAG_CALCULATE_LOSS
 static dt_float loss;
 #endif
 
-static dt_int input_max, hidden_max, output_max, pattern_max;
-static dt_int i, j, k, c;
-static dt_int p, p1;
+static dt_int pattern_max, input_max, hidden_max, output_max;
 
-static xBit* input;
-static dt_float* hidden;
+static dt_int* patterns;
 static dt_float* output;
+static dt_float* error;
 static dt_float** w_ih;
 static dt_float** w_ho;
-static dt_float* error;
-static dt_int* patterns;
 
 static xWord* stops;
 static xWord** vocab;
@@ -42,6 +37,10 @@ static dt_int corpus_freq_sum, corpus_freq_max;
 static xWord** samples;
 #endif
 #endif
+
+static xThread thread_args[THREAD_MAX];
+static pthread_t thread_ids[THREAD_MAX];
+static pthread_mutex_t mtx_w_ih, mtx_w_ho;
 
 #ifdef FLAG_LOG_FILE
 static FILE* flog;
@@ -91,6 +90,7 @@ static void sigget(dt_int sig) {
 	void* ptrs[BACKTRACE_DEPTH];
 	size_t size = backtrace(ptrs, BACKTRACE_DEPTH);
 	dt_char** stack = backtrace_symbols(ptrs, size);
+	dt_int i;
 	for(i = 0; i < size; i++) {
 		stack[i][strchr(stack[i] + 4, ' ') - stack[i]] = '\0';
 		echo_fail("%s @ %s", stack[i] + 4, stack[i] + 40);
@@ -122,6 +122,7 @@ static void vector_normalize(dt_float* vector, dt_int size) {
 }
 
 static void vector_softmax(dt_float* vector, dt_int size) {
+	dt_int k;
 	dt_float sum, vector_exp[size];
 
 	for(sum = k = 0; k < size; k++) {
@@ -209,10 +210,10 @@ static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 		} else if(cmp < 0) {
 			root->right = context_insert(root->right, word, success);
 		}
-	
+
 		return root;
 	}
-	
+
 	*success = 1;
 	return node_context_create(word);
 }
@@ -224,7 +225,6 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 		context_flatten(root->right, arr, index);
 	}
 }
-
 
 #ifdef FLAG_FILTER_VOCABULARY
 static dt_int filter_contains(xWord** filter, const dt_char* word) {
@@ -319,7 +319,7 @@ static void vocab_filter(xWord* corpus) {
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->index = 0;
 	}
-	
+
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
 
 	dt_int old_pattern_max = pattern_max;
@@ -348,6 +348,8 @@ static void vocab_save(xWord** vocab) {
 		return;
 	}
 
+	dt_int p;
+
 	for(p = 0; p < pattern_max; p++) {
 		fprintf(fvoc, "%s\n", vocab[p]->word);
 	}
@@ -361,12 +363,16 @@ static void vocab_save(xWord** vocab) {
 #endif
 
 static void vocab_map(xWord** vocab) {
+	dt_int p;
+
 	for(p = 0; p < pattern_max; p++) {
 		*map_get(vocab[p]->word) = vocab[p];
 	}
 }
 
 static void vocab_target(xWord** vocab) {
+	dt_int p;
+	
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->target = (xWord**) calloc(vocab[p]->context_max, sizeof(xWord*));
 		memcheck(vocab[p]->target);
@@ -379,6 +385,8 @@ static void vocab_target(xWord** vocab) {
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
+	dt_int p;
+	
 	for(*sum = *max = p = 0; p < pattern_max; p++) {
 		*sum += vocab[p]->freq;
 		*max = max(*max, vocab[p]->freq);
@@ -391,7 +399,7 @@ static void vocab_sample(xWord** vocab) {
 	samples = (xWord**) calloc(corpus_freq_sum, sizeof(xWord*));
 	memcheck(samples);
 
-	dt_int tmp;
+	dt_int p, c, tmp;
 
 	for(tmp = p = 0; p < pattern_max; p++) {
 		for(c = 0; c < vocab[p]->freq; c++) {
@@ -413,7 +421,7 @@ static void vocab_sample(xWord** vocab) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
 		samples[ck] = copies[p];
 	}
-	
+
 	free(copies);
 #endif
 }
@@ -555,21 +563,12 @@ static dt_int word_stop(const dt_char* word) {
 	return *p || list_contains(stops, word);
 }
 
-static void onehot_set(xBit* onehot, dt_int index, dt_int size) {
-	dt_int q;
-
-	for(q = 0; q < size; q++) {
-		onehot[q].on = 0;
-	}
-
-	onehot[p = index].on = 1;
-	center = index_to_word(p);
-}
-
 static void resources_allocate() {
 #ifdef FLAG_LOG
 	echo("Allocating resources");
 #endif
+	
+	dt_int i, j;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -583,16 +582,10 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "onehot", 1, pattern_max);
 #endif
 
-	input = (xBit*) calloc(input_max, sizeof(xBit));
-	memcheck(input);
+	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	memcheck(patterns);
 #ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "input", 1, input_max);
-#endif
-
-	hidden = (dt_float*) calloc(hidden_max, sizeof(dt_float));
-	memcheck(hidden);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "hidden", 1, hidden_max);
+	echo_info("Dimension of %s: %dx%d", "patterns", 1, pattern_max);
 #endif
 
 	output = (dt_float*) calloc(output_max, sizeof(dt_float));
@@ -601,6 +594,12 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
 #endif
 
+	error = (dt_float*) calloc(output_max, sizeof(dt_float));
+	memcheck(error);
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
+#endif
+	
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	memcheck(w_ih);
 	for(i = 0; i < input_max; i++) {
@@ -621,18 +620,6 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
-	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
-	memcheck(patterns);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "patterns", 1, pattern_max);
-#endif
-
-	error = (dt_float*) calloc(output_max, sizeof(dt_float));
-	memcheck(error);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
-#endif
-
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
@@ -651,6 +638,8 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
+	dt_int p, i, j;
+
 #ifdef FLAG_FILTER_VOCABULARY
 	for(p = 0; p < filter_max; p++) {
 		node_release(filter[p]);
@@ -671,14 +660,14 @@ static void resources_release() {
 	free(onehot);
 	onehot = NULL;
 
-	free(input);
-	input = NULL;
-
-	free(hidden);
-	hidden = NULL;
+	free(patterns);
+	patterns = NULL;
 
 	free(output);
 	output = NULL;
+
+	free(error);
+	error = NULL;
 
 	for(i = 0; i < input_max; i++) {
 		free(w_ih[i]);
@@ -691,12 +680,6 @@ static void resources_release() {
 	}
 	free(w_ho);
 	w_ho = NULL;
-
-	free(patterns);
-	patterns = NULL;
-
-	free(error);
-	error = NULL;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
@@ -739,7 +722,7 @@ static void initialize_corpus() {
 	echo_succ("Done loading stop words");
 #endif
 
-	dt_int success, sent_end;
+	dt_int c, success, sent_end;
 	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
 	xWord* corpus;
@@ -812,6 +795,8 @@ static void initialize_corpus() {
 #endif
 
 	resources_allocate();
+
+	dt_int p;
 
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
@@ -897,10 +882,10 @@ static void initialize_corpus() {
 #ifdef FLAG_INTERACTIVE_MODE
 	echo("Entering interactive mode");
 
-	dt_char cmd[LINE_CHARACTER_MAX] = {0};
+	dt_char cmd[LINE_CHARACTER_MAX] = { 0 };
 
 	while(1) {
-		echo("Command?");
+		echo("Command? (target, exit)");
 		scanf("%s", cmd);
 
 		if(!strcmp(cmd, "target")) {
@@ -912,9 +897,9 @@ static void initialize_corpus() {
 			for(c = 0; c < center->context_max; c++) {
 				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
 			}
-		}else if(!strcmp(cmd, "exit")) {
+		} else if(!strcmp(cmd, "exit")) {
 			break;
-		}else {
+		} else {
 			echo_fail(ERROR_COMMAND);
 		}
 	}
@@ -927,6 +912,8 @@ static void initialize_weights() {
 #ifdef FLAG_LOG
 	echo("Initializing weights");
 #endif
+
+	dt_int i, j, k;
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
@@ -954,6 +941,8 @@ static void initialize_weights() {
 }
 
 static void initialize_epoch() {
+	dt_int p;
+
 	for(p = 0; p < pattern_max; p++) {
 		patterns[p] = p;
 	}
@@ -967,17 +956,9 @@ static void initialize_epoch() {
 #endif
 }
 
-static void initialize_input() {
-	onehot_set(input, patterns[p1], input_max);
-}
+static void forward_propagate_input(xThread* t) {
+	dt_int j, k;
 
-static void forward_propagate_input_layer() {
-	for(j = 0; j < hidden_max; j++) {
-		hidden[j] = w_ih[p][j];
-	}
-}
-
-static void forward_propagate_hidden_layer() {
 	for(k = 0; k < output_max; k++) {
 #ifdef FLAG_DROPOUT
 		if(random(0, 1) < DROPOUT_RATE_MAX) {
@@ -986,7 +967,7 @@ static void forward_propagate_hidden_layer() {
 #endif
 
 		for(output[k] = j = 0; j < hidden_max; j++) {
-			output[k] += hidden[j] * w_ho[j][k];
+			output[k] += w_ih[t->p][j] * w_ho[j][k];
 		}
 	}
 }
@@ -996,16 +977,17 @@ static dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
 }
 
-static void negative_sampling() {
+static void negative_sampling(xThread* t) {
+	dt_int c, j, k;
 	dt_float e, delta_ih[hidden_max], delta_ho;
 
 #ifdef FLAG_MONTE_CARLO
 	dt_int exit;
 	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 #endif
-	for(c = 0; c < center->context_max; c++) {
+	for(c = 0; c < t->center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-		
+
 		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
@@ -1013,41 +995,50 @@ static void negative_sampling() {
 					k = random_int(0, pattern_max - 1);
 					f = 1.0 * index_to_word(k)->freq / corpus_freq_sum;
 					r = random(0, 1) * max_freq;
-					
+
 					if(k != center->target[c]->index && r > f) {
 						break;
 					}
 				}
-#else	
+#else
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
 				k = samples[random_int(0, corpus_freq_sum - 1)]->index;
 #else
 				k = samples[random_int(0, pattern_max - 1)]->index;
 #endif
-#endif	
+#endif
 			} else {
-				k = center->target[c]->index;
+				k = t->center->target[c]->index;
 			}
-		
+
 			for(e = j = 0; j < hidden_max; j++) {
-				e += w_ih[p][j] * w_ho[j][k];
+				e += w_ih[t->p][j] * w_ho[j][k];
 			}
 
 #ifdef FLAG_CALCULATE_LOSS
 			loss -= log(sigmoid(ck ? -e : e));
-#endif	
+#endif
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
-		
+
+			pthread_mutex_lock(&mtx_w_ho);
+
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
-				w_ho[j][k] -= delta_ho * w_ih[p][j];
+				w_ho[j][k] -= delta_ho * w_ih[t->p][j];
 			}
+
+			pthread_mutex_unlock(&mtx_w_ho);
 		}
-	
+
+		// TODO Mutex for w_ih is not needed because one thread trains one word
+		pthread_mutex_lock(&mtx_w_ih);
+
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[p][j] -= delta_ih[j] / (1.0 * center->context_max);
+			w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
 		}
+
+		pthread_mutex_unlock(&mtx_w_ih);
 	}
 }
 #else
@@ -1058,7 +1049,7 @@ static void calculate_loss() {
 	for(sum = c = 0; c < center->context_max; c++) {
 		sum += output[center->target[c]->index];
 	}
-	
+
 	loss -= sum;
 
 	for(sum = k = 0; k < output_max; k++) {
@@ -1104,30 +1095,26 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	elapsed_time = clock();
 #endif
 
-	dt_int index = word_to_index(word);
-	
+	dt_int c, k, s, tmp, index = word_to_index(word);
+
 	if(!index_valid(index)) {
 		return;
 	}
 
-	onehot_set(input, index, input_max);
-
-	forward_propagate_input_layer();
-	forward_propagate_hidden_layer();
+	forward_propagate_input(NULL);
 	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
 
 	for(k = 0; k < output_max; k++) {
-		dt_int index = k;
-		pred[k] = index_to_word(index);
+		tmp = k;
+		pred[k] = index_to_word(tmp);
 		pred[k]->prob = output[k];
 	}
 
 	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
 
-	xWord* center = index_to_word(p);
-	dt_int s;
+	xWord* center = index_to_word(index);
 
 	for(*success = 0, index = 1, k = 0; k < count; k++) {
 		if(!strcmp(pred[k]->word, word)) {
@@ -1198,11 +1185,44 @@ void nn_finish() {
 #endif
 }
 
+void* thread_training_run(void* args) {
+	xThread* t = (xThread*) args;
+	dt_int p1;
+
+	for(p1 = 0; p1 < pattern_max; p1++) {
+#ifdef FLAG_LOG
+		if(!(p1 % LOG_PERIOD_PASS)) {
+			// TODO echo("Started pass %d/%d", p1 + 1, pattern_max);
+		}
+#endif
+
+		t->center = index_to_word(t->p = patterns[p1]);
+
+		vector_normalize(w_ih[t->p], hidden_max);
+#ifdef FLAG_NEGATIVE_SAMPLING
+		negative_sampling(t);
+#else
+		forward_propagate_input(t);
+		vector_softmax(output, output_max);
+#ifdef FLAG_CALCULATE_LOSS
+		calculate_loss();
+#endif
+		calculate_error();
+		update_hidden_layer_weights();
+		update_input_layer_weights();
+#endif
+	}
+
+	return NULL;
+}
+
 void training_run() {
 #ifdef FLAG_LOG
 	clock_t start_time = clock();
 	echo("Started training");
 #endif
+	
+	dt_int t;
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 #ifdef FLAG_LOG
@@ -1212,28 +1232,13 @@ void training_run() {
 
 		initialize_epoch();
 
-		for(p1 = 0; p1 < pattern_max; p1++) {
-#ifdef FLAG_LOG
-			if(!(p1 % LOG_PERIOD_PASS)) {
-				echo("Started pass %d/%d", p1 + 1, pattern_max);
-			}
-#endif
-			initialize_input();
+		for(t = 0; t < THREAD_MAX; t++) {
+			(thread_args + t)->id = t;
+			pthread_create(thread_ids + t, NULL, thread_training_run, thread_args + t);
+		}
 
-			vector_normalize(w_ih[p], hidden_max);
-#ifdef FLAG_NEGATIVE_SAMPLING
-			negative_sampling();
-#else
-			forward_propagate_input_layer();
-			forward_propagate_hidden_layer();
-			vector_softmax(output, output_max);
-#ifdef FLAG_CALCULATE_LOSS
-			calculate_loss();
-#endif
-			calculate_error();
-			update_hidden_layer_weights();
-			update_input_layer_weights();
-#endif
+		for(t = 0; t < THREAD_MAX; t++) {
+			pthread_join(thread_ids[t], NULL);
 		}
 
 #ifdef FLAG_BACKUP_WEIGHTS
@@ -1280,14 +1285,14 @@ void testing_run() {
 #else
 		dt_int skip = word_stop(line);
 #endif
-		
+
 		if(skip) {
 #ifdef FLAG_LOG
 			echo_info("Skipping word %s", line);
 #endif
 			continue;
 		}
-		
+
 		test_predict(line, WINDOW_MAX, &success);
 		test_count++, tries_sum += success;
 	}
@@ -1324,6 +1329,8 @@ void weights_save() {
 #endif
 		return;
 	}
+
+	dt_int i, j, k;
 
 	for(i = 0; i < input_max; i++) {
 #ifdef FLAG_BINARY_OUTPUT
@@ -1380,6 +1387,8 @@ void weights_load() {
 		return;
 	}
 
+	dt_int i, j, k;
+
 	for(i = 0; i < input_max; i++) {
 #ifdef FLAG_BINARY_INPUT
 		fread(w_ih[i], sizeof(dt_float), hidden_max, fwih);
@@ -1418,7 +1427,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 
 	memset(vector, 0, hidden_max * sizeof(dt_float));
 
-	dt_int index, sent_end;
+	dt_int index, sent_end, j;
 	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok = strtok(sentence, sep);
 

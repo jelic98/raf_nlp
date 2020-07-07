@@ -17,6 +17,7 @@
 #define INITIAL_WEIGHT_MAX 1.0
 #define DROPOUT_RATE_MAX 0.2
 #define FILTER_RATIO 0.05
+#define THREAD_MAX 2
 
 #define MONTE_CARLO_EMERGENCY 100
 #define INVALID_INDEX_MAX 10
@@ -132,6 +133,12 @@ typedef struct xContext {
 typedef union xBit {
 	dt_uint on : 1;
 } xBit;
+
+typedef struct xThread {
+	dt_uint id;
+	dt_int p;
+	xWord* center;
+} xThread;
 
 // API functions
 void nn_start();
