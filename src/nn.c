@@ -11,10 +11,13 @@ static dt_float loss;
 static dt_int pattern_max, input_max, hidden_max, output_max;
 
 static dt_int* patterns;
-static dt_float* output;
-static dt_float* error;
 static dt_float** w_ih;
 static dt_float** w_ho;
+
+#ifndef FLAG_NEGATIVE_SAMPLING
+static dt_float** error;
+static dt_float** output;
+#endif
 
 static xWord* stops;
 static xWord** vocab;
@@ -29,9 +32,7 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int ck;
-static dt_int corpus_freq_sum, corpus_freq_max;
-
+static dt_int ck, corpus_freq_sum, corpus_freq_max;
 #ifndef FLAG_MONTE_CARLO
 static xWord** samples;
 #endif
@@ -39,7 +40,7 @@ static xWord** samples;
 
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
-static pthread_mutex_t mtx_w_ih, mtx_w_ho, mtx_count_epoch;
+static pthread_mutex_t mtx_w_ho, mtx_count_epoch;
 static dispatch_semaphore_t sem_epoch;
 static dt_int count_epoch;
 
@@ -570,7 +571,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	dt_int i, j;
+	dt_int i, j, t;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -588,18 +589,6 @@ static void resources_allocate() {
 	memcheck(patterns);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "patterns", 1, pattern_max);
-#endif
-
-	output = (dt_float*) calloc(output_max, sizeof(dt_float));
-	memcheck(output);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
-#endif
-
-	error = (dt_float*) calloc(output_max, sizeof(dt_float));
-	memcheck(error);
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
 #endif
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
@@ -632,6 +621,24 @@ static void resources_allocate() {
 #endif
 #endif
 #endif
+#else
+	output = (dt_float**) calloc(THREAD_MAX, sizeof(dt_float*));
+	memcheck(output);
+	for(t = 0; t < THREAD_MAX; t++) {
+		output[t] = (dt_float*) calloc(output_max, sizeof(dt_float));
+	}
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
+#endif
+
+	error = (dt_float**) calloc(THREAD_MAX, sizeof(dt_float*));
+	memcheck(error);
+	for(t = 0; t < THREAD_MAX; t++) {
+		error[t] = (dt_float*) calloc(output_max, sizeof(dt_float));
+	}
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
+#endif
 #endif
 
 #ifdef FLAG_LOG
@@ -640,7 +647,7 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
-	dt_int p, i, j;
+	dt_int p, i, j, t;
 
 #ifdef FLAG_FILTER_VOCABULARY
 	for(p = 0; p < filter_max; p++) {
@@ -665,12 +672,6 @@ static void resources_release() {
 	free(patterns);
 	patterns = NULL;
 
-	free(output);
-	output = NULL;
-
-	free(error);
-	error = NULL;
-
 	for(i = 0; i < input_max; i++) {
 		free(w_ih[i]);
 	}
@@ -688,6 +689,18 @@ static void resources_release() {
 	free(samples);
 	samples = NULL;
 #endif
+#else
+	for(t = 0; t < THREAD_MAX; t++) {
+		free(output[t]);
+	}
+	free(output);
+	output = NULL;
+
+	for(t = 0; t < THREAD_MAX; t++) {
+		free(error[t]);
+	}
+	free(error);
+	error = NULL;
 #endif
 }
 
@@ -958,22 +971,6 @@ static void initialize_epoch(dt_int epoch) {
 #endif
 }
 
-static void forward_propagate_input(xThread* t, int index) {
-	dt_int j, k;
-
-	for(k = 0; k < output_max; k++) {
-#ifdef FLAG_DROPOUT
-		if(random(0, 1) < DROPOUT_RATE_MAX) {
-			continue;
-		}
-#endif
-
-		for(output[k] = j = 0; j < hidden_max; j++) {
-			output[k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
-		}
-	}
-}
-
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
@@ -1033,14 +1030,9 @@ static void negative_sampling(xThread* t) {
 			pthread_mutex_unlock(&mtx_w_ho);
 		}
 
-		// TODO Mutex for w_ih is not needed because one thread trains one word
-		pthread_mutex_lock(&mtx_w_ih);
-
 		for(j = 0; j < hidden_max; j++) {
 			w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
 		}
-
-		pthread_mutex_unlock(&mtx_w_ih);
 	}
 }
 #else
@@ -1050,42 +1042,56 @@ static void calculate_loss(xThread* t) {
 	dt_float sum;
 
 	for(sum = c = 0; c < t->center->context_max; c++) {
-		sum += output[t->center->target[c]->index];
+		sum += output[t->id][t->center->target[c]->index];
 	}
 
 	loss -= sum;
 
 	for(sum = k = 0; k < output_max; k++) {
-		sum += exp(output[k]);
+		sum += exp(output[t->id][k]);
 	}
 
 	loss += t->center->context_max * log(sum);
 }
 #endif
 
+static void forward_propagate_input(xThread* t, int index) {
+	dt_int j, k;
+
+	for(k = 0; k < output_max; k++) {
+#ifdef FLAG_DROPOUT
+		if(random(0, 1) < DROPOUT_RATE_MAX) {
+			continue;
+		}
+#endif
+
+		for(output[t ? t->id : 0][k] = j = 0; j < hidden_max; j++) {
+			output[t ? t->id : 0][k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
+		}
+	}
+}
+
 static void backward_propagate_error(xThread* t) {
 	dt_int j, k, c;
 	dt_float l;
 
 	for(k = 0; k < output_max; k++) {
-		for(error[k] = c = 0; c < t->center->context_max; c++) {
-			error[k] += output[k] - (k == t->center->target[c]->index);
+		for(error[t->id][k] = c = 0; c < t->center->context_max; c++) {
+			error[t->id][k] += output[t->id][k] - (k == t->center->target[c]->index);
 		}
 	}
 
 	pthread_mutex_lock(&mtx_w_ho);
-	pthread_mutex_lock(&mtx_w_ih);
-	
+
 	for(j = 0; j < hidden_max; j++) {
 		for(l = k = 0; k < output_max; k++) {
-			w_ho[j][k] -= alpha * error[k] * w_ih[t->p][j];
-			l += error[k] * w_ho[j][k];
+			l += error[t->id][k] * w_ho[j][k];
+			w_ho[j][k] -= alpha * error[t->id][k] * w_ih[t->p][j];
 		}
 
 		w_ih[t->p][j] -= alpha * l;
 	}
-	
-	pthread_mutex_lock(&mtx_w_ih);
+
 	pthread_mutex_lock(&mtx_w_ho);
 }
 #endif
@@ -1103,14 +1109,14 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	}
 
 	forward_propagate_input(NULL, index);
-	vector_softmax(output, output_max);
+	vector_softmax(output[0], output_max);
 
 	xWord* pred[pattern_max];
 
 	for(k = 0; k < output_max; k++) {
 		tmp = k;
 		pred[k] = index_to_word(tmp);
-		pred[k]->prob = output[k];
+		pred[k]->prob = output[0][k];
 	}
 
 	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
@@ -1189,6 +1195,8 @@ void nn_finish() {
 void* thread_training_run(void* args) {
 	xThread* t = (xThread*) args;
 	dt_int epoch, p1;
+	dt_int from = t->id * pattern_max / THREAD_MAX;
+	dt_int to = t->id == THREAD_MAX - 1 ? pattern_max : from + pattern_max / THREAD_MAX;
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 		if(!t->id) {
@@ -1199,9 +1207,6 @@ void* thread_training_run(void* args) {
 
 			initialize_epoch(epoch);
 		}
-		
-		dt_int from = t->id * pattern_max / THREAD_MAX;
-		dt_int to = t->id == THREAD_MAX - 1 ? pattern_max : from + pattern_max / THREAD_MAX;
 
 		for(p1 = from; p1 < to; p1++) {
 #ifdef FLAG_LOG
@@ -1217,7 +1222,7 @@ void* thread_training_run(void* args) {
 			negative_sampling(t);
 #else
 			forward_propagate_input(t, 0);
-			vector_softmax(output, output_max);
+			vector_softmax(output[t->id], output_max);
 #ifdef FLAG_CALCULATE_LOSS
 			calculate_loss(t);
 #endif
