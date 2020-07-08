@@ -1117,15 +1117,24 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		return;
 	}
 
+#ifdef FLAG_NEGATIVE_SAMPLING
 	forward_propagate_input(index, output);
 	vector_softmax(output, output_max);
+#else
+	forward_propagate_input(index, output[0]);
+	vector_softmax(output[0], output_max);
+#endif
 
 	xWord* pred[pattern_max];
 
 	for(k = 0; k < output_max; k++) {
 		tmp = k;
 		pred[k] = index_to_word(tmp);
+#ifdef FLAG_NEGATIVE_SAMPLING
 		pred[k]->prob = output[k];
+#else
+		pred[k]->prob = output[0][k];
+#endif
 	}
 
 	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
