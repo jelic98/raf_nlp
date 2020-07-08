@@ -958,7 +958,7 @@ static void initialize_epoch(dt_int epoch) {
 #endif
 }
 
-static void forward_propagate_input(xThread* t) {
+static void forward_propagate_input(xThread* t, int index) {
 	dt_int j, k;
 
 	for(k = 0; k < output_max; k++) {
@@ -969,7 +969,7 @@ static void forward_propagate_input(xThread* t) {
 #endif
 
 		for(output[k] = j = 0; j < hidden_max; j++) {
-			output[k] += w_ih[t->p][j] * w_ho[j][k];
+			output[k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
 		}
 	}
 }
@@ -1045,11 +1045,12 @@ static void negative_sampling(xThread* t) {
 }
 #else
 #ifdef FLAG_CALCULATE_LOSS
-static void calculate_loss() {
+static void calculate_loss(xThread* t) {
+	dt_int k, c;
 	dt_float sum;
 
-	for(sum = c = 0; c < center->context_max; c++) {
-		sum += output[center->target[c]->index];
+	for(sum = c = 0; c < t->center->context_max; c++) {
+		sum += output[t->center->target[c]->index];
 	}
 
 	loss -= sum;
@@ -1058,36 +1059,34 @@ static void calculate_loss() {
 		sum += exp(output[k]);
 	}
 
-	loss += center->context_max * log(sum);
+	loss += t->center->context_max * log(sum);
 }
 #endif
 
-static void calculate_error() {
-	for(k = 0; k < output_max; k++) {
-		for(error[k] = c = 0; c < center->context_max; c++) {
-			error[k] += output[k] - (k == center->target[c]->index);
-		}
-	}
-}
-
-static void update_hidden_layer_weights() {
-	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
-			w_ho[j][k] -= alpha * error[k] * hidden[j];
-		}
-	}
-}
-
-static void update_input_layer_weights() {
+static void backward_propagate_error(xThread* t) {
+	dt_int j, k, c;
 	dt_float l;
 
+	for(k = 0; k < output_max; k++) {
+		for(error[k] = c = 0; c < t->center->context_max; c++) {
+			error[k] += output[k] - (k == t->center->target[c]->index);
+		}
+	}
+
+	pthread_mutex_lock(&mtx_w_ho);
+	pthread_mutex_lock(&mtx_w_ih);
+	
 	for(j = 0; j < hidden_max; j++) {
 		for(l = k = 0; k < output_max; k++) {
+			w_ho[j][k] -= alpha * error[k] * w_ih[t->p][j];
 			l += error[k] * w_ho[j][k];
 		}
 
-		w_ih[p][j] -= alpha * l;
+		w_ih[t->p][j] -= alpha * l;
 	}
+	
+	pthread_mutex_lock(&mtx_w_ih);
+	pthread_mutex_lock(&mtx_w_ho);
 }
 #endif
 
@@ -1103,7 +1102,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		return;
 	}
 
-	forward_propagate_input(NULL);
+	forward_propagate_input(NULL, index);
 	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
@@ -1200,8 +1199,11 @@ void* thread_training_run(void* args) {
 
 			initialize_epoch(epoch);
 		}
+		
+		dt_int from = t->id * pattern_max / THREAD_MAX;
+		dt_int to = t->id == THREAD_MAX - 1 ? pattern_max : from + pattern_max / THREAD_MAX;
 
-		for(p1 = 0; p1 < pattern_max; p1++) {
+		for(p1 = from; p1 < to; p1++) {
 #ifdef FLAG_LOG
 			if(!(p1 % LOG_PERIOD_PASS)) {
 				// TODO echo("Started pass %d/%d", p1 + 1, pattern_max);
@@ -1214,17 +1216,15 @@ void* thread_training_run(void* args) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling(t);
 #else
-			forward_propagate_input(t);
+			forward_propagate_input(t, 0);
 			vector_softmax(output, output_max);
 #ifdef FLAG_CALCULATE_LOSS
-			calculate_loss();
+			calculate_loss(t);
 #endif
-			calculate_error();
-			update_hidden_layer_weights();
-			update_input_layer_weights();
+			backward_propagate_error(t);
 #endif
 		}
-			
+
 		pthread_mutex_lock(&mtx_count_epoch);
 		count_epoch++;
 		pthread_mutex_unlock(&mtx_count_epoch);
@@ -1232,7 +1232,7 @@ void* thread_training_run(void* args) {
 		if(count_epoch == THREAD_MAX) {
 			dispatch_semaphore_signal(sem_epoch);
 		}
-		
+
 		dispatch_semaphore_wait(sem_epoch, DISPATCH_TIME_FOREVER);
 		dispatch_semaphore_signal(sem_epoch);
 
