@@ -981,7 +981,7 @@ static void initialize_epoch(dt_int epoch) {
 #endif
 }
 
-static void forward_propagate_input(xThread* t, dt_int index) {
+static void forward_propagate_input(dt_int index, dt_float* layer) {
 	dt_int j, k;
 
 	for(k = 0; k < output_max; k++) {
@@ -991,15 +991,9 @@ static void forward_propagate_input(xThread* t, dt_int index) {
 		}
 #endif
 
-#ifdef FLAG_NEGATIVE_SAMPLING
-		for(output[k] = j = 0; j < hidden_max; j++) {
-			output[k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
+		for(layer[k] = j = 0; j < hidden_max; j++) {
+			layer[k] += w_ih[index][j] * w_ho[j][k];
 		}
-#else
-		for(output[t->id][k] = j = 0; j < hidden_max; j++) {
-			output[t->id][k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
-		}
-#endif
 	}
 }
 
@@ -1123,7 +1117,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 		return;
 	}
 
-	forward_propagate_input(NULL, index);
+	forward_propagate_input(index, output);
 	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
@@ -1236,7 +1230,7 @@ void* thread_training_run(void* args) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling(t);
 #else
-			forward_propagate_input(t, 0);
+			forward_propagate_input(t->p, output[t->id]);
 			vector_softmax(output[t->id], output_max);
 #ifdef FLAG_CALCULATE_LOSS
 			calculate_loss(t);
