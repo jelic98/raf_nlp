@@ -14,7 +14,9 @@ static dt_int* patterns;
 static dt_float** w_ih;
 static dt_float** w_ho;
 
-#ifndef FLAG_NEGATIVE_SAMPLING
+#ifdef FLAG_NEGATIVE_SAMPLING
+static dt_float* output;
+#else
 static dt_float** error;
 static dt_float** output;
 #endif
@@ -571,7 +573,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	dt_int i, j, t;
+	dt_int i, j;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -621,11 +623,16 @@ static void resources_allocate() {
 #endif
 #endif
 #endif
+	output = (dt_float*) calloc(THREAD_MAX, sizeof(dt_float));
+	memcheck(output);
 #else
+	dt_int t;
+
 	output = (dt_float**) calloc(THREAD_MAX, sizeof(dt_float*));
 	memcheck(output);
 	for(t = 0; t < THREAD_MAX; t++) {
 		output[t] = (dt_float*) calloc(output_max, sizeof(dt_float));
+		memcheck(output[t]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
@@ -635,6 +642,7 @@ static void resources_allocate() {
 	memcheck(error);
 	for(t = 0; t < THREAD_MAX; t++) {
 		error[t] = (dt_float*) calloc(output_max, sizeof(dt_float));
+		memcheck(error[t]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
@@ -647,7 +655,7 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
-	dt_int p, i, j, t;
+	dt_int p, i, j;
 
 #ifdef FLAG_FILTER_VOCABULARY
 	for(p = 0; p < filter_max; p++) {
@@ -690,6 +698,8 @@ static void resources_release() {
 	samples = NULL;
 #endif
 #else
+	dt_int t;
+
 	for(t = 0; t < THREAD_MAX; t++) {
 		free(output[t]);
 	}
@@ -971,6 +981,28 @@ static void initialize_epoch(dt_int epoch) {
 #endif
 }
 
+static void forward_propagate_input(xThread* t, dt_int index) {
+	dt_int j, k;
+
+	for(k = 0; k < output_max; k++) {
+#ifdef FLAG_DROPOUT
+		if(random(0, 1) < DROPOUT_RATE_MAX) {
+			continue;
+		}
+#endif
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+		for(output[k] = j = 0; j < hidden_max; j++) {
+			output[k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
+		}
+#else
+		for(output[t->id][k] = j = 0; j < hidden_max; j++) {
+			output[t->id][k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
+		}
+#endif
+	}
+}
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
@@ -1054,23 +1086,6 @@ static void calculate_loss(xThread* t) {
 	loss += t->center->context_max * log(sum);
 }
 #endif
-
-static void forward_propagate_input(xThread* t, int index) {
-	dt_int j, k;
-
-	for(k = 0; k < output_max; k++) {
-#ifdef FLAG_DROPOUT
-		if(random(0, 1) < DROPOUT_RATE_MAX) {
-			continue;
-		}
-#endif
-
-		for(output[t ? t->id : 0][k] = j = 0; j < hidden_max; j++) {
-			output[t ? t->id : 0][k] += w_ih[t ? t->p : index][j] * w_ho[j][k];
-		}
-	}
-}
-
 static void backward_propagate_error(xThread* t) {
 	dt_int j, k, c;
 	dt_float l;
@@ -1109,14 +1124,14 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	}
 
 	forward_propagate_input(NULL, index);
-	vector_softmax(output[0], output_max);
+	vector_softmax(output, output_max);
 
 	xWord* pred[pattern_max];
 
 	for(k = 0; k < output_max; k++) {
 		tmp = k;
 		pred[k] = index_to_word(tmp);
-		pred[k]->prob = output[0][k];
+		pred[k]->prob = output[k];
 	}
 
 	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
