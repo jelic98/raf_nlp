@@ -2,7 +2,6 @@
 
 static clock_t elapsed_time;
 
-static dt_int epoch;
 static dt_float alpha;
 
 #ifdef FLAG_CALCULATE_LOSS
@@ -40,7 +39,9 @@ static xWord** samples;
 
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
-static pthread_mutex_t mtx_w_ih, mtx_w_ho;
+static pthread_mutex_t mtx_w_ih, mtx_w_ho, mtx_count_epoch;
+static dispatch_semaphore_t sem_epoch;
+static dt_int count_epoch;
 
 #ifdef FLAG_LOG_FILE
 static FILE* flog;
@@ -372,7 +373,7 @@ static void vocab_map(xWord** vocab) {
 
 static void vocab_target(xWord** vocab) {
 	dt_int p;
-	
+
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->target = (xWord**) calloc(vocab[p]->context_max, sizeof(xWord*));
 		memcheck(vocab[p]->target);
@@ -386,7 +387,7 @@ static void vocab_target(xWord** vocab) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 	dt_int p;
-	
+
 	for(*sum = *max = p = 0; p < pattern_max; p++) {
 		*sum += vocab[p]->freq;
 		*max = max(*max, vocab[p]->freq);
@@ -558,7 +559,8 @@ static dt_int word_stop(const dt_char* word) {
 	}
 
 	const dt_char* p;
-	for(p = word; *p && (isalpha(*p) || *p == '-'); p++);
+	for(p = word; *p && (isalpha(*p) || *p == '-'); p++)
+		;
 
 	return *p || list_contains(stops, word);
 }
@@ -567,7 +569,7 @@ static void resources_allocate() {
 #ifdef FLAG_LOG
 	echo("Allocating resources");
 #endif
-	
+
 	dt_int i, j;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
@@ -599,7 +601,7 @@ static void resources_allocate() {
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "error", 1, output_max);
 #endif
-	
+
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	memcheck(w_ih);
 	for(i = 0; i < input_max; i++) {
@@ -940,7 +942,7 @@ static void initialize_weights() {
 #endif
 }
 
-static void initialize_epoch() {
+static void initialize_epoch(dt_int epoch) {
 	dt_int p;
 
 	for(p = 0; p < pattern_max; p++) {
@@ -1187,30 +1189,65 @@ void nn_finish() {
 
 void* thread_training_run(void* args) {
 	xThread* t = (xThread*) args;
-	dt_int p1;
+	dt_int epoch, p1;
 
-	for(p1 = 0; p1 < pattern_max; p1++) {
+	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
+		if(!t->id) {
 #ifdef FLAG_LOG
-		if(!(p1 % LOG_PERIOD_PASS)) {
-			// TODO echo("Started pass %d/%d", p1 + 1, pattern_max);
+			echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
+			elapsed_time = clock();
+#endif
+
+			initialize_epoch(epoch);
 		}
+
+		for(p1 = 0; p1 < pattern_max; p1++) {
+#ifdef FLAG_LOG
+			if(!(p1 % LOG_PERIOD_PASS)) {
+				// TODO echo("Started pass %d/%d", p1 + 1, pattern_max);
+			}
 #endif
 
-		t->center = index_to_word(t->p = patterns[p1]);
+			t->center = index_to_word(t->p = patterns[p1]);
 
-		vector_normalize(w_ih[t->p], hidden_max);
+			vector_normalize(w_ih[t->p], hidden_max);
 #ifdef FLAG_NEGATIVE_SAMPLING
-		negative_sampling(t);
+			negative_sampling(t);
 #else
-		forward_propagate_input(t);
-		vector_softmax(output, output_max);
+			forward_propagate_input(t);
+			vector_softmax(output, output_max);
 #ifdef FLAG_CALCULATE_LOSS
-		calculate_loss();
+			calculate_loss();
 #endif
-		calculate_error();
-		update_hidden_layer_weights();
-		update_input_layer_weights();
+			calculate_error();
+			update_hidden_layer_weights();
+			update_input_layer_weights();
 #endif
+		}
+			
+		pthread_mutex_lock(&mtx_count_epoch);
+		count_epoch++;
+		pthread_mutex_unlock(&mtx_count_epoch);
+
+		if(count_epoch == THREAD_MAX) {
+			dispatch_semaphore_signal(sem_epoch);
+		}
+		
+		dispatch_semaphore_wait(sem_epoch, DISPATCH_TIME_FOREVER);
+		dispatch_semaphore_signal(sem_epoch);
+
+		if(!t->id) {
+#ifdef FLAG_BACKUP_WEIGHTS
+			weights_save();
+#endif
+
+#ifdef FLAG_LOG
+			echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
+#ifdef FLAG_CALCULATE_LOSS
+			echo_info("Loss %lf", loss);
+#endif
+#endif
+		}
 	}
 
 	return NULL;
@@ -1221,37 +1258,21 @@ void training_run() {
 	clock_t start_time = clock();
 	echo("Started training");
 #endif
-	
+
+	sem_epoch = dispatch_semaphore_create(0);
+
 	dt_int t;
 
-	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
-#ifdef FLAG_LOG
-		echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
-		elapsed_time = clock();
-#endif
-
-		initialize_epoch();
-
-		for(t = 0; t < THREAD_MAX; t++) {
-			(thread_args + t)->id = t;
-			pthread_create(thread_ids + t, NULL, thread_training_run, thread_args + t);
-		}
-
-		for(t = 0; t < THREAD_MAX; t++) {
-			pthread_join(thread_ids[t], NULL);
-		}
-
-#ifdef FLAG_BACKUP_WEIGHTS
-		weights_save();
-#endif
-
-#ifdef FLAG_LOG
-		echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
-#ifdef FLAG_CALCULATE_LOSS
-		echo_info("Loss %lf", loss);
-#endif
-#endif
+	for(t = 0; t < THREAD_MAX; t++) {
+		(thread_args + t)->id = t;
+		pthread_create(thread_ids + t, NULL, thread_training_run, thread_args + t);
 	}
+
+	for(t = 0; t < THREAD_MAX; t++) {
+		pthread_join(thread_ids[t], NULL);
+	}
+
+	dispatch_release(sem_epoch);
 
 #ifdef FLAG_LOG
 	echo_succ("Finished training (%lf sec)", time_get(start_time));

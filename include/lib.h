@@ -13,6 +13,8 @@
 #include <float.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <dispatch/dispatch.h>
+// For non-MacOS use #include <semaphore.h>
 #include <signal.h>
 #include <execinfo.h>
 #include <sys/time.h>
