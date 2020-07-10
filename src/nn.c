@@ -84,7 +84,7 @@ static void echo_color(eColor color, dt_int replace, const dt_char* format, ...)
 #endif
 	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
 	if(replace) {
-		strcpy(f, "\r");
+		strcat(f, "\r");
 		strcat(f, format);
 	}else {
 		strcpy(f, format);
@@ -1249,7 +1249,7 @@ void* thread_training_run(void* args) {
 					progress = patterns[p2] < 0 ? progress + 1 : progress;
 				}
 
-				echo_repl("Progress %d/%d%c", progress, pattern_max, progress == pattern_max? "\n" : "");
+				echo_repl("Progress %d/%d", progress, pattern_max);
 			}
 #endif
 
@@ -1268,7 +1268,7 @@ void* thread_training_run(void* args) {
 			backward_propagate_error(t);
 #endif
 		}
-
+		
 		pthread_mutex_lock(&mtx_count_epoch);
 
 		if(++count_epoch == THREAD_MAX) {
@@ -1287,6 +1287,7 @@ void* thread_training_run(void* args) {
 #endif
 
 #ifdef FLAG_LOG
+			echo_repl("\0");
 			echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
 #ifdef FLAG_CALCULATE_LOSS
 			echo_info("Loss %lf", loss);
