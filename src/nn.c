@@ -70,19 +70,26 @@ static void color_set(eColor color) {
 }
 #endif
 
-static void echo_color(eColor color, const dt_char* format, ...) {
+static void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
 	va_list args;
 	va_start(args, format);
 #ifdef FLAG_COLOR_LOG
 	color_set(GRAY);
 #endif
-	timestamp();
+	if(!replace) {
+		timestamp();
+	}
 #ifdef FLAG_COLOR_LOG
 	color_set(color);
 #endif
-	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
-	strcpy(f, format);
-	strcat(f, "\n");
+	dt_char* f = (dt_char*) calloc(strlen(format) + replace ? 2 : 1, sizeof(dt_char));
+	if(replace) {
+		strcpy(f, "\r");
+		strcat(f, format);
+	}else {
+		strcpy(f, format);
+		strcat(f, "\n");
+	}
 	vfprintf(flog, f, args);
 #ifdef FLAG_COLOR_LOG
 	color_set(NONE);
@@ -1242,7 +1249,7 @@ void* thread_training_run(void* args) {
 					progress = patterns[p2] < 0 ? progress + 1 : progress;
 				}
 
-				printf("\rProgress %d/%d", progress, pattern_max);
+				echo_repl("Progress %d/%d%c", progress, pattern_max, progress == pattern_max? "\n" : "");
 			}
 #endif
 

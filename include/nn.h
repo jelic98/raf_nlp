@@ -21,7 +21,7 @@
 
 #define MONTE_CARLO_EMERGENCY 100
 #define INVALID_INDEX_MAX 10
-#define LOG_PERIOD_PASS 50
+#define LOG_PERIOD_PASS 1
 #define LOG_PERIOD_CORPUS 500
 #define BACKTRACE_DEPTH 10
 
@@ -91,13 +91,14 @@
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
-#define echo(...) echo_color(NONE, __VA_ARGS__)
-#define echo_info(...) echo_color(YELLOW, "INFO: " __VA_ARGS__)
-#define echo_succ(...) echo_color(GREEN, "SUCCESS: " __VA_ARGS__)
-#define echo_fail(...) echo_color(RED, "FAIL: " __VA_ARGS__)
+#define echo(...) echo_color(NONE, 0, __VA_ARGS__)
+#define echo_info(...) echo_color(YELLOW, 0, "INFO: " __VA_ARGS__)
+#define echo_succ(...) echo_color(GREEN, 0, "SUCCESS: " __VA_ARGS__)
+#define echo_fail(...) echo_color(RED, 0, "FAIL: " __VA_ARGS__)
 #define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
+#define echo_repl(...) echo_color(NONE, 1, __VA_ARGS__)
 #ifdef FLAG_DEBUG
-#define debug(...) echo_color(MAGENTA, "DEBUG: " __VA_ARGS__)
+#define debug(...) echo_color(MAGENTA, 0, "DEBUG: " __VA_ARGS__)
 #endif
 #endif
 
