@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "2"
+#define TEST_INDEX "3"
 
 #define EPOCH_MAX 3
 #define HIDDEN_MAX 50
@@ -21,7 +21,7 @@
 
 #define MONTE_CARLO_EMERGENCY 100
 #define INVALID_INDEX_MAX 10
-#define LOG_PERIOD_PASS 1
+#define LOG_PERIOD_PASS 500
 #define LOG_PERIOD_CORPUS 500
 #define BACKTRACE_DEPTH 10
 

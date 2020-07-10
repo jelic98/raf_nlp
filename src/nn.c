@@ -1244,12 +1244,14 @@ void* thread_training_run(void* args) {
 
 		for(p1 = from; p1 < to; p1++) {
 #ifdef FLAG_LOG
-			if(!t->id && !((p1 - from) % LOG_PERIOD_PASS)) {
-				for(progress = p2 = 0; p2 < pattern_max; p2++) {
-					progress = patterns[p2] < 0 ? progress + 1 : progress;
-				}
+			if(!t->id) {
+				if(!((to - p1) % LOG_PERIOD_PASS)) {
+					for(progress = p2 = 0; p2 < pattern_max; p2++) {
+						progress = patterns[p2] < 0 ? progress + 1 : progress;
+					}
 
-				echo_repl("Progress %d/%d", progress, pattern_max);
+					echo("Training %d/%d", progress, pattern_max);
+				}
 			}
 #endif
 
@@ -1287,7 +1289,6 @@ void* thread_training_run(void* args) {
 #endif
 
 #ifdef FLAG_LOG
-			echo_repl("\0");
 			echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
 #ifdef FLAG_CALCULATE_LOSS
 			echo_info("Loss %lf", loss);
