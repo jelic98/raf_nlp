@@ -42,7 +42,7 @@ static xWord** samples;
 
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
-static pthread_mutex_t mtx_w_ho, mtx_count_epoch;
+static pthread_mutex_t mtx_count_epoch;
 static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
@@ -1048,14 +1048,10 @@ static void negative_sampling(xThread* t) {
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
 
-			pthread_mutex_lock(&mtx_w_ho);
-
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
 				w_ho[j][k] -= delta_ho * w_ih[t->p][j];
 			}
-
-			pthread_mutex_unlock(&mtx_w_ho);
 		}
 
 		for(j = 0; j < hidden_max; j++) {
@@ -1092,8 +1088,6 @@ static void backward_propagate_error(xThread* t) {
 		}
 	}
 
-	pthread_mutex_lock(&mtx_w_ho);
-
 	for(j = 0; j < hidden_max; j++) {
 		for(l = k = 0; k < output_max; k++) {
 			l += error[t->id][k] * w_ho[j][k];
@@ -1102,8 +1096,6 @@ static void backward_propagate_error(xThread* t) {
 
 		w_ih[t->p][j] -= alpha * l;
 	}
-
-	pthread_mutex_lock(&mtx_w_ho);
 }
 #endif
 
@@ -1270,7 +1262,7 @@ void* thread_training_run(void* args) {
 			backward_propagate_error(t);
 #endif
 		}
-		
+	
 		pthread_mutex_lock(&mtx_count_epoch);
 
 		if(++count_epoch == THREAD_MAX) {
@@ -1306,7 +1298,6 @@ void training_run() {
 	echo("Started training");
 #endif
 
-	pthread_mutex_init(&mtx_w_ho, NULL);
 	pthread_mutex_init(&mtx_count_epoch, NULL);
 
 	sem_epoch_1 = sem_open("/sem_epoch_1", O_CREAT, 0666, 0);
@@ -1323,7 +1314,6 @@ void training_run() {
 		pthread_join(thread_ids[t], NULL);
 	}
 
-	pthread_mutex_destroy(&mtx_w_ho);
 	pthread_mutex_destroy(&mtx_count_epoch);
 
 	sem_unlink("/sem_epoch_1");
