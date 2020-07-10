@@ -2,8 +2,8 @@
 
 int main() {
 	nn_start();
-	//training_run();
-	//weights_save();
+	training_run();
+	weights_save();
 	//testing_run();
 	//nn_finish();
 
