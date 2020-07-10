@@ -43,7 +43,8 @@ static xWord** samples;
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
 static pthread_mutex_t mtx_w_ho, mtx_count_epoch;
-static dispatch_semaphore_t sem_epoch;
+static sem_t* sem_epoch_1;
+static sem_t* sem_epoch_2;
 static dt_int count_epoch;
 
 #ifdef FLAG_LOG_FILE
@@ -821,12 +822,6 @@ static void initialize_corpus() {
 
 	resources_allocate();
 
-	dt_int p;
-
-	for(p = 0; p < pattern_max; p++) {
-		patterns[p] = p;
-	}
-
 #ifdef FLAG_LOG
 	echo("Flattening corpus");
 #endif
@@ -1212,7 +1207,7 @@ void nn_finish() {
 
 void* thread_training_run(void* args) {
 	xThread* t = (xThread*) args;
-	dt_int epoch, p1;
+	dt_int epoch, p1, p2, progress;
 	dt_int from = t->id * pattern_max / THREAD_MAX;
 	dt_int to = t->id == THREAD_MAX - 1 ? pattern_max : from + pattern_max / THREAD_MAX;
 
@@ -1226,14 +1221,33 @@ void* thread_training_run(void* args) {
 			initialize_epoch(epoch);
 		}
 
+		if(epoch) {
+			pthread_mutex_lock(&mtx_count_epoch);
+
+			if(!--count_epoch) {
+				sem_wait(sem_epoch_1);
+				sem_post(sem_epoch_2);
+			}
+
+			pthread_mutex_unlock(&mtx_count_epoch);
+
+			sem_wait(sem_epoch_2);
+			sem_post(sem_epoch_2);
+		}
+
 		for(p1 = from; p1 < to; p1++) {
 #ifdef FLAG_LOG
-			if(!(p1 % LOG_PERIOD_PASS)) {
-				// TODO echo("Started pass %d/%d", p1 + 1, pattern_max);
+			if(!t->id && !((p1 - from) % LOG_PERIOD_PASS)) {
+				for(progress = p2 = 0; p2 < pattern_max; p2++) {
+					progress = patterns[p2] < 0 ? progress + 1 : progress;
+				}
+
+				printf("\rProgress %d/%d", progress, pattern_max);
 			}
 #endif
 
 			t->center = index_to_word(t->p = patterns[p1]);
+			patterns[p1] = -1;
 
 			vector_normalize(w_ih[t->p], hidden_max);
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -1249,15 +1263,16 @@ void* thread_training_run(void* args) {
 		}
 
 		pthread_mutex_lock(&mtx_count_epoch);
-		count_epoch++;
-		pthread_mutex_unlock(&mtx_count_epoch);
 
-		if(count_epoch == THREAD_MAX) {
-			dispatch_semaphore_signal(sem_epoch);
+		if(++count_epoch == THREAD_MAX) {
+			sem_wait(sem_epoch_2);
+			sem_post(sem_epoch_1);
 		}
 
-		dispatch_semaphore_wait(sem_epoch, DISPATCH_TIME_FOREVER);
-		dispatch_semaphore_signal(sem_epoch);
+		pthread_mutex_unlock(&mtx_count_epoch);
+
+		sem_wait(sem_epoch_1);
+		sem_post(sem_epoch_1);
 
 		if(!t->id) {
 #ifdef FLAG_BACKUP_WEIGHTS
@@ -1282,7 +1297,11 @@ void training_run() {
 	echo("Started training");
 #endif
 
-	sem_epoch = dispatch_semaphore_create(0);
+	pthread_mutex_init(&mtx_w_ho, NULL);
+	pthread_mutex_init(&mtx_count_epoch, NULL);
+
+	sem_epoch_1 = sem_open("/sem_epoch_1", O_CREAT, 0666, 0);
+	sem_epoch_2 = sem_open("/sem_epoch_2", O_CREAT, 0666, 1);
 
 	dt_int t;
 
@@ -1295,7 +1314,14 @@ void training_run() {
 		pthread_join(thread_ids[t], NULL);
 	}
 
-	dispatch_release(sem_epoch);
+	pthread_mutex_destroy(&mtx_w_ho);
+	pthread_mutex_destroy(&mtx_count_epoch);
+
+	sem_unlink("/sem_epoch_1");
+	sem_close(sem_epoch_1);
+	
+	sem_unlink("/sem_epoch_2");
+	sem_close(sem_epoch_2);
 
 #ifdef FLAG_LOG
 	echo_succ("Finished training (%lf sec)", time_get(start_time));
