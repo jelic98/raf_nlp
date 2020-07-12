@@ -1,6 +1,6 @@
 #include "nn.h"
 
-static clock_t elapsed_time;
+static struct timespec time_start;
 
 static dt_float alpha;
 
@@ -52,8 +52,10 @@ static FILE* flog;
 #endif
 
 #ifdef FLAG_LOG
-static dt_float time_get(clock_t start) {
-	return (dt_float)(clock() - start) / CLOCKS_PER_SEC;
+static dt_int time_get(struct timespec start) {
+	struct timespec finish;
+	clock_gettime(CLOCK_MONOTONIC, &finish);
+	return finish.tv_sec - start.tv_sec;
 }
 
 static void timestamp() {
@@ -725,7 +727,7 @@ static void resources_release() {
 static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo("Initializing corpus");
-	elapsed_time = clock();
+	clock_gettime(CLOCK_MONOTONIC, &time_start);
 #endif
 
 	FILE* fin = fopen(CORPUS_PATH, "r");
@@ -903,7 +905,7 @@ static void initialize_corpus() {
 	}
 
 #ifdef FLAG_LOG
-	echo_succ("Done initializing corpus (%lf sec)", time_get(elapsed_time));
+	echo_succ("Done initializing corpus (%d sec)", time_get(time_start));
 #endif
 
 #ifdef FLAG_INTERACTIVE_MODE
@@ -1102,7 +1104,7 @@ static void backward_propagate_error(xThread* t) {
 static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 #ifdef FLAG_LOG
 	echo_info("Center: %s", word);
-	elapsed_time = clock();
+	clock_gettime(CLOCK_MONOTONIC, &time_start);
 #endif
 
 	dt_int c, k, s, tmp, index = word_to_index(word);
@@ -1158,7 +1160,7 @@ static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
 	}
 
 #ifdef FLAG_LOG
-	echo_cond(*success, "Prediction %scorrect (%lf sec)", *success ? "" : "not ", time_get(elapsed_time));
+	echo_cond(*success, "Prediction %scorrect (%d sec)", *success ? "" : "not ", time_get(time_start));
 #endif
 }
 
@@ -1214,7 +1216,7 @@ void* thread_training_run(void* args) {
 		if(!t->id) {
 #ifdef FLAG_LOG
 			echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
-			elapsed_time = clock();
+			clock_gettime(CLOCK_MONOTONIC, &time_start);
 #endif
 
 			initialize_epoch(epoch);
@@ -1262,7 +1264,7 @@ void* thread_training_run(void* args) {
 			backward_propagate_error(t);
 #endif
 		}
-	
+
 		pthread_mutex_lock(&mtx_count_epoch);
 
 		if(++count_epoch == THREAD_MAX) {
@@ -1281,7 +1283,7 @@ void* thread_training_run(void* args) {
 #endif
 
 #ifdef FLAG_LOG
-			echo_succ("Finished epoch %d/%d (%lf sec)", epoch + 1, EPOCH_MAX, time_get(elapsed_time));
+			echo_succ("Finished epoch %d/%d (%d sec)", epoch + 1, EPOCH_MAX, time_get(time_start));
 #ifdef FLAG_CALCULATE_LOSS
 			echo_info("Loss %lf", loss);
 #endif
@@ -1294,7 +1296,8 @@ void* thread_training_run(void* args) {
 
 void training_run() {
 #ifdef FLAG_LOG
-	clock_t start_time = clock();
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started training");
 #endif
 
@@ -1318,18 +1321,19 @@ void training_run() {
 
 	sem_unlink("/sem_epoch_1");
 	sem_close(sem_epoch_1);
-	
+
 	sem_unlink("/sem_epoch_2");
 	sem_close(sem_epoch_2);
 
 #ifdef FLAG_LOG
-	echo_succ("Finished training (%lf sec)", time_get(start_time));
+	echo_succ("Finished training (%d sec)", time_get(time_local));
 #endif
 }
 
 void testing_run() {
 #ifdef FLAG_LOG
-	clock_t start_time = clock();
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started testing");
 #endif
 
@@ -1375,7 +1379,7 @@ void testing_run() {
 #ifdef FLAG_LOG
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
-	echo_succ("Finished testing (%lf sec)", time_get(start_time));
+	echo_succ("Finished testing (%d sec)", time_get(time_local));
 #endif
 }
 
