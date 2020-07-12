@@ -7,10 +7,6 @@ Features to be implemented in no particular order.
 * initialize input weights inverse proportionally to word frequency
 * check weights normalization
 
-### Parser
-
-* [URGENT] alphabetical reorder changes word indices (compare indices instead of word in testing)
-
 ### Other
 
 * [URGENT] last word gets sampled more\less than others in negative sampling

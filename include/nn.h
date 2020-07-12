@@ -3,9 +3,9 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "3"
+#define TEST_INDEX "2"
 
-#define EPOCH_MAX 3
+#define EPOCH_MAX 100
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 15
