@@ -14,10 +14,6 @@ Features to be implemented in no particular order.
 * sort vocabulary by frequency for faster retrievals
 * iterative functions for bst
 
-### Deploy
-* use clean common crawl or wikipedia data to test scalability
-* change hyperparameters to test large datasets
-
 ### Random
 
 * [word2vec in C](https://github.com/chrisjmccormick/word2vec_commented/blob/master/word2vec.c)
