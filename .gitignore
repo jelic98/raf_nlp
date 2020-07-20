@@ -1,6 +1,7 @@
 /res
 /out
 /main.out.dSYM
+creds.txt
 .DS_Store
 *.out
 *.swp
