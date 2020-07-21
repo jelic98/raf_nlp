@@ -63,7 +63,7 @@ static void timestamp() {
 	dt_char s[20];
 	gettimeofday(&tv, NULL);
 	strftime(s, sizeof(s) / sizeof(*s), "%d-%m-%Y %H:%M:%S", gmtime(&tv.tv_sec));
-	fprintf(flog, "[%s.%03ld] ", s, tv.tv_usec / 1000);
+	fprintf(flog, "[%s.%03d] ", s, (dt_int) tv.tv_usec / 1000);
 }
 
 #ifdef FLAG_COLOR_LOG
