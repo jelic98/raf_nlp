@@ -2,7 +2,7 @@ CC = gcc
 IN = main.c src/nn.c
 OUT = main.out
 CFLAGS = -Wall
-LFLAGS = -lm
+LFLAGS = -lm -lpthread
 IFLAGS = -I. -I./include
 
 .SILENT all: clean build run
