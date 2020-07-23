@@ -733,7 +733,7 @@ static void initialize_corpus() {
 	FILE* fin = fopen(CORPUS_PATH, "r");
 	FILE* fstop = fopen(STOP_PATH, "r");
 
-	if(!fstop || !fstop) {
+	if(!fin || !fstop) {
 #ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
 #endif
