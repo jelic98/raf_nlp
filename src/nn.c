@@ -46,6 +46,7 @@ static pthread_mutex_t mtx_count_epoch;
 static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
+static dt_float*** thread_w_ho;
 
 #ifdef FLAG_LOG_FILE
 static FILE* flog;
@@ -583,7 +584,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	dt_int i, j;
+	dt_int i, j, t;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -623,6 +624,18 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
+	thread_w_ho = (dt_float***) calloc(THREAD_MAX, sizeof(dt_float**));
+	memcheck(thread_w_ho);
+	for(t = 0; t < THREAD_MAX; t++) {
+		thread_w_ho[t] = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
+		memcheck(thread_w_ho[t]);
+
+		for(j = 0; j < hidden_max; j++) {
+			thread_w_ho[t][j] = (dt_float*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_float));
+			memcheck(thread_w_ho[t][j]);
+		}
+	}
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
@@ -636,8 +649,6 @@ static void resources_allocate() {
 	output = (dt_float*) calloc(THREAD_MAX, sizeof(dt_float));
 	memcheck(output);
 #else
-	dt_int t;
-
 	output = (dt_float**) calloc(THREAD_MAX, sizeof(dt_float*));
 	memcheck(output);
 	for(t = 0; t < THREAD_MAX; t++) {
@@ -1017,6 +1028,10 @@ static void negative_sampling(xThread* t) {
 	for(c = 0; c < t->center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
+		for(j = 0; j < hidden_max; j++) {
+			memset(thread_w_ho[t->id][j], 0, NEGATIVE_SAMPLES_MAX * sizeof(dt_float));
+		}
+
 		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
 #ifdef FLAG_MONTE_CARLO
@@ -1052,11 +1067,15 @@ static void negative_sampling(xThread* t) {
 
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
-				w_ho[j][k] -= delta_ho * w_ih[t->p][j];
+				thread_w_ho[t->id][j][ck] = delta_ho * w_ih[t->p][j];
 			}
 		}
-
+		
 		for(j = 0; j < hidden_max; j++) {
+			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
+				w_ho[j][k] -= thread_w_ho[t->id][j][k];
+			}
+
 			w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
 		}
 	}
