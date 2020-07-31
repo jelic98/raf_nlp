@@ -34,7 +34,7 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int ck, corpus_freq_sum, corpus_freq_max;
+static dt_int corpus_freq_sum, corpus_freq_max;
 #ifndef FLAG_MONTE_CARLO
 static xWord** samples;
 #endif
@@ -431,6 +431,8 @@ static void vocab_sample(xWord** vocab) {
 
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
+	dt_int ck;
+	
 	for(p = 0; p < pattern_max; p++) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
 		samples[ck] = copies[p];
@@ -1007,7 +1009,7 @@ static dt_float sigmoid(dt_float x) {
 }
 
 static void negative_sampling(xThread* t) {
-	dt_int c, j, k;
+	dt_int c, j, k, ck;
 	dt_float e, delta_ih[hidden_max], delta_ho;
 
 #ifdef FLAG_MONTE_CARLO
