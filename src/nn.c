@@ -46,7 +46,7 @@ static xWord** samples;
 
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
-static pthread_mutex_t mtx_count_epoch, mtx_backprop;
+static pthread_mutex_t mtx_count_epoch;
 static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
@@ -1117,8 +1117,6 @@ static void negative_sampling(xThread* t) {
 		}
 	}
 
-	pthread_mutex_lock(&mtx_backprop);
-
 	for(j = 0; j < hidden_max; j++) {
 		for(c = 0; c < t->center->context_max; c++) {
 			w_ih[t->p][j] -= thread_g_ih[t->id][j][c];
@@ -1129,8 +1127,6 @@ static void negative_sampling(xThread* t) {
 			}
 		}
 	}
-
-	pthread_mutex_unlock(&mtx_backprop);
 }
 #else
 #ifdef FLAG_CALCULATE_LOSS
@@ -1373,7 +1369,6 @@ void training_run() {
 #endif
 
 	pthread_mutex_init(&mtx_count_epoch, NULL);
-	pthread_mutex_init(&mtx_backprop, NULL);
 
 	sem_epoch_1 = sem_open("/sem_epoch_1", O_CREAT, 0666, 0);
 	sem_epoch_2 = sem_open("/sem_epoch_2", O_CREAT, 0666, 1);
@@ -1390,7 +1385,6 @@ void training_run() {
 	}
 
 	pthread_mutex_destroy(&mtx_count_epoch);
-	pthread_mutex_destroy(&mtx_backprop);
 
 	sem_unlink("/sem_epoch_1");
 	sem_close(sem_epoch_1);
