@@ -35,8 +35,10 @@ static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_int corpus_freq_sum, corpus_freq_max;
-static dt_int** thread_samples;
-static dt_float*** thread_w_ho;
+static dt_int*** thread_samples;
+static dt_float*** thread_g_ih;
+static dt_float**** thread_g_ho;
+static dt_float** delta_ih;
 #ifndef FLAG_MONTE_CARLO
 static xWord** samples;
 #endif
@@ -587,7 +589,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	dt_int i, j, t;
+	dt_int i, j;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -627,32 +629,42 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
-	thread_samples = (dt_int**) calloc(THREAD_MAX, sizeof(dt_int*));
-	memcheck(thread_samples);
-	for(t = 0; t < THREAD_MAX; t++) {
-		thread_samples[t] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
-		memcheck(thread_samples[t]);
-	}
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "thread_samples", THREAD_MAX, NEGATIVE_SAMPLES_MAX);
-#endif
-
-	thread_w_ho = (dt_float***) calloc(THREAD_MAX, sizeof(dt_float**));
-	memcheck(thread_w_ho);
-	for(t = 0; t < THREAD_MAX; t++) {
-		thread_w_ho[t] = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
-		memcheck(thread_w_ho[t]);
-
-		for(j = 0; j < hidden_max; j++) {
-			thread_w_ho[t][j] = (dt_float*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_float));
-			memcheck(thread_w_ho[t][j]);
-		}
-	}
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%dx%d", "thread_w_ho", THREAD_MAX, hidden_max, NEGATIVE_SAMPLES_MAX);
-#endif
-
 #ifdef FLAG_NEGATIVE_SAMPLING
+	dt_int t;
+	
+	thread_samples = (dt_int***) calloc(THREAD_MAX, sizeof(dt_int**));
+	memcheck(thread_samples);
+	
+	thread_g_ih = (dt_float***) calloc(THREAD_MAX, sizeof(dt_float**));
+	memcheck(thread_g_ih);	
+
+	thread_g_ho = (dt_float****) calloc(THREAD_MAX, sizeof(dt_float***));
+	memcheck(thread_g_ho);
+	
+	delta_ih = (dt_float**) calloc(THREAD_MAX, sizeof(dt_float*));
+	memcheck(delta_ih);
+	
+	for(t = 0; t < THREAD_MAX; t++) {
+		thread_samples[t] = (dt_int**) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int*));
+		memcheck(thread_samples[t]);	
+		
+		thread_g_ih[t] = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
+		memcheck(thread_g_ih[t]);
+
+		thread_g_ho[t] = (dt_float***) calloc(hidden_max, sizeof(dt_float**));
+		memcheck(thread_g_ho[t]);
+
+		for(j = 0; j < hidden_max; j++) {	
+			thread_g_ho[t][j] = (dt_float**) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_float*));
+			memcheck(thread_g_ho[t][j]);
+		}	
+
+		delta_ih[t] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+		memcheck(delta_ih[t]);
+	}
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "delta_ih", THREAD_MAX, hidden_max);
+#endif
 #ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
 	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
@@ -1035,13 +1047,21 @@ static dt_float sigmoid(dt_float x) {
 
 static void negative_sampling(xThread* t) {
 	dt_int c, j, k, ck;
-	dt_float e, delta_ho;
+	dt_float e, delta_ho;	
 
-	dt_float** delta_ih = (dt_float**) calloc(t->center->context_max, sizeof(dt_float*));
-	memcheck(delta_ih);
-	for(c = 0; c < t->center->context_max; c++) {
-		delta_ih[c] = (dt_float*) calloc(hidden_max, sizeof(dt_float*));
-		memcheck(delta_ih[c]);
+	for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+		thread_samples[t->id][ck] = (dt_int*) calloc(t->center->context_max, sizeof(dt_int));
+		memcheck(thread_samples[t->id][ck]);
+	}
+
+	for(j = 0; j < hidden_max; j++) {	
+		thread_g_ih[t->id][j] = (dt_float*) calloc(t->center->context_max, sizeof(dt_float));
+		memcheck(thread_g_ih[t->id][j]);
+
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			thread_g_ho[t->id][j][ck] = (dt_float*) calloc(t->center->context_max, sizeof(dt_float));
+			memcheck(thread_g_ho[t->id][j][ck]);
+		}
 	}
 
 #ifdef FLAG_MONTE_CARLO
@@ -1049,9 +1069,7 @@ static void negative_sampling(xThread* t) {
 	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 #endif
 	for(c = 0; c < t->center->context_max; c++) {
-		for(j = 0; j < hidden_max; j++) {
-			memset(thread_w_ho[t->id][j], 0, NEGATIVE_SAMPLES_MAX * sizeof(dt_float));
-		}
+		memset(delta_ih[t->id], 0, hidden_max * sizeof(dt_float));
 
 		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 			if(ck) {
@@ -1075,12 +1093,8 @@ static void negative_sampling(xThread* t) {
 			} else {
 				k = t->center->target[c]->index;
 			}
-
-			thread_samples[t->id][ck] = k;
-
-			for(j = 0; j < hidden_max; j++) {
-				thread_w_ho[t->id][j][ck] = w_ho[j][k];
-			}
+			
+			thread_samples[t->id][ck][c] = k;
 
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[j][k];
@@ -1093,26 +1107,26 @@ static void negative_sampling(xThread* t) {
 			delta_ho = alpha * (sigmoid(e) - !ck);
 
 			for(j = 0; j < hidden_max; j++) {
-				delta_ih[c][j] += delta_ho * thread_w_ho[t->id][j][ck];
-				thread_w_ho[t->id][j][ck] -= delta_ho * w_ih[t->p][j];
+				delta_ih[t->id][j] += delta_ho * w_ho[j][k];
+				thread_g_ho[t->id][j][ck][c] = delta_ho * w_ih[t->id][j];
 			}
 		}
 		
 		for(j = 0; j < hidden_max; j++) {
-			delta_ih[c][j] /= 1.0 * t->center->context_max;
+			thread_g_ih[t->id][j][c] = delta_ih[t->id][j] / (1.0 * t->center->context_max);
 		}
 	}
 
 	pthread_mutex_lock(&mtx_backprop);
 
 	for(j = 0; j < hidden_max; j++) {
-		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-			k = thread_samples[t->id][ck];
-			w_ho[j][k] = thread_w_ho[t->id][j][ck];
-		}
-
 		for(c = 0; c < t->center->context_max; c++) {
-			w_ih[t->p][j] -= delta_ih[c][j];
+			w_ih[t->p][j] -= thread_g_ih[t->id][j][c];
+
+			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+				k = thread_samples[t->id][ck][c];
+				w_ho[j][k] -= thread_g_ho[t->id][j][ck][c];
+			}
 		}
 	}
 
