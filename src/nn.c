@@ -34,7 +34,9 @@ static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-static dt_int ck, corpus_freq_sum, corpus_freq_max;
+static dt_int corpus_freq_sum, corpus_freq_max;
+static dt_int** thread_samples;
+static dt_float*** thread_w_ho;
 #ifndef FLAG_MONTE_CARLO
 static xWord** samples;
 #endif
@@ -42,11 +44,10 @@ static xWord** samples;
 
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
-static pthread_mutex_t mtx_count_epoch;
+static pthread_mutex_t mtx_count_epoch, mtx_backprop;
 static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
-static dt_float*** thread_w_ho;
 
 #ifdef FLAG_LOG_FILE
 static FILE* flog;
@@ -432,6 +433,8 @@ static void vocab_sample(xWord** vocab) {
 
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
 
+	dt_int ck;
+
 	for(p = 0; p < pattern_max; p++) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
 		samples[ck] = copies[p];
@@ -624,6 +627,16 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
+	thread_samples = (dt_int**) calloc(THREAD_MAX, sizeof(dt_int*));
+	memcheck(thread_samples);
+	for(t = 0; t < THREAD_MAX; t++) {
+		thread_samples[t] = (dt_int*) calloc(NEGATIVE_SAMPLES_MAX, sizeof(dt_int));
+		memcheck(thread_samples[t]);
+	}
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%d", "thread_samples", THREAD_MAX, NEGATIVE_SAMPLES_MAX);
+#endif
+
 	thread_w_ho = (dt_float***) calloc(THREAD_MAX, sizeof(dt_float**));
 	memcheck(thread_w_ho);
 	for(t = 0; t < THREAD_MAX; t++) {
@@ -635,6 +648,9 @@ static void resources_allocate() {
 			memcheck(thread_w_ho[t][j]);
 		}
 	}
+#ifdef FLAG_LOG
+	echo_info("Dimension of %s: %dx%dx%d", "thread_w_ho", THREAD_MAX, hidden_max, NEGATIVE_SAMPLES_MAX);
+#endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
@@ -1018,16 +1034,21 @@ static dt_float sigmoid(dt_float x) {
 }
 
 static void negative_sampling(xThread* t) {
-	dt_int c, j, k;
-	dt_float e, delta_ih[hidden_max], delta_ho;
+	dt_int c, j, k, ck;
+	dt_float e, delta_ho;
+
+	dt_float** delta_ih = (dt_float**) calloc(t->center->context_max, sizeof(dt_float*));
+	memcheck(delta_ih);
+	for(c = 0; c < t->center->context_max; c++) {
+		delta_ih[c] = (dt_float*) calloc(hidden_max, sizeof(dt_float*));
+		memcheck(delta_ih[c]);
+	}
 
 #ifdef FLAG_MONTE_CARLO
 	dt_int exit;
 	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
 #endif
 	for(c = 0; c < t->center->context_max; c++) {
-		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-
 		for(j = 0; j < hidden_max; j++) {
 			memset(thread_w_ho[t->id][j], 0, NEGATIVE_SAMPLES_MAX * sizeof(dt_float));
 		}
@@ -1055,6 +1076,12 @@ static void negative_sampling(xThread* t) {
 				k = t->center->target[c]->index;
 			}
 
+			thread_samples[t->id][ck] = k;
+
+			for(j = 0; j < hidden_max; j++) {
+				thread_w_ho[t->id][j][ck] = w_ho[j][k];
+			}
+
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[j][k];
 			}
@@ -1066,19 +1093,30 @@ static void negative_sampling(xThread* t) {
 			delta_ho = alpha * (sigmoid(e) - !ck);
 
 			for(j = 0; j < hidden_max; j++) {
-				delta_ih[j] += delta_ho * w_ho[j][k];
-				thread_w_ho[t->id][j][ck] = delta_ho * w_ih[t->p][j];
+				delta_ih[c][j] += delta_ho * thread_w_ho[t->id][j][ck];
+				thread_w_ho[t->id][j][ck] -= delta_ho * w_ih[t->p][j];
 			}
 		}
 		
 		for(j = 0; j < hidden_max; j++) {
-			for(k = 0; k < NEGATIVE_SAMPLES_MAX; k++) {
-				w_ho[j][k] -= thread_w_ho[t->id][j][k];
-			}
-
-			w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
+			delta_ih[c][j] /= 1.0 * t->center->context_max;
 		}
 	}
+
+	pthread_mutex_lock(&mtx_backprop);
+
+	for(j = 0; j < hidden_max; j++) {
+		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			k = thread_samples[t->id][ck];
+			w_ho[j][k] = thread_w_ho[t->id][j][ck];
+		}
+
+		for(c = 0; c < t->center->context_max; c++) {
+			w_ih[t->p][j] -= delta_ih[c][j];
+		}
+	}
+
+	pthread_mutex_unlock(&mtx_backprop);
 }
 #else
 #ifdef FLAG_CALCULATE_LOSS
@@ -1321,6 +1359,7 @@ void training_run() {
 #endif
 
 	pthread_mutex_init(&mtx_count_epoch, NULL);
+	pthread_mutex_init(&mtx_backprop, NULL);
 
 	sem_epoch_1 = sem_open("/sem_epoch_1", O_CREAT, 0666, 0);
 	sem_epoch_2 = sem_open("/sem_epoch_2", O_CREAT, 0666, 1);
@@ -1337,6 +1376,7 @@ void training_run() {
 	}
 
 	pthread_mutex_destroy(&mtx_count_epoch);
+	pthread_mutex_destroy(&mtx_backprop);
 
 	sem_unlink("/sem_epoch_1");
 	sem_close(sem_epoch_1);
