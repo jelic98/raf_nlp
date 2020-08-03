@@ -615,10 +615,10 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ih", input_max, hidden_max);
 #endif
 
-	w_ho = (dt_float**) calloc(hidden_max, sizeof(dt_float*));
+	w_ho = (dt_float**) calloc(output_max, sizeof(dt_float*));
 	memcheck(w_ho);
-	for(j = 0; j < hidden_max; j++) {
-		w_ho[j] = (dt_float*) calloc(output_max, sizeof(dt_float));
+	for(j = 0; j < output_max; j++) {
+		w_ho[j] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 		memcheck(w_ho[j]);
 	}
 #ifdef FLAG_LOG
@@ -1043,7 +1043,7 @@ static void negative_sampling(xThread* t) {
 			}
 
 			for(e = j = 0; j < hidden_max; j++) {
-				e += w_ih[t->p][j] * w_ho[j][k];
+				e += w_ih[t->p][j] * w_ho[k][j];
 			}
 
 #ifdef FLAG_CALCULATE_LOSS
@@ -1053,8 +1053,8 @@ static void negative_sampling(xThread* t) {
 			delta_ho = alpha * (sigmoid(e) - !ck);
 
 			for(j = 0; j < hidden_max; j++) {
-				delta_ih[j] += delta_ho * w_ho[j][k];
-				w_ho[j][k] -= delta_ho * w_ih[t->p][j];
+				delta_ih[j] += delta_ho * w_ho[k][j];
+				w_ho[k][j] -= delta_ho * w_ih[t->p][j];
 			}
 		}
 
