@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "5"
+#define TEST_INDEX "3"
 
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
