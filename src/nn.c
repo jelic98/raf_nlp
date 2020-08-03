@@ -43,6 +43,7 @@ static xWord** samples;
 static xThread thread_args[THREAD_MAX];
 static pthread_t thread_ids[THREAD_MAX];
 static pthread_mutex_t mtx_count_epoch;
+static pthread_mutex_t* mtx_k;
 static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
@@ -625,6 +626,9 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
+mtx_k = (pthread_mutex_t*) calloc(output_max, sizeof(pthread_mutex_t));
+memcheck(mtx_k);
+	
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
@@ -1052,10 +1056,14 @@ static void negative_sampling(xThread* t) {
 
 			delta_ho = alpha * (sigmoid(e) - !ck);
 
+			pthread_mutex_lock(&mtx_k[k]);
+
 			for(j = 0; j < hidden_max; j++) {
 				delta_ih[j] += delta_ho * w_ho[j][k];
 				w_ho[j][k] -= delta_ho * w_ih[t->p][j];
 			}
+			
+			pthread_mutex_unlock(&mtx_k[k]);
 		}
 
 		for(j = 0; j < hidden_max; j++) {
@@ -1302,13 +1310,17 @@ void training_run() {
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started training");
 #endif
+	
+	dt_int k, t;
 
 	pthread_mutex_init(&mtx_count_epoch, NULL);
+	
+	for(k = 0; k < output_max; k++) {
+		pthread_mutex_init(&mtx_k[k], NULL);
+	}
 
 	sem_epoch_1 = sem_open("/sem_epoch_1", O_CREAT, 0666, 0);
 	sem_epoch_2 = sem_open("/sem_epoch_2", O_CREAT, 0666, 1);
-
-	dt_int t;
 
 	for(t = 0; t < THREAD_MAX; t++) {
 		(thread_args + t)->id = t;
@@ -1320,6 +1332,10 @@ void training_run() {
 	}
 
 	pthread_mutex_destroy(&mtx_count_epoch);
+	
+	for(k = 0; k < output_max; k++) {
+		pthread_mutex_destroy(&mtx_k[k]);
+	}
 
 	sem_unlink("/sem_epoch_1");
 	sem_close(sem_epoch_1);
