@@ -585,7 +585,7 @@ static void resources_allocate() {
 	echo("Allocating resources");
 #endif
 
-	dt_int i, j;
+	dt_int i, k;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -617,9 +617,9 @@ static void resources_allocate() {
 
 	w_ho = (dt_float**) calloc(output_max, sizeof(dt_float*));
 	memcheck(w_ho);
-	for(j = 0; j < output_max; j++) {
-		w_ho[j] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
-		memcheck(w_ho[j]);
+	for(k = 0; k < output_max; k++) {
+		w_ho[k] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+		memcheck(w_ho[k]);
 	}
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
@@ -667,7 +667,7 @@ static void resources_allocate() {
 }
 
 static void resources_release() {
-	dt_int p, i, j;
+	dt_int p, i, k;
 
 #ifdef FLAG_FILTER_VOCABULARY
 	for(p = 0; p < filter_max; p++) {
@@ -698,8 +698,8 @@ static void resources_release() {
 	free(w_ih);
 	w_ih = NULL;
 
-	for(j = 0; j < hidden_max; j++) {
-		free(w_ho[j]);
+	for(k = 0; k < output_max; k++) {
+		free(w_ho[k]);
 	}
 	free(w_ho);
 	w_ho = NULL;
@@ -956,12 +956,12 @@ static void initialize_weights() {
 		}
 	}
 
-	for(j = 0; j < hidden_max; j++) {
-		for(k = 0; k < output_max; k++) {
+	for(k = 0; k < output_max; k++) {
+		for(j = 0; j < hidden_max; j++) {
 #ifdef FLAG_FIXED_INITIAL_WEIGHTS
-			w_ho[j][k] = INITIAL_WEIGHT_FIX;
+			w_ho[k][j] = INITIAL_WEIGHT_FIX;
 #else
-			w_ho[j][k] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
+			w_ho[k][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
 		}
 	}
@@ -998,7 +998,7 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 #endif
 
 		for(layer[k] = j = 0; j < hidden_max; j++) {
-			layer[k] += w_ih[index][j] * w_ho[j][k];
+			layer[k] += w_ih[index][j] * w_ho[k][j];
 		}
 	}
 }
@@ -1094,8 +1094,8 @@ static void backward_propagate_error(xThread* t) {
 
 	for(j = 0; j < hidden_max; j++) {
 		for(l = k = 0; k < output_max; k++) {
-			l += error[t->id][k] * w_ho[j][k];
-			w_ho[j][k] -= alpha * error[t->id][k] * w_ih[t->p][j];
+			l += error[t->id][k] * w_ho[k][j];
+			w_ho[k][j] -= alpha * error[t->id][k] * w_ih[t->p][j];
 		}
 
 		w_ih[t->p][j] -= alpha * l;
@@ -1419,12 +1419,12 @@ void weights_save() {
 #endif
 	}
 
-	for(j = 0; j < hidden_max; j++) {
+	for(k = 0; k < output_max; k++) {
 #ifdef FLAG_BINARY_OUTPUT
-		fwrite(w_ho[j], sizeof(dt_float), output_max, fwho);
+		fwrite(w_ho[k], sizeof(dt_float), output_max, fwho);
 #else
-		for(k = 0; k < output_max; k++) {
-			fprintf(fwho, k ? "\t%lf" : "%lf", w_ho[j][k]);
+		for(j = 0; j < hidden_max; j++) {
+			fprintf(fwho, j ? "\t%lf" : "%lf", w_ho[k][j]);
 		}
 
 		fprintf(fwho, "\n");
@@ -1474,12 +1474,12 @@ void weights_load() {
 #endif
 	}
 
-	for(j = 0; j < hidden_max; j++) {
+	for(k = 0; k < output_max; k++) {
 #ifdef FLAG_BINARY_INPUT
-		fread(w_ho[j], sizeof(dt_float), output_max, fwho);
+		fread(w_ho[k], sizeof(dt_float), output_max, fwho);
 #else
-		for(k = 0; k < output_max; k++) {
-			fscanf(fwho, "%lf", &w_ho[j][k]);
+		for(j = 0; j < hidden_max; j++) {
+			fscanf(fwho, "%lf", &w_ho[k][j]);
 		}
 #endif
 	}
