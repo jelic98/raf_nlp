@@ -1,0 +1,10 @@
+gates
+president
+computer
+seattle
+software
+ceo
+foundation
+ibm
+apple
+microsoft
