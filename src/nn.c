@@ -149,11 +149,13 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 }
 
 #ifdef FLAG_FILTER_VOCABULARY
+#ifdef FLAG_FILTER_VOCABULARY_BY_RATIO
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
+#endif
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -242,6 +244,8 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 
 #ifdef FLAG_FILTER_VOCABULARY
 static dt_int filter_contains(xWord** filter, const dt_char* word) {
+	dt_int p;
+
 	for(p = 0; p < filter_max; p++) {
 		if(!strcmp(filter[p]->word, word)) {
 			return 1;
@@ -327,13 +331,14 @@ static void vocab_filter(xWord* corpus) {
 	xWord** vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
 
-	dt_int index = 0;
+	dt_int p, index = 0;
 	bst_flatten(corpus, vocab, &index);
 
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->index = 0;
 	}
 
+#ifdef FLAG_FILTER_VOCABULARY_BY_RATIO	
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
 
 	dt_int old_pattern_max = pattern_max;
@@ -346,8 +351,27 @@ static void vocab_filter(xWord* corpus) {
 		vocab[p]->freq = 0;
 		filter[p - pattern_max] = vocab[p];
 	}
+#else
+	for(filter_max = p = 0; p < pattern_max; p++) {
+		filter_max += vocab[p]->freq > FILTER_BOUND;
+	}
+	
+	pattern_max = input_max = output_max -= filter_max;
 
-	free(vocab);
+	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
+	memcheck(filter);
+	
+	dt_int tmp;
+
+	for(tmp = p = 0; p < pattern_max; p++) {
+		if(vocab[p]->freq > FILTER_BOUND) {
+			vocab[p]->freq = 0;
+			filter[tmp++] = vocab[p];
+		}
+	}
+#endif
+	
+	free(vocab);	
 }
 #endif
 
@@ -365,7 +389,7 @@ static void vocab_save(xWord** vocab) {
 	dt_int p;
 
 	for(p = 0; p < pattern_max; p++) {
-		fprintf(fvoc, "%s\n", vocab[p]->word);
+		fprintf(fvoc, "%s\t%d\n", vocab[p]->word, vocab[p]->freq);
 	}
 
 	if(fclose(fvoc) == EOF) {

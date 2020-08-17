@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "5"
+#define TEST_INDEX "3"
 
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
@@ -16,6 +16,7 @@
 #define INITIAL_WEIGHT_MIN -1.0
 #define INITIAL_WEIGHT_MAX 1.0
 #define DROPOUT_RATE_MAX 0.2
+#define FILTER_BOUND 100
 #define FILTER_RATIO 0.05
 #define THREAD_MAX 4
 
@@ -49,7 +50,8 @@
 //#define FLAG_STEM
 //#define FLAG_FIXED_LEARNING_RATE
 //#define FLAG_FIXED_INITIAL_WEIGHTS
-//#define FLAG_FILTER_VOCABULARY
+#define FLAG_FILTER_VOCABULARY
+//#define FLAG_FILTER_VOCABULARY_BY_RATIO
 #define FLAG_BACKUP_VOCABULARY
 //#define FLAG_BACKUP_WEIGHTS
 //#define FLAG_BINARY_INPUT
