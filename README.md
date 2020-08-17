@@ -1,21 +1,25 @@
-## TODO
+## Usage
 
-Features to be implemented in no particular order.
+1. Grant execution privilege to a dataset donwload script
+```bash
+chmod +x res.sh
+```
 
-### Model
+2. Download dataset
+```bash
+./res.sh
+```
+3. Configure hyperparameters
+```bash
+vim include/nn.h
+```
 
-* initialize input weights inverse proportionally to word frequency
-* check weights normalization
+4. Start embedder training
+```bash
+make
+```
 
-### Other
-
-* [URGENT] first word gets sampled more\less than others in negative sampling
-* scan vocabulary if word is not found in the map
-* sort vocabulary by frequency for faster retrievals
-* iterative functions for bst
-* use thread safe random function
-
-### Random
+## Links
 
 * [word2vec in C](https://github.com/chrisjmccormick/word2vec_commented/blob/master/word2vec.c)
 * [word2vec in Python](https://github.com/deborausujono/word2vecpy/blob/master/word2vec.py)
