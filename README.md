@@ -15,9 +15,6 @@ Features to be implemented in no particular order.
 * iterative functions for bst
 * use thread safe random function
 
-### Deployment
-* filter arxiv dataset by frequency (n=35)
-
 ### Random
 
 * [word2vec in C](https://github.com/chrisjmccormick/word2vec_commented/blob/master/word2vec.c)
