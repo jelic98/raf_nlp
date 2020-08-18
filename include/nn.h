@@ -5,7 +5,7 @@
 
 #define TEST_INDEX "3"
 
-#define EPOCH_MAX 1
+#define EPOCH_MAX 5
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 15

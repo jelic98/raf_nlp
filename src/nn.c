@@ -1065,6 +1065,8 @@ static void negative_sampling(xThread* t) {
 			} else {
 				k = t->center->target[c]->index;
 			}
+			
+			vector_normalize(w_ho[k], output_max);
 
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[j][k];
