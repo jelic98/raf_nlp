@@ -356,6 +356,7 @@ static void vocab_filter(xWord* corpus) {
 		filter_max += vocab[p]->freq > FILTER_BOUND;
 	}
 	
+	dt_int old_pattern_max = pattern_max;
 	pattern_max = input_max = output_max -= filter_max;
 
 	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
@@ -363,7 +364,7 @@ static void vocab_filter(xWord* corpus) {
 	
 	dt_int tmp;
 
-	for(tmp = p = 0; p < pattern_max; p++) {
+	for(tmp = p = 0; p < old_pattern_max; p++) {
 		if(vocab[p]->freq > FILTER_BOUND) {
 			vocab[p]->freq = 0;
 			filter[tmp++] = vocab[p];
@@ -1035,7 +1036,6 @@ static dt_float sigmoid(dt_float x) {
 static void negative_sampling(xThread* t) {
 	dt_int c, j, k, ck;
 	dt_float e, delta_ih[hidden_max], delta_ho;
-
 #ifdef FLAG_MONTE_CARLO
 	dt_int exit;
 	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
@@ -1065,7 +1065,7 @@ static void negative_sampling(xThread* t) {
 			} else {
 				k = t->center->target[c]->index;
 			}
-			
+				
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[k][j];
 			}
