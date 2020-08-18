@@ -1066,8 +1066,6 @@ static void negative_sampling(xThread* t) {
 				k = t->center->target[c]->index;
 			}
 			
-			vector_normalize(w_ho[k], output_max);
-
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[k][j];
 			}
@@ -1281,6 +1279,7 @@ void* thread_training_run(void* args) {
 			patterns[p1] = -1;
 
 			vector_normalize(w_ih[t->p], hidden_max);
+
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling(t);
 #else
