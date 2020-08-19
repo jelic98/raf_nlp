@@ -237,7 +237,7 @@ static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	if(root) {
 		context_flatten(root->left, arr, index);
-		
+
 #ifdef FLAG_FILTER_VOCABULARY
 		if(root->word->freq > 0) {
 			arr[(*index)++] = root->word;
@@ -356,30 +356,30 @@ static void vocab_filter(xWord* corpus) {
 	memcheck(filter);
 
 	for(p = pattern_max; p < old_pattern_max; p++) {
-		vocab[p]->freq = 0;
+		vocab[p]->freq *= -1;
 		filter[p - pattern_max] = vocab[p];
 	}
 #else
 	for(filter_max = p = 0; p < pattern_max; p++) {
 		filter_max += vocab[p]->freq > FILTER_BOUND;
 	}
-	
+
 	dt_int old_pattern_max = pattern_max;
 	pattern_max = input_max = output_max -= filter_max;
 
 	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
 	memcheck(filter);
-	
+
 	dt_int tmp;
 
 	for(tmp = p = 0; p < old_pattern_max; p++) {
 		if(vocab[p]->freq > FILTER_BOUND) {
-			vocab[p]->freq = 0;
+			vocab[p]->freq *= -1;
 			filter[tmp++] = vocab[p];
 		}
 	}
 #endif
-	
+
 	free(vocab);	
 }
 #endif
@@ -406,6 +406,29 @@ static void vocab_save(xWord** vocab) {
 		echo_fail(ERROR_FILE);
 #endif
 	}
+
+#ifdef FLAG_FILTER_VOCABULARY
+	FILE* ffil = fopen(FILTER_PATH, "w");
+
+	if(!ffil) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+		return;
+	}
+
+	dt_int f;
+
+	for(f = 0; f < filter_max; f++) {
+		fprintf(ffil, "%s\t%d\n", filter[f]->word, -filter[f]->freq);
+	}
+
+	if(fclose(ffil) == EOF) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+	}
+#endif
 }
 #endif
 
@@ -457,7 +480,7 @@ static void vocab_sample(xWord** vocab) {
 #else
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
-	
+
 	dt_int p, ck;
 
 	for(p = 0; p < pattern_max; p++) {
@@ -466,7 +489,7 @@ static void vocab_sample(xWord** vocab) {
 	}
 
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
-	
+
 	for(p = 0; p < pattern_max; p++) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
 		samples[ck] = copies[p];
@@ -1075,7 +1098,7 @@ static void negative_sampling(xThread* t) {
 			} else {
 				k = t->center->target[c]->index;
 			}
-				
+
 			for(e = j = 0; j < hidden_max; j++) {
 				e += w_ih[t->p][j] * w_ho[k][j];
 			}

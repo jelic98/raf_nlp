@@ -73,6 +73,7 @@
 #define TEST_PATH "res/test/" TEST_INDEX ".txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define VOCABULARY_PATH "out/vocab.tsv"
+#define FILTER_PATH "out/filter.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
 #define LOG_PATH "out/log.txt"
@@ -117,7 +118,7 @@ typedef struct xWord {
 	dt_char* word;
 	dt_int index;
 	dt_uint context_max;
-	dt_uint freq;
+	dt_int freq;
 	dt_float freq_dist;
 	dt_float prob;
 	struct xWord* left;
