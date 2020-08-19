@@ -987,6 +987,7 @@ static void initialize_weights() {
 #else
 			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
+			w_ih[i][j] /= index_to_word(i)->freq;
 		}
 	}
 
