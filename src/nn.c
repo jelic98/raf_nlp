@@ -237,7 +237,15 @@ static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	if(root) {
 		context_flatten(root->left, arr, index);
+		
+#ifdef FLAG_FILTER_VOCABULARY
+		if(root->word->freq > 0) {
+			arr[(*index)++] = root->word;
+		}
+#else
 		arr[(*index)++] = root->word;
+#endif
+
 		context_flatten(root->right, arr, index);
 	}
 }
@@ -419,6 +427,7 @@ static void vocab_target(xWord** vocab) {
 		context_flatten(vocab[p]->context, vocab[p]->target, &index);
 		context_release(vocab[p]->context);
 		vocab[p]->context = NULL;
+		vocab[p]->context_max = index;
 	}
 }
 
