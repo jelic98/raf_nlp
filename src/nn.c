@@ -457,6 +457,8 @@ static void vocab_sample(xWord** vocab) {
 #else
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
+	
+	dt_int p, ck;
 
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->freq_dist = pow(vocab[p]->freq, 0.75) / pow(corpus_freq_sum, 0.75);
@@ -464,8 +466,6 @@ static void vocab_sample(xWord** vocab) {
 	}
 
 	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
-
-	dt_int ck;
 	
 	for(p = 0; p < pattern_max; p++) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
@@ -1061,7 +1061,7 @@ static void negative_sampling(xThread* t) {
 					f = 1.0 * index_to_word(k)->freq / corpus_freq_sum;
 					r = random(0, 1) * max_freq;
 
-					if(k != center->target[c]->index && r > f) {
+					if(k != t->center->target[c]->index && r > f) {
 						break;
 					}
 				}
