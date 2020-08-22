@@ -25,7 +25,7 @@ static xWord* stops;
 static xWord** vocab;
 static xWord** onehot;
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static xWord** filter;
 static dt_int filter_max;
 #endif
@@ -148,14 +148,12 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 	}
 }
 
-#ifdef FLAG_FILTER_VOCABULARY
-#ifdef FLAG_FILTER_VOCABULARY_BY_RATIO
+#ifdef FLAG_FILTER_VOCABULARY_HIGH
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
-#endif
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
@@ -238,7 +236,7 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	if(root) {
 		context_flatten(root->left, arr, index);
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		if(root->word->freq > 0) {
 			arr[(*index)++] = root->word;
 		}
@@ -250,7 +248,7 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	}
 }
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static dt_int filter_contains(xWord** filter, const dt_char* word) {
 	dt_int p;
 
@@ -322,7 +320,7 @@ static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	if(root) {
 		bst_flatten(root->left, arr, index);
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		if(root->freq > 0) {
 			arr[root->index = (*index)++] = root;
 		}
@@ -334,7 +332,7 @@ static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	}
 }
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static void vocab_filter(xWord* corpus) {
 	xWord** vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -346,25 +344,27 @@ static void vocab_filter(xWord* corpus) {
 		vocab[p]->index = 0;
 	}
 
-#ifdef FLAG_FILTER_VOCABULARY_BY_RATIO	
+#ifdef FLAG_FILTER_VOCABULARY_HIGH
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
 
-	dt_int old_pattern_max = pattern_max;
-	pattern_max = input_max = output_max -= filter_max = output_max * FILTER_RATIO;
+	dt_int old_pattern_max1 = pattern_max;
+	pattern_max = input_max = output_max -= filter_max = output_max * FILTER_HIGH_RATIO;
 
 	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
 	memcheck(filter);
 
-	for(p = pattern_max; p < old_pattern_max; p++) {
+	for(p = pattern_max; p < old_pattern_max1; p++) {
 		vocab[p]->freq *= -1;
 		filter[p - pattern_max] = vocab[p];
 	}
-#else
+#endif
+
+#ifdef FLAG_FILTER_VOCABULARY_LOW
 	for(filter_max = p = 0; p < pattern_max; p++) {
-		filter_max += vocab[p]->freq > FILTER_BOUND;
+		filter_max += vocab[p]->freq < FILTER_LOW_BOUND;
 	}
 
-	dt_int old_pattern_max = pattern_max;
+	dt_int old_pattern_max2 = pattern_max;
 	pattern_max = input_max = output_max -= filter_max;
 
 	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
@@ -372,8 +372,8 @@ static void vocab_filter(xWord* corpus) {
 
 	dt_int tmp;
 
-	for(tmp = p = 0; p < old_pattern_max; p++) {
-		if(vocab[p]->freq > FILTER_BOUND) {
+	for(tmp = p = 0; p < old_pattern_max2; p++) {
+		if(vocab[p]->freq < FILTER_LOW_BOUND) {
 			vocab[p]->freq *= -1;
 			filter[tmp++] = vocab[p];
 		}
@@ -407,7 +407,7 @@ static void vocab_save(xWord** vocab) {
 #endif
 	}
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 	FILE* ffil = fopen(FILTER_PATH, "w");
 
 	if(!ffil) {
@@ -726,7 +726,7 @@ static void resources_allocate() {
 static void resources_release() {
 	dt_int p, i, k;
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 	for(p = 0; p < filter_max; p++) {
 		node_release(filter[p]);
 	}
@@ -875,7 +875,7 @@ static void initialize_corpus() {
 	echo_info("Corpus size: %d words", pattern_max);
 #endif
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 #ifdef FLAG_LOG
 	echo("Filtering vocabulary");
 #endif
@@ -1413,7 +1413,7 @@ void testing_run() {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 
-#ifdef FLAG_FILTER_VOCABULARY
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		dt_int skip = word_stop(line) || filter_contains(filter, line);
 #else
 		dt_int skip = word_stop(line);
