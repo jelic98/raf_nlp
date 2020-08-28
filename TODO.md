@@ -14,3 +14,5 @@ Features to be implemented in no particular order.
 	  uzimajuci u obzir gresku a ne same vrednosti u matrici
 * separate corpus initialization
 * koristi referentne setove za similarity (pitaj baneta za linkove)
+* izracunaj raspodelu polariteta po ntantima kako bi proverio kvalitete
+	- vektori treba uniformno da se raspodele po ntantima
