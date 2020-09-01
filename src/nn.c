@@ -88,7 +88,7 @@ static void echo_color(eColor color, dt_int replace, const dt_char* format, ...)
 	if(replace) {
 		strcat(f, "\r");
 		strcat(f, format);
-	}else {
+	} else {
 		strcpy(f, format);
 		strcat(f, "\n");
 	}
@@ -135,6 +135,7 @@ static void vector_normalize(dt_float* vector, dt_int size) {
 	}
 }
 
+#if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
 static void vector_softmax(dt_float* vector, dt_int size) {
 	dt_int k;
 	dt_float sum, vector_exp[size];
@@ -147,6 +148,7 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 		vector[k] = vector_exp[k] / sum;
 	}
 }
+#endif
 
 static dt_int cmp_int(const void* a, const void* b) {
 	return *(dt_int*) a - *(dt_int*) b;
@@ -172,11 +174,13 @@ static dt_int cmp_freq_dist(const void* a, const void* b) {
 #endif
 #endif
 
+#ifdef FLAG_TEST_CONTEXT
 static dt_int cmp_prob(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
 
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
+#endif
 
 static xWord** map_get(const dt_char* word) {
 	dt_uint h = 0;
@@ -252,6 +256,7 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	}
 }
 
+#ifdef FLAG_TEST_CONTEXT
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static dt_int filter_contains(xWord** filter, const dt_char* word) {
 	dt_int p;
@@ -264,6 +269,7 @@ static dt_int filter_contains(xWord** filter, const dt_char* word) {
 
 	return 0;
 }
+#endif
 #endif
 
 static dt_int list_contains(xWord* root, const dt_char* word) {
@@ -645,16 +651,16 @@ static void calculate_distribution() {
 #ifdef FLAG_LOG
 	echo("Calculating distribution");
 #endif
-	
+
 	dt_int* freqs = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 	memcheck(freqs);
-	
+
 	dt_int p;
 
 	for(p = 0; p < pattern_max; p++) {
 		freqs[p] = vocab[p]->freq;
 	}
-	
+
 	qsort(freqs, pattern_max, sizeof(dt_int), cmp_int);
 
 	dt_int buck, span = pattern_max / FREQ_BUCKETS;
@@ -1086,6 +1092,7 @@ static void initialize_epoch(dt_int epoch) {
 #endif
 }
 
+#if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
 static void forward_propagate_input(dt_int index, dt_float* layer) {
 	dt_int j, k;
 
@@ -1101,6 +1108,7 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 		}
 	}
 }
+#endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 static dt_float sigmoid(dt_float x) {
@@ -1200,69 +1208,6 @@ static void backward_propagate_error(xThread* t) {
 	}
 }
 #endif
-
-static void test_predict(const dt_char* word, dt_int count, dt_int* success) {
-#ifdef FLAG_LOG
-	echo_info("Center: %s", word);
-	clock_gettime(CLOCK_MONOTONIC, &time_start);
-#endif
-
-	dt_int c, k, s, tmp, index = word_to_index(word);
-
-	if(!index_valid(index)) {
-		return;
-	}
-
-#ifdef FLAG_NEGATIVE_SAMPLING
-	forward_propagate_input(index, output);
-	vector_softmax(output, output_max);
-#else
-	forward_propagate_input(index, output[0]);
-	vector_softmax(output[0], output_max);
-#endif
-
-	xWord* pred[pattern_max];
-
-	for(k = 0; k < output_max; k++) {
-		tmp = k;
-		pred[k] = index_to_word(tmp);
-#ifdef FLAG_NEGATIVE_SAMPLING
-		pred[k]->prob = output[k];
-#else
-		pred[k]->prob = output[0][k];
-#endif
-	}
-
-	qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
-
-	xWord* center = index_to_word(index);
-
-	for(*success = 0, index = 1, k = 0; k < count; k++) {
-		if(!strcmp(pred[k]->word, word)) {
-			count++;
-			continue;
-		}
-
-		for(s = c = 0; c < center->context_max; c++) {
-			if(!strcmp(center->target[c]->word, pred[k]->word)) {
-				if(index == 1) {
-					*success = 1;
-				}
-
-				s = 1;
-				break;
-			}
-		}
-
-#ifdef FLAG_LOG
-		echo("#%d\t%s\t%lf\t%s", index++, s ? "OK" : ".", pred[k]->prob, pred[k]->word);
-#endif
-	}
-
-#ifdef FLAG_LOG
-	echo_cond(*success, "Prediction %scorrect (%d sec)", *success ? "" : "not ", time_get(time_start));
-#endif
-}
 
 void nn_start() {
 	static dt_int done = 0;
@@ -1431,7 +1376,8 @@ void training_run() {
 #endif
 }
 
-void testing_run() {
+#ifdef FLAG_TEST_CONTEXT
+void test_context() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
@@ -1467,7 +1413,68 @@ void testing_run() {
 			continue;
 		}
 
-		test_predict(line, WINDOW_MAX, &success);
+		dt_int count = WINDOW_MAX;
+
+#ifdef FLAG_LOG
+		echo_info("Center: %s", line);
+		clock_gettime(CLOCK_MONOTONIC, &time_start);
+#endif
+
+		dt_int c, k, s, tmp, index = word_to_index(line);
+
+		if(!index_valid(index)) {
+			return;
+		}
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+		forward_propagate_input(index, output);
+		vector_softmax(output, output_max);
+#else
+		forward_propagate_input(index, output[0]);
+		vector_softmax(output[0], output_max);
+#endif
+
+		xWord* pred[pattern_max];
+
+		for(k = 0; k < output_max; k++) {
+			tmp = k;
+			pred[k] = index_to_word(tmp);
+#ifdef FLAG_NEGATIVE_SAMPLING
+			pred[k]->prob = output[k];
+#else
+			pred[k]->prob = output[0][k];
+#endif
+		}
+
+		qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
+
+		xWord* center = index_to_word(index);
+
+		for(success = 0, index = 1, k = 0; k < count; k++) {
+			if(!strcmp(pred[k]->word, line)) {
+				count++;
+				continue;
+			}
+
+			for(s = c = 0; c < center->context_max; c++) {
+				if(!strcmp(center->target[c]->word, pred[k]->word)) {
+					if(index == 1) {
+						success = 1;
+					}
+
+					s = 1;
+					break;
+				}
+			}
+
+#ifdef FLAG_LOG
+			echo("#%d\t%s\t%lf\t%s", index++, s ? "OK" : ".", pred[k]->prob, pred[k]->word);
+#endif
+		}
+
+#ifdef FLAG_LOG
+		echo_cond(success, "Prediction %scorrect (%d sec)", success ? "" : "not ", time_get(time_start));
+#endif
 		test_count++, tries_sum += success;
 	}
 
@@ -1481,6 +1488,13 @@ void testing_run() {
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
 	echo_succ("Finished testing (%d sec)", time_get(time_local));
+#endif
+}
+#endif
+
+void testing_run() {
+#ifdef FLAG_TEST_CONTEXT
+	test_context();
 #endif
 }
 
