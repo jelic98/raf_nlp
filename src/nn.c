@@ -148,6 +148,10 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 	}
 }
 
+static dt_int cmp_int(const void* a, const void* b) {
+	return *(dt_int*) a - *(dt_int*) b;
+}
+
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
@@ -637,6 +641,37 @@ static dt_int word_stop(const dt_char* word) {
 	return *p || list_contains(stops, word);
 }
 
+static void calculate_distribution() {
+#ifdef FLAG_LOG
+	echo("Calculating distribution");
+#endif
+	
+	dt_int* freqs = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	memcheck(freqs);
+	
+	dt_int p;
+
+	for(p = 0; p < pattern_max; p++) {
+		freqs[p] = vocab[p]->freq;
+	}
+	
+	qsort(freqs, pattern_max, sizeof(dt_int), cmp_int);
+
+	dt_int buck, span = pattern_max / FREQ_BUCKETS;
+
+	for(p = 0; p <= FREQ_BUCKETS; p++) {
+		buck = p == FREQ_BUCKETS ? pattern_max - 1 : p * span;
+
+		echo_info("Sample #%d (%d/%d): %d occurrences", p, buck, pattern_max, freqs[buck]);
+	}
+
+	free(freqs);
+
+#ifdef FLAG_LOG
+	echo_succ("Done calculating distribution");
+#endif
+}
+
 static void resources_allocate() {
 #ifdef FLAG_LOG
 	echo("Allocating resources");
@@ -916,6 +951,8 @@ static void initialize_corpus() {
 	echo_succ("Done saving vocabulary");
 #endif
 #endif
+
+	calculate_distribution();
 
 #ifdef FLAG_LOG
 	echo("Creating corpus map");
