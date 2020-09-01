@@ -8,7 +8,7 @@ static dt_float alpha;
 static dt_float loss;
 #endif
 
-static dt_int pattern_max, input_max, hidden_max, output_max;
+static dt_int pattern_max, input_max, hidden_max, output_max, token_max;
 
 static dt_int* patterns;
 static dt_float** w_ih;
@@ -380,7 +380,7 @@ static void vocab_filter(xWord* corpus) {
 	}
 #endif
 
-	free(vocab);	
+	free(vocab);
 }
 #endif
 
@@ -856,6 +856,8 @@ static void initialize_corpus() {
 
 						window[c]->context = context_insert(window[c]->context, node, &success);
 						window[c]->context_max += success;
+
+						token_max++;
 					}
 
 					window[c] = window[c + 1];
@@ -872,7 +874,9 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 	echo_succ("Done reading corpus file");
-	echo_info("Corpus size: %d words", pattern_max);
+	echo_info("Corpus size: %d words", token_max);
+	echo_info("Vocabulary size: %d words", pattern_max);
+	echo_info("Average word frequency: %lf", 1.0 * token_max / pattern_max);
 #endif
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
@@ -884,7 +888,7 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 	echo_succ("Done filtering vocabulary");
-	echo_info("Corpus size: %d words", pattern_max);
+	echo_info("Vocabulary size: %d words", pattern_max);
 #endif
 #endif
 

@@ -8,7 +8,6 @@ Features to be implemented in no particular order.
 * iterative functions for bst
 * implement word similarity and word analogy evaluation
 * odnos max i min freq
-* podeli broj tokena sa vokablularom da dobijes prosek pojavljvanja
 * iskopaj drugi paket za faktorizaaciju matrice - branko slao pakete na mejl
 	- faktorizaija pmi matrice pa da se vidi da li embedinzi lice na to
 	  uzimajuci u obzir gresku a ne same vrednosti u matrici
