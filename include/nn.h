@@ -5,7 +5,7 @@
 
 #define TEST_INDEX "3"
 
-#define EPOCH_MAX 5
+#define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 15
@@ -19,6 +19,7 @@
 #define FILTER_LOW_BOUND 5
 #define FILTER_HIGH_RATIO 0.01
 #define FREQ_BUCKETS 10
+#define PREDICTION_MAX 10
 #define THREAD_MAX 4
 
 #define MONTE_CARLO_EMERGENCY 100
@@ -54,6 +55,7 @@
 #define FLAG_FILTER_VOCABULARY_HIGH
 #define FLAG_TEST_SIMILARITY
 //#define FLAG_TEST_CONTEXT
+//#define FLAT_DISTANCE_COSINE
 //#define FLAG_STEM
 //#define FLAG_FIXED_LEARNING_RATE
 //#define FLAG_FIXED_INITIAL_WEIGHTS
@@ -123,6 +125,7 @@ typedef struct xWord {
 	dt_int freq;
 	dt_float freq_dist;
 	dt_float prob;
+	dt_float dist;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;

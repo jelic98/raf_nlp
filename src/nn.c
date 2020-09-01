@@ -150,6 +150,37 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 }
 #endif
 
+#ifdef FLAG_TEST_SIMILARITY
+static void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* dist) {
+	dt_int k;
+	dt_float sum;
+
+#ifdef FLAT_DISTANCE_COSINE
+	dt_float sum1, sum2;
+
+	for(sum = sum1 = sum2 = k = 0; k < size; k++) {
+		sum += v1[k] * v2[k];
+		sum1 += v1[k] * v1[k];
+		sum2 += v2[k] * v2[k];
+	}
+
+	sum1 = sqrt(sum1);
+	sum2 = sqrt(sum2);
+
+	*dist = sum / (sum1 * sum2);
+#else
+	dt_float diff;
+
+	for(sum = k = 0; k < size; k++) {
+		diff = v1[k] - v2[k];
+		sum += diff * diff;
+	}
+
+	*dist = sqrt(sum);
+#endif
+}
+#endif
+
 static dt_int cmp_int(const void* a, const void* b) {
 	return *(dt_int*) a - *(dt_int*) b;
 }
@@ -174,6 +205,14 @@ static dt_int cmp_freq_dist(const void* a, const void* b) {
 #endif
 #endif
 
+#ifdef FLAG_TEST_SIMILARITY
+static dt_int cmp_dist(const void* a, const void* b) {
+	dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+}
+#endif
+
 #ifdef FLAG_TEST_CONTEXT
 static dt_int cmp_prob(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
@@ -181,6 +220,26 @@ static dt_int cmp_prob(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 #endif
+
+/*
+int GetWordHash(char *word) {
+  unsigned long long a, hash = 0;
+  for (a = 0; a < strlen(word); a++) hash = hash * 257 + word[a];
+  hash = hash % vocab_hash_size;
+  return hash;
+}
+
+// Returns position of a word in the vocabulary; if the word is not found, returns -1
+int SearchVocab(char *word) {
+  unsigned int hash = GetWordHash(word);
+  while (1) {
+    if (vocab_hash[hash] == -1) return -1;
+    if (!strcmp(word, vocab[vocab_hash[hash]].word)) return vocab_hash[hash];
+    hash = (hash + 1) % vocab_hash_size;
+  }
+  return -1;
+}
+*/
 
 static xWord** map_get(const dt_char* word) {
 	dt_uint h = 0;
@@ -256,7 +315,7 @@ static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	}
 }
 
-#ifdef FLAG_TEST_CONTEXT
+#if defined(FLAG_TEST_SIMILARITY) || defined(FLAG_TEST_CONTEXT)
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static dt_int filter_contains(xWord** filter, const dt_char* word) {
 	dt_int p;
@@ -668,7 +727,7 @@ static void calculate_distribution() {
 	for(p = 0; p <= FREQ_BUCKETS; p++) {
 		buck = p == FREQ_BUCKETS ? pattern_max - 1 : p * span;
 
-		echo_info("Sample #%d (%d/%d): %d occurrences", p, buck, pattern_max, freqs[buck]);
+		echo_info("Sample #%d (%d/%d): %d occurrences", p + 1, buck, pattern_max, freqs[buck]);
 	}
 
 	free(freqs);
@@ -1376,12 +1435,90 @@ void training_run() {
 #endif
 }
 
+#ifdef FLAG_TEST_SIMILARITY
+void test_similarity() {
+#ifdef FLAG_LOG
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
+	echo("Started similarity testing");
+#endif
+
+	FILE* ftest = fopen(TEST_PATH, "r");
+
+	if(!ftest) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+		return;
+	}
+
+	dt_char line[LINE_CHARACTER_MAX];
+	dt_int sent_end;
+
+	while(fgets(line, LINE_CHARACTER_MAX, ftest)) {
+		line[strlen(line) - 1] = '\0';
+		word_clean(line, &sent_end);
+
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+		dt_int skip = word_stop(line) || filter_contains(filter, line);
+#else
+		dt_int skip = word_stop(line);
+#endif
+
+		if(skip) {
+#ifdef FLAG_LOG
+			echo_info("Skipping word %s", line);
+#endif
+			continue;
+		}
+
+#ifdef FLAG_LOG
+		echo_info("Word: %s", line);
+#endif
+
+		dt_int p, tmp, index = word_to_index(line);
+
+		if(!index_valid(index)) {
+			return;
+		}
+
+		xWord* dist[pattern_max];
+
+		for(p = 0; p < pattern_max; p++) {
+			if(p != index) {
+				tmp = p;
+				dist[p] = index_to_word(tmp);
+				vector_distance(w_ih[index], w_ih[p], hidden_max, &dist[p]->dist);
+			}
+		}
+
+		qsort(dist, pattern_max, sizeof(xWord*), cmp_dist);
+
+		for(index = p = 0; p < PREDICTION_MAX; p++) {
+#ifdef FLAG_LOG
+			echo("#%d\t%lf\t%s", ++index, dist[p]->dist, dist[p]->word);
+#endif
+		}
+	}
+
+	if(fclose(ftest) == EOF) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+	}
+
+#ifdef FLAG_LOG
+	echo_succ("Finished similarity testing (%d sec)", time_get(time_local));
+#endif
+}
+#endif
+
 #ifdef FLAG_TEST_CONTEXT
 void test_context() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
-	echo("Started testing");
+	echo("Started context testing");
 #endif
 
 	FILE* ftest = fopen(TEST_PATH, "r");
@@ -1413,7 +1550,7 @@ void test_context() {
 			continue;
 		}
 
-		dt_int count = WINDOW_MAX;
+		dt_int count = PREDICTION_MAX;
 
 #ifdef FLAG_LOG
 		echo_info("Center: %s", line);
@@ -1487,12 +1624,16 @@ void test_context() {
 #ifdef FLAG_LOG
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
-	echo_succ("Finished testing (%d sec)", time_get(time_local));
+	echo_succ("Finished context testing (%d sec)", time_get(time_local));
 #endif
 }
 #endif
 
 void testing_run() {
+#ifdef FLAG_TEST_SIMILARITY
+	test_similarity();
+#endif
+
 #ifdef FLAG_TEST_CONTEXT
 	test_context();
 #endif
