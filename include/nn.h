@@ -63,6 +63,7 @@
 //#define FLAG_BINARY_INPUT
 //#define FLAG_BINARY_OUTPUT
 //#define FLAG_INTERACTIVE_MODE
+//#define FLAT_FREE_MEMORY
 
 #ifdef FLAG_LOG
 #define FLAG_LOG_FILE

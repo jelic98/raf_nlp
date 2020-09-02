@@ -359,6 +359,7 @@ static dt_int list_contains(xWord* root, const dt_char* word) {
 	return 0;
 }
 
+#ifdef FLAT_FREE_MEMORY
 static void list_release(xWord* root) {
 	xWord* node;
 
@@ -368,6 +369,7 @@ static void list_release(xWord* root) {
 		node_release(node);
 	}
 }
+#endif
 
 static void context_release(xContext* root) {
 	if(root) {
@@ -853,6 +855,7 @@ static void resources_allocate() {
 #endif
 }
 
+#ifdef FLAT_FREE_MEMORY
 static void resources_release() {
 	dt_int p, i, k;
 
@@ -909,6 +912,7 @@ static void resources_release() {
 	error = NULL;
 #endif
 }
+#endif
 
 static void initialize_corpus() {
 #ifdef FLAG_LOG
@@ -1334,7 +1338,9 @@ void nn_finish() {
 	invalid_index_print();
 #endif
 
+#ifdef FLAT_FREE_MEMORY
 	resources_release();
+#endif
 
 #ifdef FLAG_LOG_FILE
 	if(fclose(flog) == EOF) {
