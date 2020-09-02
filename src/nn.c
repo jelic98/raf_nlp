@@ -23,7 +23,7 @@ static dt_float** output;
 
 static xWord* stops;
 static xWord** vocab;
-static xWord** onehot;
+static dt_int* vocab_hash;
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static xWord** filter;
@@ -221,34 +221,50 @@ static dt_int cmp_prob(const void* a, const void* b) {
 }
 #endif
 
-/*
-int GetWordHash(char *word) {
-  unsigned long long a, hash = 0;
-  for (a = 0; a < strlen(word); a++) hash = hash * 257 + word[a];
-  hash = hash % vocab_hash_size;
-  return hash;
-}
+static dt_uint hash_get(const dt_char* word) {
+	dt_ull i, h;
 
-// Returns position of a word in the vocabulary; if the word is not found, returns -1
-int SearchVocab(char *word) {
-  unsigned int hash = GetWordHash(word);
-  while (1) {
-    if (vocab_hash[hash] == -1) return -1;
-    if (!strcmp(word, vocab[vocab_hash[hash]].word)) return vocab_hash[hash];
-    hash = (hash + 1) % vocab_hash_size;
-  }
-  return -1;
-}
-*/
-
-static xWord** map_get(const dt_char* word) {
-	dt_uint h = 0;
-
-	for(size_t i = 0; word[i]; i++) {
-		h = (h << 3) + (h >> (sizeof(h) * sizeof(dt_char) - 3)) + word[i];
+	for(h = i = 0; word[i]; i++) {
+		h = h * 257 + word[i];
 	}
 
-	return &onehot[h % pattern_max];
+	return h % VOCABULARY_HASH_MAX;
+}
+
+static void map_init(xWord** vocab) {
+	dt_uint p, h;
+		
+	for(h = 0; h < VOCABULARY_HASH_MAX; h++) {
+		vocab_hash[h] = -1;
+	}
+
+	for(p = 0; p < pattern_max; p++) {
+		h = hash_get(vocab[p]->word);
+
+		while(vocab_hash[h] != -1) {
+			h = (h + 1) % VOCABULARY_HASH_MAX;
+		}
+
+		vocab_hash[h] = p;
+	}
+}
+
+static xWord** map_get(xWord** vocab, const dt_char* word) {
+	dt_uint h = hash_get(word);
+	
+	while(1) {
+		if(vocab_hash[h] == -1) {
+			return NULL;
+		}
+
+		if(!strcmp(word, vocab[vocab_hash[h]]->word)) {
+			return &vocab[vocab_hash[h]];
+		}
+
+		h = (h + 1) % VOCABULARY_HASH_MAX;
+	}
+
+	return NULL;
 }
 
 static xWord* node_create(const dt_char*);
@@ -409,42 +425,50 @@ static void vocab_filter(xWord* corpus) {
 	dt_int p, index = 0;
 	bst_flatten(corpus, vocab, &index);
 
-	for(p = 0; p < pattern_max; p++) {
+	for(filter_max = p = 0; p < pattern_max; p++) {
 		vocab[p]->index = 0;
+	}
+	
+#ifdef FLAG_FILTER_VOCABULARY_HIGH
+	dt_int filter_high = filter_max += output_max * FILTER_HIGH_RATIO;
+#endif
+
+#ifdef FLAG_FILTER_VOCABULARY_LOW
+	dt_int filter_low;
+
+	for(filter_low = p = 0; p < pattern_max; p++) {
+		filter_low += vocab[p]->freq < FILTER_LOW_BOUND;
+	}
+
+	filter_max += filter_low;
+#endif
+
+	if(filter_max > 0) {
+		filter = (xWord**) calloc(filter_max, sizeof(xWord*));
+		memcheck(filter);
+		index = 0;
 	}
 
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
 
 	dt_int old_pattern_max1 = pattern_max;
-	pattern_max = input_max = output_max -= filter_max = output_max * FILTER_HIGH_RATIO;
-
-	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
-	memcheck(filter);
+	pattern_max = input_max = output_max -= filter_high;
 
 	for(p = pattern_max; p < old_pattern_max1; p++) {
 		vocab[p]->freq *= -1;
-		filter[p - pattern_max] = vocab[p];
+		filter[index++] = vocab[p];
 	}
 #endif
 
 #ifdef FLAG_FILTER_VOCABULARY_LOW
-	for(filter_max = p = 0; p < pattern_max; p++) {
-		filter_max += vocab[p]->freq < FILTER_LOW_BOUND;
-	}
-
 	dt_int old_pattern_max2 = pattern_max;
-	pattern_max = input_max = output_max -= filter_max;
+	pattern_max = input_max = output_max -= filter_low;
 
-	filter = (xWord**) calloc(filter_max, sizeof(xWord*));
-	memcheck(filter);
-
-	dt_int tmp;
-
-	for(tmp = p = 0; p < old_pattern_max2; p++) {
+	for(p = 0; p < old_pattern_max2; p++) {
 		if(vocab[p]->freq < FILTER_LOW_BOUND) {
 			vocab[p]->freq *= -1;
-			filter[tmp++] = vocab[p];
+			filter[index++] = vocab[p];
 		}
 	}
 #endif
@@ -504,8 +528,10 @@ static void vocab_save(xWord** vocab) {
 static void vocab_map(xWord** vocab) {
 	dt_int p;
 
+	map_init(vocab);
+
 	for(p = 0; p < pattern_max; p++) {
-		*map_get(vocab[p]->word) = vocab[p];
+		*map_get(vocab, vocab[p]->word) = vocab[p];
 	}
 }
 
@@ -614,7 +640,7 @@ static void node_context_release(xContext* root) {
 	free(root);
 }
 
-static xWord* index_to_word(dt_int index) {
+static xWord* index_to_word(xWord** vocab, dt_int index) {
 	return vocab[index];
 }
 
@@ -657,11 +683,15 @@ static void invalid_index_print() {
 }
 #endif
 
-static dt_int word_to_index(const dt_char* word) {
-	dt_int index = (*map_get(word))->index;
+static dt_int word_to_index(xWord** vocab, const dt_char* word) {
+	xWord** ptr = map_get(vocab, word);
 
-	if(index < pattern_max) {
-		return index;
+	if(ptr) {
+		dt_int index = (*ptr)->index;
+
+		if(index >= 0 && index < pattern_max) {
+			return index;
+		}
 	}
 
 #ifdef FLAG_LOG
@@ -750,10 +780,10 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
 #endif
 
-	onehot = (xWord**) calloc(pattern_max, sizeof(xWord*));
-	memcheck(onehot);
+	vocab_hash = (dt_int*) calloc(VOCABULARY_HASH_MAX, sizeof(dt_int));
+	memcheck(vocab_hash);
 #ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "onehot", 1, pattern_max);
+	echo_info("Dimension of %s: %dx%d", "vocab_hash", 1, VOCABULARY_HASH_MAX);
 #endif
 
 	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
@@ -842,9 +872,6 @@ static void resources_release() {
 
 	list_release(stops);
 	stops = NULL;
-
-	free(onehot);
-	onehot = NULL;
 
 	free(patterns);
 	patterns = NULL;
@@ -1086,7 +1113,13 @@ static void initialize_corpus() {
 			echo("Center word?");
 			scanf("%s", cmd);
 
-			xWord* center = *map_get(cmd);
+			dt_int index = word_to_index(vocab, cmd);
+
+			if(!index_valid(index)) {
+				continue;
+			}
+
+			xWord* center = index_to_word(vocab, index);
 
 			for(c = 0; c < center->context_max; c++) {
 				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
@@ -1116,7 +1149,7 @@ static void initialize_weights() {
 #else
 			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
-			w_ih[i][j] /= index_to_word(i)->freq;
+			w_ih[i][j] /= index_to_word(vocab, i)->freq;
 		}
 	}
 
@@ -1189,7 +1222,7 @@ static void negative_sampling(xThread* t) {
 #ifdef FLAG_MONTE_CARLO
 				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
 					k = random_int(0, pattern_max - 1);
-					f = 1.0 * index_to_word(k)->freq / corpus_freq_sum;
+					f = 1.0 * index_to_word(vocab, k)->freq / corpus_freq_sum;
 					r = random(0, 1) * max_freq;
 
 					if(k != t->center->target[c]->index && r > f) {
@@ -1353,7 +1386,7 @@ void* thread_training_run(void* args) {
 			}
 #endif
 
-			t->center = index_to_word(t->p = patterns[p1]);
+			t->center = index_to_word(vocab, t->p = patterns[p1]);
 			patterns[p1] = -1;
 
 			vector_normalize(w_ih[t->p], hidden_max);
@@ -1476,7 +1509,7 @@ void test_similarity() {
 		echo_info("Word: %s", line);
 #endif
 
-		dt_int p, tmp, index = word_to_index(line);
+		dt_int p, index = word_to_index(vocab, line);
 
 		if(!index_valid(index)) {
 			return;
@@ -1485,18 +1518,15 @@ void test_similarity() {
 		xWord* dist[pattern_max];
 
 		for(p = 0; p < pattern_max; p++) {
-			if(p != index) {
-				tmp = p;
-				dist[p] = index_to_word(tmp);
-				vector_distance(w_ih[index], w_ih[p], hidden_max, &dist[p]->dist);
-			}
+			dist[p] = vocab[p];
+			vector_distance(w_ih[index], w_ih[p], hidden_max, &dist[p]->dist);
 		}
 
 		qsort(dist, pattern_max, sizeof(xWord*), cmp_dist);
 
-		for(index = p = 0; p < PREDICTION_MAX; p++) {
+		for(index = p = 1; p <= PREDICTION_MAX; p++) {
 #ifdef FLAG_LOG
-			echo("#%d\t%lf\t%s", ++index, dist[p]->dist, dist[p]->word);
+			echo("#%d\t%lf\t%s", index++, dist[p]->dist, dist[p]->word);
 #endif
 		}
 	}
@@ -1557,7 +1587,7 @@ void test_context() {
 		clock_gettime(CLOCK_MONOTONIC, &time_start);
 #endif
 
-		dt_int c, k, s, tmp, index = word_to_index(line);
+		dt_int c, k, s, index = word_to_index(vocab, line);
 
 		if(!index_valid(index)) {
 			return;
@@ -1574,8 +1604,7 @@ void test_context() {
 		xWord* pred[pattern_max];
 
 		for(k = 0; k < output_max; k++) {
-			tmp = k;
-			pred[k] = index_to_word(tmp);
+			pred[k] = vocab[k];
 #ifdef FLAG_NEGATIVE_SAMPLING
 			pred[k]->prob = output[k];
 #else
@@ -1585,7 +1614,7 @@ void test_context() {
 
 		qsort(pred, pattern_max, sizeof(xWord*), cmp_prob);
 
-		xWord* center = index_to_word(index);
+		xWord* center = index_to_word(vocab, index);
 
 		for(success = 0, index = 1, k = 0; k < count; k++) {
 			if(!strcmp(pred[k]->word, line)) {
@@ -1764,7 +1793,7 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 		word_clean(tok, &sent_end);
 
 		if(!word_stop(tok)) {
-			index = word_to_index(tok);
+			index = word_to_index(vocab, tok);
 
 			if(!index_valid(index)) {
 				continue;

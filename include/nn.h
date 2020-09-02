@@ -20,6 +20,7 @@
 #define FILTER_HIGH_RATIO 0.01
 #define FREQ_BUCKETS 10
 #define PREDICTION_MAX 10
+#define VOCABULARY_HASH_MAX 30000000
 #define THREAD_MAX 4
 
 #define MONTE_CARLO_EMERGENCY 100
@@ -55,7 +56,7 @@
 #define FLAG_FILTER_VOCABULARY_HIGH
 #define FLAG_TEST_SIMILARITY
 //#define FLAG_TEST_CONTEXT
-//#define FLAT_DISTANCE_COSINE
+#define FLAT_DISTANCE_COSINE
 //#define FLAG_STEM
 //#define FLAG_FIXED_LEARNING_RATE
 //#define FLAG_FIXED_INITIAL_WEIGHTS
@@ -116,6 +117,7 @@ typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eCol
 typedef char dt_char;
 typedef int dt_int;
 typedef unsigned int dt_uint;
+typedef unsigned long long dt_ull;
 typedef double dt_float;
 
 typedef struct xWord {
