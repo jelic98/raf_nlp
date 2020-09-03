@@ -7,4 +7,3 @@ Features to be implemented in no particular order.
 * [OPTIM] create local weights copy to reduce cache coherency effect
 * [OPTIM] iterative functions for bst
 * koristi referentne setove za similarity (pitaj baneta za linkove)
-* izracunaj raspodelu polariteta po ntantima kako bi proverio kvalitete
