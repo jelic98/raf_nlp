@@ -1660,6 +1660,31 @@ void test_context() {
 }
 #endif
 
+#ifdef FLAG_TEST_ORTHANT
+void test_orthant() {
+#ifdef FLAG_LOG
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
+	echo("Started orthant testing");
+#endif
+
+	dt_int j, i, count;
+
+	for(j = 0; j < hidden_max; j++) {
+		for(count = i = 0; i < input_max; i++) {
+			count += w_ih[i][j] < 0.0;
+		}
+
+		echo_info("Coordinate #%d: %d/%d", j + 1, count, pattern_max - count);
+	}
+
+#ifdef FLAG_LOG
+	echo_succ("Finished orthant testing (%d sec)", time_get(time_local));
+#endif
+}
+#endif
+
+
 void testing_run() {
 #ifdef FLAG_TEST_SIMILARITY
 	test_similarity();
@@ -1667,6 +1692,10 @@ void testing_run() {
 
 #ifdef FLAG_TEST_CONTEXT
 	test_context();
+#endif
+
+#ifdef FLAG_TEST_ORTHANT
+	test_orthant();
 #endif
 }
 
