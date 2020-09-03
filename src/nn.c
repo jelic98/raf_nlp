@@ -385,9 +385,9 @@ static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
 	if(root) {
 		dt_int cmp = strcmp(root->word, (*node)->word);
 
-		if(cmp < 0) {
+		if(cmp > 0) {
 			root->left = bst_insert(root->left, node, success);
-		} else if(cmp > 0) {
+		} else if(cmp < 0) {
 			root->right = bst_insert(root->right, node, success);
 		} else {
 			root->freq++;
