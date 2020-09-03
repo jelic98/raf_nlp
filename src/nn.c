@@ -1313,7 +1313,7 @@ void nn_start() {
 	signal(SIGILL, sigget);
 	signal(SIGSEGV, sigget);
 
-	srand48(time(0));
+	srand(time(0));
 
 #ifdef FLAG_LOG_FILE
 	flog = fopen(LOG_PATH, "w");
