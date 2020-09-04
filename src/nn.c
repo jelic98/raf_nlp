@@ -8,7 +8,8 @@ static dt_float alpha;
 static dt_float loss;
 #endif
 
-static dt_int pattern_max, input_max, hidden_max, output_max, token_max;
+static dt_int pattern_max, input_max, hidden_max, output_max;
+static dt_ull token_max;
 
 static dt_int* patterns;
 static dt_float** w_ih;
