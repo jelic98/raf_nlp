@@ -1837,14 +1837,13 @@ static void sentence_encode(dt_char* sentence, dt_float* vector) {
 #ifdef FLAG_LOG
 				echo_info("Skipping word: %s", tok);
 #endif
-				continue;
-			}
-
-			if(index_valid(index)) {
-				for(j = 0; j < hidden_max; j++) {
-					vector[j] += w_ih[index][j];
+			}else {
+				if(index_valid(index)) {
+					for(j = 0; j < hidden_max; j++) {
+						vector[j] += w_ih[index][j];
+					}
 				}
-			}
+			}	
 		}
 
 		tok = strtok(NULL, sep);
