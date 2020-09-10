@@ -1503,7 +1503,7 @@ void test_similarity() {
 
 		if(skip) {
 #ifdef FLAG_LOG
-			echo_info("Skipping word %s", line);
+			echo_info("Skipping word: %s", line);
 #endif
 			continue;
 		}
@@ -1578,7 +1578,7 @@ void test_context() {
 
 		if(skip) {
 #ifdef FLAG_LOG
-			echo_info("Skipping word %s", line);
+			echo_info("Skipping word: %s", line);
 #endif
 			continue;
 		}
@@ -1810,9 +1810,9 @@ void weights_load() {
 #endif
 }
 
-void sentence_encode(dt_char* sentence, dt_float* vector) {
+static void sentence_encode(dt_char* sentence, dt_float* vector) {
 #ifdef FLAG_LOG
-	echo("Encoding sentence \"%s\"", sentence);
+	echo_info("Encoding: %s", sentence);
 #endif
 
 	memset(vector, 0, hidden_max * sizeof(dt_float));
@@ -1827,12 +1827,23 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 		if(!word_stop(tok)) {
 			index = word_to_index(vocab, tok);
 
-			if(!index_valid(index)) {
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+			dt_int skip = word_stop(tok) || filter_contains(filter, tok);
+#else
+			dt_int skip = word_stop(tok);
+#endif
+
+			if(skip) {
+#ifdef FLAG_LOG
+				echo_info("Skipping word: %s", tok);
+#endif
 				continue;
 			}
 
-			for(j = 0; j < hidden_max; j++) {
-				vector[j] += w_ih[index][j];
+			if(index_valid(index)) {
+				for(j = 0; j < hidden_max; j++) {
+					vector[j] += w_ih[index][j];
+				}
 			}
 		}
 
@@ -1840,4 +1851,57 @@ void sentence_encode(dt_char* sentence, dt_float* vector) {
 	}
 
 	vector_normalize(vector, hidden_max);
+}
+
+void sentences_encode() {
+#ifdef FLAG_LOG
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
+	echo("Started sentences encoding");
+#endif
+	
+	FILE* fsentin = fopen(SENT_IN_PATH, "r");
+
+#ifdef FLAG_BINARY_OUTPUT
+	FILE* fsentout = fopen(SENT_OUT_PATH, "wb");
+#else
+	FILE* fsentout = fopen(SENT_OUT_PATH, "w");
+#endif
+
+	if(!fsentin || !fsentout) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+		return;
+	}
+
+	dt_char line[LINE_CHARACTER_MAX];
+	dt_int sent_end, j;
+	dt_float vec[HIDDEN_MAX];
+
+	while(fgets(line, LINE_CHARACTER_MAX, fsentin)) {
+		line[strlen(line) - 1] = '\0';
+		word_clean(line, &sent_end);
+		sentence_encode(line, vec);
+
+#ifdef FLAG_BINARY_OUTPUT
+		fwrite(vec, sizeof(dt_float), hidden_max, fsentout);
+#else
+		for(j = 0; j < hidden_max; j++) {
+			fprintf(fsentout, j ? "\t%lf" : "%lf", vec[j]);
+		}
+
+		fprintf(fsentout, "\n");
+#endif
+	}
+
+	if(fclose(fsentin) == EOF || fclose(fsentout) == EOF) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+	}
+
+#ifdef FLAG_LOG
+	echo_succ("Finished sentences encoding (%d sec)", time_get(time_local));
+#endif
 }

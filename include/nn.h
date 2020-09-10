@@ -5,10 +5,10 @@
 
 #define TEST_INDEX "3"
 
-#define EPOCH_MAX 10
-#define HIDDEN_MAX 100
+#define EPOCH_MAX 1
+#define HIDDEN_MAX 50
 #define WINDOW_MAX 5
-#define NEGATIVE_SAMPLES_MAX 50
+#define NEGATIVE_SAMPLES_MAX 15
 #define LEARNING_RATE_FIX 0.01
 #define LEARNING_RATE_MAX 0.025
 #define LEARNING_RATE_MIN 0.001
@@ -78,11 +78,13 @@
 // Paths
 #define CORPUS_PATH "res/corpus/" TEST_INDEX ".txt"
 #define TEST_PATH "res/test/" TEST_INDEX ".txt"
+#define SENT_IN_PATH "res/sent/" TEST_INDEX ".txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define VOCABULARY_PATH "out/vocab.tsv"
-#define FILTER_PATH "out/filter.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
+#define SENT_OUT_PATH "out/sent.tsv"
+#define FILTER_PATH "out/filter.tsv"
 #define LOG_PATH "out/log.txt"
 
 // Messages
@@ -160,7 +162,7 @@ void training_run();
 void testing_run();
 void weights_save();
 void weights_load();
-void sentence_encode(dt_char*, dt_float*);
+void sentences_encode();
 
 // Dependencies
 #ifdef FLAG_STEM
