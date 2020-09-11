@@ -1833,11 +1833,7 @@ static void sentence_encode(dt_char* sentence, dt_float* vector) {
 			dt_int skip = word_stop(tok);
 #endif
 
-			if(skip) {
-#ifdef FLAG_LOG
-				echo_info("Skipping word: %s", tok);
-#endif
-			}else {
+			if(!skip) {
 				if(index_valid(index)) {
 					for(j = 0; j < hidden_max; j++) {
 						vector[j] += w_ih[index][j];
