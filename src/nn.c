@@ -222,6 +222,12 @@ static dt_int cmp_prob(const void* a, const void* b) {
 }
 #endif
 
+static dt_int cmp_sent_dist(const void* a, const void* b) {
+	dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
+
+	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+}
+
 static dt_uint hash_get(const dt_char* word) {
 	dt_ull i, h;
 
@@ -1527,9 +1533,9 @@ void test_similarity() {
 
 		qsort(dist, pattern_max, sizeof(xWord*), cmp_dist);
 
-		for(index = p = 1; p <= PREDICTION_MAX; p++) {
+		for(p = 1; p <= PREDICTION_MAX; p++) {
 #ifdef FLAG_LOG
-			echo("#%d\t%lf\t%s", index++, dist[p]->dist, dist[p]->word);
+			echo("#%d\t%lf\t%s", p, dist[p]->dist, dist[p]->word);
 #endif
 		}
 	}
@@ -1872,7 +1878,7 @@ void sentences_encode() {
 
 	dt_char line[LINE_CHARACTER_MAX];
 	dt_int sent_end, j;
-	dt_float vec[HIDDEN_MAX];
+	dt_float vec[hidden_max];
 
 	while(fgets(line, LINE_CHARACTER_MAX, fsentin)) {
 		line[strlen(line) - 1] = '\0';
@@ -1898,5 +1904,68 @@ void sentences_encode() {
 
 #ifdef FLAG_LOG
 	echo_succ("Finished sentences encoding (%d sec)", time_get(time_local));
+#endif
+}
+
+void sentences_similarity() {
+#ifdef FLAG_LOG
+	struct timespec time_local;
+	clock_gettime(CLOCK_MONOTONIC, &time_local);
+	echo("Started sentence similarity testing");
+#endif
+
+	FILE* ftest = fopen(SENT_IN_PATH, "r");
+
+	if(!ftest) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+		return;
+	}
+
+	dt_char line[LINE_CHARACTER_MAX];
+	dt_int sent_end, s, sentences_max, index = 0;
+
+	xSent** dist = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));
+
+	while(fgets(line, LINE_CHARACTER_MAX, ftest)) {
+		line[strlen(line) - 1] = '\0';
+		word_clean(line, &sent_end);
+	
+		dist[index] = (xSent*) calloc(1, sizeof(xSent));
+
+		dist[index]->sent = (dt_char*) calloc(strlen(line) + 1, sizeof(dt_char));
+		strcpy(dist[index]->sent, line);
+
+		dist[index]->vec = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+		sentence_encode(line, dist[index++]->vec);
+	}
+
+	for(sentences_max = index, index = 0; index < sentences_max; index++) {
+#ifdef FLAG_LOG
+		echo_info("Sentence: %s", line);
+#endif
+
+		for(s = 0; s < sentences_max; s++) {
+			vector_distance(dist[s]->vec, dist[index]->vec, hidden_max, &dist[index]->dist);
+		}
+
+		qsort(dist, sentences_max, sizeof(xSent*), cmp_sent_dist);
+
+		for(s = 1; s <= PREDICTION_MAX; s++) {
+#ifdef FLAG_LOG
+			echo("#%d\t%lf\t%s", s, dist[s]->dist, dist[s]->sent);
+#endif
+		}
+	}
+
+	if(fclose(ftest) == EOF) {
+#ifdef FLAG_LOG
+		echo_fail(ERROR_FILE);
+#endif
+	}
+
+#ifdef FLAG_LOG
+	echo_succ("Finished sentence similarity testing (%d sec)", time_get(time_local));
 #endif
 }

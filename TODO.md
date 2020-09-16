@@ -5,4 +5,3 @@
 * [OPTIM] create local weights copy to reduce cache coherency effect
 * [OPTIM] iterative functions for bst
 * use reference datasets to compare word similarity results
-* test sentence similarity distance after reading sent file

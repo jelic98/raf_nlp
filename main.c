@@ -5,6 +5,7 @@ int main() {
 	training_run();
 	weights_save();
 	sentences_encode();
+	sentences_similarity();
 	testing_run();
 	nn_finish();
 

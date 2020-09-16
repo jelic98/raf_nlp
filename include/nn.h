@@ -38,9 +38,6 @@
 // Number of sentences to allocate per file initially
 #define SENTENCE_THRESHOLD 64
 
-// Number of words to allocate per sentence initially
-#define WORD_THRESHOLD 16
-
 // Flags
 #define FLAG_DEBUG
 #define FLAG_LOG
@@ -145,6 +142,12 @@ typedef struct xContext {
 	struct xContext* right;
 } xContext;
 
+typedef struct xSent {
+	dt_char* sent;
+	dt_float* vec;
+	dt_float dist;
+} xSent;
+
 typedef union xBit {
 	dt_uint on : 1;
 } xBit;
@@ -163,6 +166,7 @@ void testing_run();
 void weights_save();
 void weights_load();
 void sentences_encode();
+void sentences_similarity();
 
 // Dependencies
 #ifdef FLAG_STEM
