@@ -1918,9 +1918,15 @@ void sentences_similarity() {
 	echo("Started sentence similarity testing");
 #endif
 
-	FILE* ftest = fopen(SENT_IN_PATH, "r");
+	FILE* fsentin = fopen(SENT_IN_PATH, "r");
 
-	if(!ftest) {
+#ifdef FLAG_BINARY_OUTPUT
+	FILE* fsentout = fopen(SENT_OUT_PATH, "rb");
+#else
+	FILE* fsentout = fopen(SENT_OUT_PATH, "r");
+#endif
+
+	if(!fsentin || !fsentout) {
 #ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
 #endif
@@ -1928,32 +1934,40 @@ void sentences_similarity() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int sent_end, s, sentences_max, prediction_max, index = 0;
+	dt_int sent_end, s, sentences_max, prediction_max, j, index = -1;
 
+	xSent** sent = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));
 	xSent** dist = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));
 
-	while(fgets(line, LINE_CHARACTER_MAX, ftest)) {
+	while(index++, fgets(line, LINE_CHARACTER_MAX, fsentin)) {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 	
-		dist[index] = (xSent*) calloc(1, sizeof(xSent));
+		dist[index] = sent[index] = (xSent*) calloc(1, sizeof(xSent));
 
-		dist[index]->sent = (dt_char*) calloc(strlen(line) + 1, sizeof(dt_char));
-		strcpy(dist[index]->sent, line);
+		sent[index]->sent = (dt_char*) calloc(strlen(line) + 1, sizeof(dt_char));
+		strcpy(sent[index]->sent, line);
 
-		dist[index]->vec = (dt_float*) calloc(hidden_max, sizeof(dt_float));
-		sentence_encode(line, dist[index++]->vec);
+		sent[index]->vec = (dt_float*) calloc(hidden_max, sizeof(dt_float));
+
+#ifdef FLAG_BINARY_OUTPUT
+		fread(sent[index]->vec, sizeof(dt_float), hidden_max, fsentout);
+#else
+		for(j = 0; j < hidden_max; j++) {
+			fscanf(fsentout, "%lf", &sent[index]->vec[j]);
+		}
+#endif
 	}
-
+	
 	prediction_max = min(index - 1, PREDICTION_MAX);
-
+	
 	for(sentences_max = index, index = 0; index < sentences_max; index++) {
 #ifdef FLAG_LOG
-		echo_info("Sentence: %s", line);
+		echo_info("Sentence: %s", sent[index]->sent);
 #endif
 
 		for(s = 0; s < sentences_max; s++) {
-			vector_distance(dist[s]->vec, dist[index]->vec, hidden_max, &dist[index]->dist);
+			vector_distance(sent[s]->vec, sent[index]->vec, hidden_max, &sent[index]->dist);
 		}
 
 		qsort(dist, sentences_max, sizeof(xSent*), cmp_sent_dist);
@@ -1965,7 +1979,7 @@ void sentences_similarity() {
 		}
 	}
 
-	if(fclose(ftest) == EOF) {
+	if(fclose(fsentin) == EOF || fclose(fsentout) == EOF) {
 #ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
 #endif
