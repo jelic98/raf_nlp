@@ -704,7 +704,9 @@ static dt_int word_to_index(xWord** vocab, const dt_char* word) {
 	}
 
 #ifdef FLAG_LOG
+#ifdef FLAG_PRINT_WORD_ERRORS
 	echo_fail("%s not found in corpus", word);
+#endif
 #endif
 
 	return -1;
@@ -1817,10 +1819,6 @@ void weights_load() {
 }
 
 static void sentence_encode(dt_char* sentence, dt_float* vector) {
-#ifdef FLAG_LOG
-	echo_info("Encoding: %s", sentence);
-#endif
-
 	memset(vector, 0, hidden_max * sizeof(dt_float));
 
 	dt_int index, sent_end, j;
@@ -1877,13 +1875,19 @@ void sentences_encode() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int sent_end, j;
+	dt_int sent_end, j, index = 0;
 	dt_float vec[hidden_max];
 
 	while(fgets(line, LINE_CHARACTER_MAX, fsentin)) {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 		sentence_encode(line, vec);
+
+#ifdef FLAG_LOG
+		if(!(++index % LOG_PERIOD_SENT)) {
+			echo("Encoded sentences: %d", index);
+		}
+#endif
 
 #ifdef FLAG_BINARY_OUTPUT
 		fwrite(vec, sizeof(dt_float), hidden_max, fsentout);
@@ -1924,7 +1928,7 @@ void sentences_similarity() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int sent_end, s, sentences_max, index = 0;
+	dt_int sent_end, s, sentences_max, prediction_max, index = 0;
 
 	xSent** dist = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));
 
@@ -1941,6 +1945,8 @@ void sentences_similarity() {
 		sentence_encode(line, dist[index++]->vec);
 	}
 
+	prediction_max = min(index - 1, PREDICTION_MAX);
+
 	for(sentences_max = index, index = 0; index < sentences_max; index++) {
 #ifdef FLAG_LOG
 		echo_info("Sentence: %s", line);
@@ -1952,7 +1958,7 @@ void sentences_similarity() {
 
 		qsort(dist, sentences_max, sizeof(xSent*), cmp_sent_dist);
 
-		for(s = 1; s <= PREDICTION_MAX; s++) {
+		for(s = 1; s <= prediction_max; s++) {
 #ifdef FLAG_LOG
 			echo("#%d\t%lf\t%s", s, dist[s]->dist, dist[s]->sent);
 #endif
