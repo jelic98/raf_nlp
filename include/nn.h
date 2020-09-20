@@ -3,7 +3,7 @@
 
 #include "lib.h"
 
-#define TEST_INDEX "3"
+#define TEST_NAME "wiki"
 
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
@@ -75,9 +75,9 @@
 #endif
 
 // Paths
-#define CORPUS_PATH "res/corpus/" TEST_INDEX ".txt"
-#define TEST_PATH "res/test/" TEST_INDEX ".txt"
-#define SENT_IN_PATH "res/sent/" TEST_INDEX ".txt"
+#define CORPUS_PATH "res/corpus/" TEST_NAME ".txt"
+#define TEST_PATH "res/test/" TEST_NAME ".txt"
+#define SENT_IN_PATH "res/sent/" TEST_NAME ".txt"
 #define STOP_PATH "res/misc/stop.txt"
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
