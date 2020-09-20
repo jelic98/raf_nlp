@@ -766,7 +766,7 @@ static void calculate_distribution() {
 	dt_int buck, span = pattern_max / FREQ_BUCKETS;
 
 	for(p = 0; p <= FREQ_BUCKETS; p++) {
-		buck = p == FREQ_BUCKETS ? pattern_max - 1 : p * span;
+		buck = p == FREQ_BUCKETS ? pattern_max : p * span + 1;
 
 		echo_info("Sample #%d (%d/%d): %d occurrences", p + 1, buck, pattern_max, freqs[buck]);
 	}
@@ -1828,23 +1828,21 @@ static void sentence_encode(dt_char* sentence, dt_float* vector) {
 	while(tok) {
 		word_clean(tok, &sent_end);
 
-		if(!word_stop(tok)) {
-			index = word_to_index(vocab, tok);
-
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-			dt_int skip = word_stop(tok) || filter_contains(filter, tok);
+		dt_int skip = word_stop(tok) || filter_contains(filter, tok);
 #else
-			dt_int skip = word_stop(tok);
+		dt_int skip = word_stop(tok);
 #endif
-
-			if(!skip) {
-				if(index_valid(index)) {
-					for(j = 0; j < hidden_max; j++) {
-						vector[j] += w_ih[index][j];
-					}
+		
+		if(!skip) {
+			index = word_to_index(vocab, tok);
+			
+			if(index_valid(index)) {
+				for(j = 0; j < hidden_max; j++) {
+					vector[j] += w_ih[index][j];
 				}
-			}	
-		}
+			}
+		}	
 
 		tok = strtok(NULL, sep);
 	}
