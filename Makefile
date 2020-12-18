@@ -7,6 +7,8 @@ IFLAGS = -I. -I./include
 
 .SILENT all: clean build run
 
+.SILENT vocab: clean build _vocab
+
 clean:
 	rm -f $(OUT)
 
@@ -15,3 +17,6 @@ build: $(IN)
 
 run: $(OUT)
 	./$(OUT)
+
+_vocab: $(OUT)
+	./$(OUT) --vocab-only
