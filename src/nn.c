@@ -1728,7 +1728,10 @@ void weights_save() {
 		return;
 	}
 
-	dt_int i, j, k;
+	dt_int i, k;
+#ifndef FLAG_BINARY_OUTPUT
+	dt_int j;
+#endif
 
 	for(i = 0; i < input_max; i++) {
 #ifdef FLAG_BINARY_OUTPUT
@@ -1785,7 +1788,10 @@ void weights_load() {
 		return;
 	}
 
-	dt_int i, j, k;
+	dt_int i, k;
+#ifndef FLAG_BINARY_OUTPUT
+	dt_int j;
+#endif
 
 	for(i = 0; i < input_max; i++) {
 #ifdef FLAG_BINARY_INPUT
@@ -1873,8 +1879,11 @@ void sentences_encode() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int sent_end, j, index = 0;
+	dt_int sent_end, index = 0;
 	dt_float vec[hidden_max];
+#ifndef FLAG_BINARY_OUTPUT
+	dt_int j;
+#endif
 
 	while(fgets(line, LINE_CHARACTER_MAX, fsentin)) {
 		line[strlen(line) - 1] = '\0';
@@ -1932,7 +1941,10 @@ void sentences_similarity() {
 	}
 
 	dt_char line[LINE_CHARACTER_MAX];
-	dt_int sent_end, s, sentences_max, prediction_max, j, index = -1;
+	dt_int sent_end, s, sentences_max, prediction_max, index = -1;
+#ifndef FLAG_BINARY_OUTPUT
+	dt_int j;
+#endif
 
 	xSent** sent = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));
 	xSent** dist = (xSent**) calloc(SENTENCE_THRESHOLD, sizeof(xSent*));

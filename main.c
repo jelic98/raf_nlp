@@ -1,12 +1,9 @@
 #include "nn.h"
 
-int main() {
+int main(int argc, char* argv[]) {
 	nn_start();
 	training_run();
 	weights_save();
-	sentences_encode();
-	sentences_similarity();
-	testing_run();
 	nn_finish();
 
 	return 0;
