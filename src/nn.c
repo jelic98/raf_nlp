@@ -151,7 +151,6 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 }
 #endif
 
-#ifdef FLAG_TEST_SIMILARITY
 static void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* dist) {
 	dt_int k;
 	dt_float sum;
@@ -180,7 +179,6 @@ static void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* d
 	*dist = sqrt(sum);
 #endif
 }
-#endif
 
 static dt_int cmp_int(const void* a, const void* b) {
 	return *(dt_int*) a - *(dt_int*) b;
