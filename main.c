@@ -2,8 +2,12 @@
 
 int main(int argc, char* argv[]) {
 	nn_start();
-	training_run();
-	weights_save();
+	
+	if(!argv[1] || strcmp(argv[1], "--vocab-only")) {
+		training_run();
+		weights_save();
+	}
+	
 	nn_finish();
 
 	return 0;
