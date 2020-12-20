@@ -240,7 +240,7 @@ static dt_uint hash_get(const dt_char* word) {
 
 static void map_init(xWord** vocab) {
 	dt_uint p, h;
-		
+
 	for(h = 0; h < VOCABULARY_HASH_MAX; h++) {
 		vocab_hash[h] = -1;
 	}
@@ -258,7 +258,7 @@ static void map_init(xWord** vocab) {
 
 static xWord** map_get(xWord** vocab, const dt_char* word) {
 	dt_uint h = hash_get(word);
-	
+
 	while(1) {
 		if(vocab_hash[h] == -1) {
 			return NULL;
@@ -437,7 +437,7 @@ static void vocab_filter(xWord* corpus) {
 	for(filter_max = p = 0; p < pattern_max; p++) {
 		vocab[p]->index = 0;
 	}
-	
+
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 	dt_int filter_high = filter_max += output_max * FILTER_HIGH_RATIO;
 #endif
@@ -735,6 +735,7 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 #endif
 }
 
+#ifdef FLAG_FILTER_VOCABULARY_STOP
 static dt_int word_stop(const dt_char* word) {
 	if(strlen(word) < 3) {
 		return 1;
@@ -746,6 +747,7 @@ static dt_int word_stop(const dt_char* word) {
 
 	return *p || list_contains(stops, word);
 }
+#endif
 
 static void calculate_distribution() {
 #ifdef FLAG_LOG
@@ -972,7 +974,9 @@ static void initialize_corpus() {
 		while(tok) {
 			word_clean(tok, &sent_end);
 
+#ifdef FLAG_FILTER_VOCABULARY_STOP
 			if(!word_stop(tok)) {
+#endif
 				node = node_create(tok);
 				corpus = bst_insert(corpus, &node, &success);
 
@@ -1002,7 +1006,9 @@ static void initialize_corpus() {
 
 					window[c] = window[c + 1];
 				}
+#ifdef FLAG_FILTER_VOCABULARY_STOP
 			}
+#endif
 
 			if(sent_end) {
 				memset(window, 0, WINDOW_MAX * sizeof(xWord*));
@@ -1503,10 +1509,14 @@ void test_similarity() {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 
+		dt_int skip = 0;
+
+#ifdef FLAG_FILTER_VOCABULARY_STOP
+		skip = skip || word_stop(line);
+#endif
+
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		dt_int skip = word_stop(line) || filter_contains(filter, line);
-#else
-		dt_int skip = word_stop(line);
+		skip = skip || filter_contains(filter, line);
 #endif
 
 		if(skip) {
@@ -1578,10 +1588,14 @@ void test_context() {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
 
+		dt_int skip = 0;
+
+#ifdef FLAG_FILTER_VOCABULARY_STOP
+		skip = skip || word_stop(line);
+#endif
+
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		dt_int skip = word_stop(line) || filter_contains(filter, line);
-#else
-		dt_int skip = word_stop(line);
+		skip = skip || filter_contains(filter, line);
 #endif
 
 		if(skip) {
@@ -1692,7 +1706,6 @@ void test_orthant() {
 #endif
 }
 #endif
-
 
 void testing_run() {
 #ifdef FLAG_TEST_SIMILARITY
@@ -1834,21 +1847,25 @@ static void sentence_encode(dt_char* sentence, dt_float* vector) {
 	while(tok) {
 		word_clean(tok, &sent_end);
 
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		dt_int skip = word_stop(tok) || filter_contains(filter, tok);
-#else
-		dt_int skip = word_stop(tok);
+		dt_int skip = 0;
+
+#ifdef FLAG_FILTER_VOCABULARY_STOP
+		skip = skip || word_stop(tok);
 #endif
-		
+
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+		skip = skip || filter_contains(filter, tok);
+#endif
+
 		if(!skip) {
 			index = word_to_index(vocab, tok);
-			
+
 			if(index_valid(index)) {
 				for(j = 0; j < hidden_max; j++) {
 					vector[j] += w_ih[index][j];
 				}
 			}
-		}	
+		}
 
 		tok = strtok(NULL, sep);
 	}
@@ -1862,7 +1879,7 @@ void sentences_encode() {
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started sentences encoding");
 #endif
-	
+
 	FILE* fsentin = fopen(SENT_IN_PATH, "r");
 
 #ifdef FLAG_BINARY_OUTPUT
@@ -1952,7 +1969,7 @@ void sentences_similarity() {
 	while(index++, fgets(line, LINE_CHARACTER_MAX, fsentin)) {
 		line[strlen(line) - 1] = '\0';
 		word_clean(line, &sent_end);
-	
+
 		dist[index] = sent[index] = (xSent*) calloc(1, sizeof(xSent));
 
 		sent[index]->sent = (dt_char*) calloc(strlen(line) + 1, sizeof(dt_char));
@@ -1968,9 +1985,9 @@ void sentences_similarity() {
 		}
 #endif
 	}
-	
+
 	prediction_max = min(index - 1, PREDICTION_MAX);
-	
+
 	for(sentences_max = index, index = 0; index < sentences_max; index++) {
 #ifdef FLAG_LOG
 		echo_info("Sentence: %s", sent[index]->sent);
