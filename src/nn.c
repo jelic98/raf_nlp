@@ -354,6 +354,7 @@ static dt_int filter_contains(xWord** filter, const dt_char* word) {
 #endif
 #endif
 
+#ifdef FLAG_FILTER_VOCABULARY_STOP
 static dt_int list_contains(xWord* root, const dt_char* word) {
 	while(root) {
 		if(!strcmp(root->word, word)) {
@@ -365,8 +366,9 @@ static dt_int list_contains(xWord* root, const dt_char* word) {
 
 	return 0;
 }
+#endif
 
-#ifdef FLAT_FREE_MEMORY
+#ifdef FLAG_FREE_MEMORY
 static void list_release(xWord* root) {
 	xWord* node;
 
@@ -509,7 +511,7 @@ static void vocab_save(xWord** vocab) {
 #endif
 	}
 
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+#if defined(FLAG_FILTER_VOCABULARY_STOP) || defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 	FILE* ffil = fopen(FILTER_PATH, "w");
 
 	if(!ffil) {
@@ -866,7 +868,7 @@ static void resources_allocate() {
 #endif
 }
 
-#ifdef FLAT_FREE_MEMORY
+#ifdef FLAG_FREE_MEMORY
 static void resources_release() {
 	dt_int p, i, k;
 
@@ -1118,40 +1120,6 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo_succ("Done initializing corpus (%d sec)", time_get(time_start));
 #endif
-
-#ifdef FLAG_INTERACTIVE_MODE
-	echo("Entering interactive mode");
-
-	dt_char cmd[LINE_CHARACTER_MAX] = { 0 };
-
-	while(1) {
-		echo("Command? (target, exit)");
-		scanf("%s", cmd);
-
-		if(!strcmp(cmd, "target")) {
-			echo("Center word?");
-			scanf("%s", cmd);
-
-			dt_int index = word_to_index(vocab, cmd);
-
-			if(!index_valid(index)) {
-				continue;
-			}
-
-			xWord* center = index_to_word(vocab, index);
-
-			for(c = 0; c < center->context_max; c++) {
-				echo("Target #%d:\t%s", c + 1, center->target[c]->word);
-			}
-		} else if(!strcmp(cmd, "exit")) {
-			break;
-		} else {
-			echo_fail(ERROR_COMMAND);
-		}
-	}
-
-	echo_succ("Exiting interactive mode");
-#endif
 }
 
 static void initialize_weights() {
@@ -1349,7 +1317,7 @@ void nn_finish() {
 	invalid_index_print();
 #endif
 
-#ifdef FLAT_FREE_MEMORY
+#ifdef FLAG_FREE_MEMORY
 	resources_release();
 #endif
 
