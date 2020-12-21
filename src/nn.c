@@ -69,7 +69,9 @@ static void timestamp() {
 
 #ifdef FLAG_COLOR_LOG
 static void color_set(eColor color) {
+#ifdef FLAG_DEBUG
 	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
+#endif
 }
 #endif
 
