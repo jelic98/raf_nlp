@@ -5,9 +5,9 @@ CFLAGS = -Wall
 LFLAGS = -lm -lpthread
 IFLAGS = -I. -I./include
 
-.SILENT all: clean build run
+export PATH=out/questions
 
-.SILENT vocab: clean build _vocab
+.SILENT all: clean build run
 
 clean:
 	rm -f $(OUT)
@@ -16,7 +16,4 @@ build: $(IN)
 	$(CC) -g -rdynamic $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)
-	./$(OUT)
-
-_vocab: $(OUT)
-	./$(OUT) --vocab-only
+	./$(OUT) $(PATH)

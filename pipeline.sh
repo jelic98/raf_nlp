@@ -5,31 +5,31 @@ readonly A=out/answers
 readonly V=out/vocab.tsv
 readonly W=out/weights-ih.tsv
 
-# Decmopress questions and answers
+echo "[PIPELINE] Decmopress questions and answers"
 xz -dkf -T0 $QA.xz
 
-# Formatting
+echo "[PIPELINE] Format questions and answers"
 tr '[:upper:]' '[:lower:]' < $QA > $QA.new && mv $QA.new $QA
 perl -pi -e 's/[^\w\s|\b=~=~>\b]//g' $QA
 for c in {a..z}; do perl -pi -e 's/'$c'{3,}/'$c$c'/g' $QA; done
 
-# Separate questions and answers
+echo "[PIPELINE] Separate questions and answers"
 grep -E -o '^.* =~=~>' $QA > $Q
 perl -pi -e 's/ =~=~>//g' $Q
 grep -E -o '=~=~>.*$' $QA > $A
 perl -pi -e 's/=~=~> //g' $A
 rm $QA
 
-# Remove stop words from questions and filter by frequency
+echo "[PIPELINE] Filter questions"
 python3 filter.py $Q $A $Q.fil $A.fil 3 5
 mv $Q.fil $Q
 mv $A.fil $A
 
-# Compile and run embedder
+echo "[PIPELINE] Embed questions"
 make
 
-# Perform sentence encoding
-python3 encoder.py $Q $A $QA $V $W
+echo "[PIPELINE] Encode questions"
+python3 encoder.py $Q $A $QA.enc $V $W
 
-# Compress questions, vectors and answers
-xz -zkf -T0 -0 $QA
+echo "[PIPELINE] Compress encoded questions and answers"
+xz -zkf -T0 -0 $QA.enc

@@ -940,7 +940,7 @@ static void initialize_corpus() {
 #ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
 #endif
-		return;
+		exit(1);
 	}
 
 #ifdef FLAG_LOG

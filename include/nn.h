@@ -3,8 +3,6 @@
 
 #include "lib.h"
 
-#define TEST_NAME "wiki"
-
 #define EPOCH_MAX 1
 #define HIDDEN_MAX 50
 #define WINDOW_MAX 5
@@ -32,6 +30,9 @@
 #define SENTENCE_DELIMITERS ".?!"
 #define WORD_DELIMITERS " \t\n\r,:;(){}[]<>\"'’/\\%#$&~*+=^_"
 
+// Number of characters in path
+#define PATH_CHARACTER_MAX 255
+
 // Number of characters in line
 #define LINE_CHARACTER_MAX 512
 
@@ -39,7 +40,7 @@
 #define SENTENCE_THRESHOLD 64
 
 // Flags
-//#define FLAG_DEBUG
+#define FLAG_DEBUG
 #define FLAG_LOG
 #define FLAG_COLOR_LOG
 #define FLAG_BINARY_INPUT
@@ -74,10 +75,10 @@
 #endif
 
 // Paths
-#define CORPUS_PATH "res/corpus/" TEST_NAME ".txt"
-#define TEST_PATH "res/test/" TEST_NAME ".txt"
-#define SENT_IN_PATH "res/sent/" TEST_NAME ".txt"
-#define STOP_PATH "res/misc/stop.txt"
+#define CORPUS_PATH arg_path
+#define TEST_PATH arg_path
+#define SENT_IN_PATH arg_path
+#define STOP_PATH "res/misc/stop_nltk.txt"
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
@@ -89,6 +90,7 @@
 #define ERROR_FILE "File error occurred"
 #define ERROR_MEMORY "Memory error occurred"
 #define ERROR_COMMAND "Command error occurred"
+#define ERROR_CMDARGS "Command line arguments error occurred"
 
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -168,6 +170,9 @@ void weights_save();
 void weights_load();
 void sentences_encode();
 void sentences_similarity();
+
+// Command line arguments
+extern dt_char arg_path[PATH_CHARACTER_MAX];
 
 // Dependencies
 #ifdef FLAG_STEM
