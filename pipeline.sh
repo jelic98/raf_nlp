@@ -1,8 +1,9 @@
 # Declare path constants
-readonly QA=segmented_questions_and_answers
-readonly Q=questions
-readonly A=answers
-readonly OUT=out
+readonly QA=out/segmented_questions_and_answers
+readonly Q=out/questions
+readonly A=out/answers
+readonly V=out/vocab.tsv
+readonly W=out/weights-ih.tsv
 
 # Decmopress questions and answers
 xz -dkf -T0 $QA.xz
@@ -25,10 +26,10 @@ mv $Q.fil $Q
 mv $A.fil $A
 
 # Compile and run embedder
-#make
+make
 
 # Perform sentence encoding
-#python3 encoder.py $Q $A $QA out/vocab.tsv out/weights-ih.tsv
+python3 encoder.py $Q $A $QA $V $W
 
 # Compress questions, vectors and answers
-#xz -zkf -T0 -0 $QA
+xz -zkf -T0 -0 $QA
