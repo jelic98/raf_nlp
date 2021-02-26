@@ -1,6 +1,5 @@
 import np
 import argparse
-from functools import reduce
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('file_q')
@@ -12,11 +11,20 @@ args = arg_parser.parse_args()
 
 with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(args.file_qa, 'w') as file_qa, open(args.file_vocab, 'r') as file_vocab, open(args.file_weights, 'rb') as file_weights:
     vocab = {}
+    vec_len = -1
 
     for line_vocab, line_weights in zip(file_vocab, file_weights):
         word, _ = line_vocab.split('\t')
         vocab[word] = np.fromstring(line_weights, dtype=float, sep='\t')
+        if vec_len == -1:
+            vec_len = vocab[word].shape[0]
+        elif vec_len != vocab[word].shape[0]:
+            print("Vector length mismatch")
+            exit(1)
 
     for q, a in zip(file_q, file_a):
-        vec = reduce(lambda x,y: x+vocab[y], q.split())
+        vec = np.zeros(vec_len)
+        for word in q.split():
+            if word in vocab:
+                vec += vocab[word]
         file_qa.write(f'{q} ({vec}) =~=~> {a}\n')
