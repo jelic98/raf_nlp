@@ -11,7 +11,9 @@ int main(int argc, char* argv[]) {
 		strcpy(arg_test, argv[2]);
 		strcpy(arg_stop, argv[3]);
 	}else {
-		printf(ERROR_CMDARGS);
+#ifdef FLAG_LOG
+		echo_fail(ERROR_CMDARGS);
+#endif
 		exit(1);
 	}
 	

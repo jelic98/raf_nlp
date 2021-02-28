@@ -41,7 +41,7 @@
 
 // Flags
 #define FLAG_DEBUG
-#define FLAG_LOG
+//#define FLAG_LOG
 #define FLAG_COLOR_LOG
 //#define FLAG_BINARY_INPUT
 //#define FLAG_BINARY_OUTPUT
@@ -60,7 +60,7 @@
 //#define FLAG_TEST_CONTEXT
 //#define FLAG_TEST_ORTHANT
 //#define FLAT_DISTANCE_COSINE
-//#define FLAG_STEM
+#define FLAG_STEM
 //#define FLAG_FIXED_LEARNING_RATE
 //#define FLAG_FIXED_INITIAL_WEIGHTS
 //#define FLAG_FREE_MEMORY
@@ -99,8 +99,8 @@
 #define random_norm(a, b) ({dt_float _m = (a + (b - a) * 0.5); limit_norm(sqrt(-2.0 * log(random_unif(0.0, 1.0))) * cos(2.0 * M_PI * random_unif(0.0, 1.0)), a, b, _m, _m * 0.3);})
 #define random(a, b) random_unif(a, b)
 #define random_int(a, b) ((dt_int) min(max(a, random(a, b)), b))
-#define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 #ifdef FLAG_LOG
+#define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
 #define echo(...) echo_color(NONE, 0, __VA_ARGS__)
 #define echo_info(...) echo_color(YELLOW, 0, "INFO: " __VA_ARGS__)
@@ -111,6 +111,8 @@ typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eCol
 #ifdef FLAG_DEBUG
 #define debug(...) echo_color(MAGENTA, 0, "DEBUG: " __VA_ARGS__)
 #endif
+#else
+#define memcheck(ptr)
 #endif
 
 // Internal data limits
@@ -176,8 +178,14 @@ extern dt_char arg_test[PATH_CHARACTER_MAX];
 extern dt_char arg_stop[PATH_CHARACTER_MAX];
 
 // Dependencies
+#ifdef FLAG_LOG
+#define H_LOG_IMPLEMENT
+#include "log.h"
+#endif
+
 #ifdef FLAG_STEM
 #define H_STMR_IMPLEMENT
 #include "stmr.h"
 #endif
+
 #endif
