@@ -182,6 +182,8 @@ extern dt_char arg_stop[PATH_CHARACTER_MAX];
 #include "log.h"
 #endif
 
+#include "col.h"
+
 #ifdef FLAG_STEM
 #include "stmr.h"
 #endif

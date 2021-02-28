@@ -168,206 +168,6 @@ static dt_int cmp_sent_dist(const void* a, const void* b) {
 	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
 }
 
-static dt_uint hash_get(const dt_char* word) {
-	dt_ull i, h;
-
-	for(h = i = 0; word[i]; i++) {
-		h = h * 257 + word[i];
-	}
-
-	return h % VOCABULARY_HASH_MAX;
-}
-
-static void map_init(xWord** vocab) {
-	dt_uint p, h;
-
-	for(h = 0; h < VOCABULARY_HASH_MAX; h++) {
-		vocab_hash[h] = -1;
-	}
-
-	for(p = 0; p < pattern_max; p++) {
-		h = hash_get(vocab[p]->word);
-
-		while(vocab_hash[h] != -1) {
-			h = (h + 1) % VOCABULARY_HASH_MAX;
-		}
-
-		vocab_hash[h] = p;
-	}
-}
-
-static xWord** map_get(xWord** vocab, const dt_char* word) {
-	dt_uint h = hash_get(word);
-
-	while(1) {
-		if(vocab_hash[h] == -1) {
-			return NULL;
-		}
-
-		if(!strcmp(word, vocab[vocab_hash[h]]->word)) {
-			return &vocab[vocab_hash[h]];
-		}
-
-		h = (h + 1) % VOCABULARY_HASH_MAX;
-	}
-
-	return NULL;
-}
-
-static xWord* node_create(const dt_char*);
-static xContext* node_context_create(xWord*);
-static void node_release(xWord*);
-static void node_context_release(xContext*);
-
-static xWord* list_insert(xWord* root, xWord** node) {
-	if(root) {
-		xWord* tmp = root;
-
-		while(tmp->next) {
-			if(!strcmp(tmp->word, (*node)->word)) {
-				node_release(*node);
-				*node = tmp;
-				return root;
-			}
-
-			tmp = tmp->next;
-		}
-
-		tmp->next = *node;
-
-		return root;
-	} else {
-		return *node;
-	}
-
-	return *node;
-}
-
-static xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
-	*success = 0;
-
-	if(root) {
-		dt_int cmp = strcmp(root->word->word, word->word);
-
-		if(cmp > 0) {
-			root->left = context_insert(root->left, word, success);
-		} else if(cmp < 0) {
-			root->right = context_insert(root->right, word, success);
-		}
-
-		return root;
-	}
-
-	*success = 1;
-	return node_context_create(word);
-}
-
-static void context_flatten(xContext* root, xWord** arr, dt_int* index) {
-	if(root) {
-		context_flatten(root->left, arr, index);
-
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		if(root->word->freq > 0) {
-			arr[(*index)++] = root->word;
-		}
-#else
-		arr[(*index)++] = root->word;
-#endif
-
-		context_flatten(root->right, arr, index);
-	}
-}
-
-#if defined(FLAG_TEST_SIMILARITY) || defined(FLAG_TEST_CONTEXT)
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-static dt_int filter_contains(xWord** filter, const dt_char* word) {
-	dt_int p;
-
-	for(p = 0; p < filter_max; p++) {
-		if(!strcmp(filter[p]->word, word)) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-#endif
-#endif
-
-#ifdef FLAG_FILTER_VOCABULARY_STOP
-static dt_int list_contains(xWord* root, const dt_char* word) {
-	while(root) {
-		if(!strcmp(root->word, word)) {
-			return 1;
-		}
-
-		root = root->next;
-	}
-
-	return 0;
-}
-#endif
-
-#ifdef FLAG_FREE_MEMORY
-static void list_release(xWord* root) {
-	xWord* node;
-
-	while(root) {
-		node = root;
-		root = root->next;
-		node_release(node);
-	}
-}
-#endif
-
-static void context_release(xContext* root) {
-	if(root) {
-		context_release(root->left);
-		context_release(root->right);
-		node_context_release(root);
-	}
-}
-
-static xWord* bst_insert(xWord* root, xWord** node, dt_int* success) {
-	*success = 0;
-
-	if(root) {
-		dt_int cmp = strcmp(root->word, (*node)->word);
-
-		if(cmp > 0) {
-			root->left = bst_insert(root->left, node, success);
-		} else if(cmp < 0) {
-			root->right = bst_insert(root->right, node, success);
-		} else {
-			root->freq++;
-			node_release(*node);
-			*node = root;
-		}
-
-		return root;
-	}
-
-	(*node)->freq++;
-	*success = 1;
-	return *node;
-}
-
-static void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
-	if(root) {
-		bst_flatten(root->left, arr, index);
-
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		if(root->freq > 0) {
-			arr[root->index = (*index)++] = root;
-		}
-#else
-		arr[root->index = (*index)++] = root;
-#endif
-
-		bst_flatten(root->right, arr, index);
-	}
-}
-
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 static void vocab_filter(xWord* corpus) {
 	xWord** vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
@@ -479,10 +279,10 @@ static void vocab_save(xWord** vocab) {
 static void vocab_map(xWord** vocab) {
 	dt_int p;
 
-	map_init(vocab);
+	map_init(vocab, &vocab_hash, pattern_max);
 
 	for(p = 0; p < pattern_max; p++) {
-		*map_get(vocab, vocab[p]->word) = vocab[p];
+		*map_get(vocab, &vocab_hash, vocab[p]->word) = vocab[p];
 	}
 }
 
@@ -547,50 +347,6 @@ static void vocab_sample(xWord** vocab) {
 #endif
 #endif
 
-static xWord* node_create(const dt_char* word) {
-	xWord* node = (xWord*) calloc(1, sizeof(xWord));
-	memcheck(node);
-	node->word = (dt_char*) calloc(strlen(word) + 2, sizeof(dt_char));
-	memcheck(node->word);
-	strcpy(node->word, word);
-	node->word[strlen(node->word) + 1] = '*';
-	node->index = node->prob = node->context_max = node->freq = 0;
-	node->left = node->right = node->next = NULL;
-	node->context = NULL;
-	node->target = NULL;
-	return node;
-}
-
-static xContext* node_context_create(xWord* word) {
-	xContext* node = (xContext*) calloc(1, sizeof(xContext));
-	memcheck(node);
-	node->word = word;
-	return node;
-}
-
-static void node_release(xWord* root) {
-	if(root->word && root->word[strlen(root->word) + 1] == '*') {
-		free(root->word);
-		root->word = NULL;
-	}
-
-	if(root->target) {
-		free(root->target);
-		root->target = NULL;
-	}
-
-	root->left = root->right = root->next = NULL;
-	root->index = root->prob = root->context_max = root->freq = 0;
-	root->context = NULL;
-	free(root);
-}
-
-static void node_context_release(xContext* root) {
-	root->word = NULL;
-	root->left = root->right = NULL;
-	free(root);
-}
-
 static xWord* index_to_word(xWord** vocab, dt_int index) {
 	return vocab[index];
 }
@@ -635,7 +391,7 @@ static void invalid_index_print() {
 #endif
 
 static dt_int word_to_index(xWord** vocab, const dt_char* word) {
-	xWord** ptr = map_get(vocab, word);
+	xWord** ptr = map_get(vocab, &vocab_hash, word);
 
 	if(ptr) {
 		dt_int index = (*ptr)->index;

@@ -1,3 +1,4 @@
+#define H_COL_IMPLEMENT
 #define H_LOG_IMPLEMENT
 #define H_STMR_IMPLEMENT
 #include "nn.h"
