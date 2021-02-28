@@ -1,3 +1,5 @@
+#define H_LOG_IMPLEMENT
+#define H_STMR_IMPLEMENT
 #include "nn.h"
 
 dt_char arg_train[PATH_CHARACTER_MAX] = {0};

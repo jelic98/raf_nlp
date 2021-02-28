@@ -41,7 +41,7 @@
 
 // Flags
 #define FLAG_DEBUG
-//#define FLAG_LOG
+#define FLAG_LOG
 #define FLAG_COLOR_LOG
 //#define FLAG_BINARY_INPUT
 //#define FLAG_BINARY_OUTPUT
@@ -179,12 +179,10 @@ extern dt_char arg_stop[PATH_CHARACTER_MAX];
 
 // Dependencies
 #ifdef FLAG_LOG
-#define H_LOG_IMPLEMENT
 #include "log.h"
 #endif
 
 #ifdef FLAG_STEM
-#define H_STMR_IMPLEMENT
 #include "stmr.h"
 #endif
 
