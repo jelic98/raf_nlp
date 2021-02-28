@@ -1,0 +1,209 @@
+Entrepreneur Bill Gates founded the world's largest software business, Microsoft, with Paul Allen, and subsequently became one of the richest men in the world.
+Who Is Bill Gates?
+
+Entrepreneur and businessman Bill Gates and his business partner Paul Allen founded and built the world's largest software business, Microsoft, through technological innovation, keen business strategy and aggressive business tactics. In the process, Gates became one of the richest men in the world. In February 2014, Gates announced that he was stepping down as Microsoft's chairman to focus on charitable work at his foundation, the Bill and Melinda Gates Foundation.
+
+Early Life
+
+Gates was born William Henry Gates III on October 28, 1955, in Seattle, Washington. Gates grew up in an upper-middle-class family with his older sister, Kristianne, and younger sister, Libby. Their father, William H. Gates Sr., was a promising, if somewhat shy, law student when he met his future wife, Mary Maxwell. She was an athletic, outgoing student at the University of Washington, actively involved in student affairs and leadership.
+
+The Gates family atmosphere was warm and close, and all three children were encouraged to be competitive and strive for excellence. Gates showed early signs of competitiveness when he coordinated family athletic games at their summer house on Puget Sound. He also relished in playing board games (Risk was his favorite) and excelled at Monopoly.
+
+
+Gates had a very close relationship with his mother, Mary, who after a brief career as a teacher devoted her time to helping raise the children and working on civic affairs and with charities. She also served on several corporate boards, including those of the First Interstate Bank in Seattle (founded by her grandfather), the United Way and International Business Machines (IBM). She would often take Gates along when she volunteered in schools and at community organizations.
+
+
+Bill Gates’s Education
+
+Gates was a voracious reader as a child, spending many hours poring over reference books such as the encyclopedia. Around the age of 11 or 12, Gates's parents began to have concerns about his behavior. He was doing well in school, but he seemed bored and withdrawn at times, and his parents worried he might become a loner.
+
+
+Though they were strong believers in public education, when Gates turned 13, his parents enrolled him at Seattle's exclusive preparatory Lakeside School. He blossomed in nearly all his subjects, excelling in math and science, but also doing very well in drama and English.
+
+While at Lakeside School, a Seattle computer company offered to provide computer time for the students. The Mother's Club used proceeds from the school's rummage sale to purchase a teletype terminal for students to use. Gates became entranced with what a computer could do and spent much of his free time working on the terminal. He wrote a tic-tac-toe program in BASIC computer language that allowed users to play against the computer.
+
+Gates graduated from Lakeside in 1973. He scored 1590 out of 1600 on the college SAT test, a feat of intellectual achievement that he boasted about for several years when introducing himself to new people.
+
+Did Bill Gates Go to College?
+
+Gates enrolled at Harvard University in the fall of 1973, originally thinking of a career in law. Much to his parents' dismay, Gates dropped out of college in 1975 to pursue his business, Microsoft, with partner Allen. 
+
+Gates spent more of his time in the computer lab than in class. He did not really have a study regimen; he got by on a few hours of sleep, crammed for a test, and passed with a reasonable grade. 
+
+
+Meeting and Partnering with Paul Allen
+
+Gates met Allen, who was two years his senior, in high school at Lakeside School. The pair became fast friends, bonding over their common enthusiasm for computers, even though they were very different people. Allen was more reserved and shy. Gates was feisty and at times combative.
+
+Regardless of their differences, Allen and Gates spent much of their free time together working on programs. Occasionally, the two disagreed and would clash over who was right or who should run the computer lab. On one occasion, their argument escalated to the point where Allen banned Gates from the computer lab.
+
+At one point, Gates and Allen had their school computer privileges revoked for taking advantage of software glitches to obtain free computer time from the company that provided the computers. After their probation, they were allowed back in the computer lab when they offered to debug the program. During this time, Gates developed a payroll program for the computer company the boys had hacked into and a scheduling program for the school.
+
+In 1970, at the age of 15, Gates and Allen went into business together, developing "Traf-o-Data," a computer program that monitored traffic patterns in Seattle. They netted $20,000 for their efforts. Gates and Allen wanted to start their own company, but Gates' parents wanted him to finish school and go on to college, where they hoped he would work to become a lawyer.
+
+
+Allen went to Washington State University, while Gates went to Harvard, though the pair stayed in touch. After attending college for two years, Allen dropped out and moved to Boston, Massachusetts, to work for Honeywell. Around this time, he showed Gates an edition of Popular Electronics magazine featuring an article on the Altair 8800 mini-computer kit. Both young men were fascinated with the possibilities of what this computer could create in the world of personal computing.
+
+The Altair was made by a small company in Albuquerque, New Mexico, called Micro Instrumentation and Telemetry Systems (MITS). Gates and Allen contacted the company, proclaiming that they were working on a BASIC software program that would run the Altair computer. In reality, they didn't have an Altair to work with or the code to run it, but they wanted to know if MITS was interested in someone developing such software.
+
+MITS was, and its president, Ed Roberts, asked the boys for a demonstration. Gates and Allen scrambled, spending the next two months writing the BASIC software at Harvard's computer lab. Allen traveled to Albuquerque for a test run at MITS, never having tried it out on an Altair computer. It worked perfectly. Allen was hired at MITS, and Gates soon left Harvard to work with him. Together they founded Microsoft.
+
+Allen remained with Microsoft until 1983, when he was diagnosed with Hodgkin's disease. Though his cancer went into remission a year later with intensive treatment, Allen resigned from the company. Rumors abound as to why Allen left Microsoft. Some say Gates pushed him out, but many say it was a life-changing experience for Allen and he saw there were other opportunities that he could invest his time in.
+
+Bill Gates and Founding Microsoft
+
+In 1975, Gates and Allen formed Micro-Soft, a blend of "micro-computer" and "software" (they dropped the hyphen within a year). The company's first product was BASIC software that ran on the Altair computer.
+
+At first, all was not smooth sailing. Although Microsoft’s BASIC software program for the Altair computer netted the company a fee and royalties, it wasn't meeting their overhead. According to Gates' later account, only about 10 percent of the people using BASIC in the Altair computer had actually paid for it.
+
+Microsoft's BASIC software was popular with computer hobbyists, who obtained pre-market copies and were reproducing and distributing them for free. At this time, many personal computer enthusiasts were not in it for the money. They felt the ease of reproduction and distribution allowed them to share software with friends and fellow computer enthusiasts. Gates thought differently. He saw the free distribution of software as stealing, especially when it involved software that was created to be sold.
+
+
+In February 1976, Gates wrote an open letter to computer hobbyists, saying that continued distribution and use of software without paying for it would "prevent good software from being written." In essence, pirating software would discourage developers from investing time and money into creating quality software. The letter was unpopular with computer enthusiasts, but Gates stuck to his beliefs and would use the threat of innovation as a defense when faced with charges of unfair business practices.
+
+Gates had an acrimonious relationship with MITS president Ed Roberts, often resulting in shouting matches. The combative Gates clashed with Roberts on software development and the direction of the business. Roberts considered Gates spoiled and obnoxious. 
+
+In 1977, Roberts sold MITS to another computer company and went back to Georgia to enter medical school and become a doctor.
+
+Gates and Allen were on their own. The pair had to sue the new owner of MITS to retain the software rights they had developed for Altair. Microsoft wrote software in different formats for other computer companies, and, at the beginning of 1979, Gates moved the company's operations to Bellevue, Washington, just east of Seattle.
+
+Gates was glad to be home again in the Pacific Northwest and threw himself into his work. All 25 employees of the young company had broad responsibilities for all aspects of the operation, product development, business development and marketing.
+
+Although the company started out on shaky footing, by 1979 Microsoft was grossing approximately $2.5 million. At the age of 23, Gates placed himself as the head of the company. With his acumen for software development and a keen business sense, he led the company and worked as its spokesperson. Gates personally reviewed every line of code the company shipped, often rewriting code himself when he saw it necessary.
+
+DOWNLOAD BIOGRAPHY'S BILL GATES FACT CARD
+Bill Gates Fact Card
+Microsoft’s Software for IBM PCs
+
+As the computer industry grew, with companies like Apple, Intel and IBM developing hardware and components, Gates was continuously on the road touting the merits of Microsoft software applications. He often took his mother with him. Mary was highly respected and well connected with her membership on several corporate boards, including IBM's. It was through Mary that Gates met the CEO of IBM.
+
+In November 1980, IBM was looking for software that would operate their upcoming personal computer (PC) and approached Microsoft. Legend has it that at the first meeting with Gates someone at IBM mistook him for an office assistant and asked him to serve coffee.
+
+
+Gates did look very young, but he quickly impressed IBM, convincing them that he and his company could meet their needs. The only problem was that Microsoft had not developed the basic operating system that would run IBM's new computers.
+
+Not to be stopped, Gates bought an operating system that was developed to run on computers similar to IBM's PC. He made a deal with the software's developer, making Microsoft the exclusive licensing agent and later full owner of the software but not telling them of the IBM deal.
+
+The company later sued Microsoft and Gates for withholding important information. Microsoft settled out of court for an undisclosed amount, but neither Gates nor Microsoft admitted to any wrongdoing.
+
+Gates had to adapt the newly purchased software to work for the IBM PC. He delivered it for a $50,000 fee, the same price he had paid for the software in its original form. IBM wanted to buy the source code, which would have given them the information to the operating system. 
+
+Gates refused, instead proposing that IBM pay a licensing fee for copies of the software sold with their computers. Doing this allowed Microsoft to license the software they called MS-DOS to any other PC manufacturer, should other computer companies clone the IBM PC, which they soon did. Microsoft also released software called Softcard, which allowed Microsoft BASIC to operate on Apple II machines.
+
+Following the development of software for IBM, between 1979 and 1981 Microsoft's growth exploded. Staff increased from 25 to 128, and revenue shot up from $2.5 million to $16 million. In mid-1981, Gates and Allen incorporated Microsoft, and Gates was appointed president and chairman of the board. Allen was named executive vice president.
+
+By 1983, Microsoft was going global with offices in Great Britain and Japan. An estimated 30 percent of the world's computers ran on its software.
+
+
+Bill Gates’s Rivalry with Steve Jobs
+
+Though their rivalry is legend, Microsoft and Apple shared many of their early innovations. In 1981, Apple, at the time led by Steve Jobs, invited Microsoft to help develop software for Macintosh computers. Some developers were involved in both Microsoft development and the development of Microsoft applications for Macintosh. The collaboration could be seen in some shared names between the Microsoft and Macintosh systems.
+
+It was through this knowledge sharing that Microsoft developed Windows, a system that used a mouse to drive a graphic interface, displaying text and images on the screen. This differed greatly from the text-and-keyboard driven MS-DOS system where all text formatting showed on the screen as code and not what actually would be printed. 
+
+
+Gates quickly recognized the threat this kind of software might pose for MS-DOS and Microsoft overall. For the unsophisticated user—which was most of the buying public—the graphic imagery of the competing VisiCorp software used in a Macintosh system would be so much easier to use.
+
+Gates announced in an advertising campaign that a new Microsoft operating system was about to be developed that would use a graphic interface. It was to be called "Windows," and would be compatible with all PC software products developed on the MS-DOS system. The announcement was a bluff, in that Microsoft had no such program under development.
+
+As a marketing tactic, it was sheer genius. Nearly 30 percent of the computer market was using the MS-DOS system and would wait for Windows software rather than change to a new system. Without people willing to change formats, software developers were unwilling to write programs for the VisiCorp system and it lost momentum by early 1985.
+
+In November 1985, nearly two years after his announcement, Gates and Microsoft launched Windows. Visually the Windows system looked very similar to the Macintosh system Apple Computer Corporation had introduced nearly two years earlier. 
+
+Apple had previously given Microsoft full access to their technology while it was working on making Microsoft products compatible for Apple computers. Gates had advised Apple to license their software but they ignored the advice, being more interested in selling computers.
+
+Once again, Gates took full advantage of the situation and created a software format that was strikingly similar to the Macintosh. Apple threatened to sue, and Microsoft retaliated, saying it would delay shipment of its Microsoft-compatible software for Macintosh users.
+
+In the end, Microsoft prevailed in the courts. It could prove that while there were similarities in how the two software systems operated, each individual function was distinctly different.
+
+A Competitive Reputation
+
+Despite the success of Microsoft, Gates never felt totally secure. Always checking on the competition over his shoulder, Gates developed a white-hot drive and competitive spirit. Gates' assistant reported coming to work early to find someone sleeping under a desk. She considered calling security or the police until she discovered it was Gates.
+
+Gates' intelligence allowed him to see all sides of the software industry, from product development to corporate strategy. When analyzing any corporate move, he developed a profile of all the possible cases and run through them, asking questions about anything that could possibly happen.
+
+
+He expected everyone in the company to have the same dedication. His confrontational management style became legend, as he would challenge employees and their ideas to keep the creative process going. An unprepared presenter could hear, "That's the stupidest thing I've ever heard!" from Gates. 
+
+This was as much a test of the rigor of the employee as it was Gates' passion for his company. He was constantly checking to see if the people around him were really convinced of their ideas.
+
+Microsoft Office and Anti-Competition Lawsuits
+
+Outside the company, Gates was gaining a reputation as a ruthless competitor. Several tech companies, led by IBM, began to develop their own operating system, called OS/2, to replace MS-DOS. Rather than give in to the pressure, Gates pushed ahead with the Windows software, improving its operation and expanding its uses.
+
+In 1989, Microsoft introduced Microsoft Office, which bundled office productivity applications such as Microsoft Word and Excel into one system that was compatible with all Microsoft products. 
+
+The applications were not as easily compatible with OS/2. Microsoft's new version of Windows sold 100,000 copies in just two weeks, and OS/2 soon faded away. This left Microsoft with a virtual monopoly on operating systems for PCs. Soon the Federal Trade Commission began to investigate Microsoft for unfair marketing practices.
+
+Throughout the 1990s, Microsoft faced a string of Federal Trade Commission and Justice Department investigations. Some related allegations that Microsoft made unfair deals with computer manufacturers who installed the Windows operating system on their computers. Other charges involved Microsoft forcing computer manufacturers to sell Microsoft's Internet Explorer as a condition for selling the Windows operating system with their computers.
+
+At one point, Microsoft faced a possible breakup of its two divisions — operating systems and software development. Microsoft defended itself, harking back to Gates' earlier battles with software piracy and proclaiming that such restrictions were a threat to innovation. Eventually, Microsoft was able to find a settlement with the federal government to avoid a breakup.
+
+Through it all, Gates found inventive ways to deflect the pressure with lighthearted commercials and public appearances at computer trade shows during which he posed as Star Trek's Mr. Spock. Gates continued to run the company and weather the federal investigations through the 1990s.
+
+Leaving Microsoft
+
+In 2000, Gates stepped down from the day-to-day operations of Microsoft, turning over the job of CEO to college friend Steve Ballmer, who had been with Microsoft since 1980. Gates positioned himself as chief software architect so he could concentrate on what was for him the more passionate side of the business, though he remained chairman of the board.
+
+
+In 2006, Gates announced he was transitioning himself from full-time work at Microsoft to devote more quality time to the foundation. His last full day at Microsoft was June 27, 2008. 
+
+In February 2014, Gates stepped down as chairman of Microsoft in order to move into a new position as technology adviser. Longtime Microsoft CEO Steve Ballmer was replaced by 46-year-old Satya Nadella.
+
+Bill and Melinda Gate Photo
+Bill and Melinda Gates
+Photo: Kjetil Ree [CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0)]
+Bill Gates’s Wife and Children
+
+In 1987, a 23-year-old Microsoft product manager named Melinda French caught the eye of Gates, then 32. The very bright and organized Melinda was a perfect match for Gates. In time, their relationship grew as they discovered an intimate and intellectual connection. On January 1, 1994, Melinda and Gates were married in Hawaii.
+
+Following the devastating death of his mother to breast cancer just a few months after their wedding, they took some time off in 1995 to travel and get a new perspective on life and the world. In 1996, their first daughter, Jennifer, was born. Their son, Rory, was born in 1999, and a second daughter, Phoebe, arrived in 2002.
+
+Bill Gates's Personal Wealth
+
+In March 1986, Gates took Microsoft public with an initial public offering (IPO) of $21 per share, making him an instant millionaire at age 31. Gates held 45 percent of the company's 24.7 million shares, making his stake at that time $234 million of Microsoft's $520 million.
+
+Over time, the company's stock increased in value and split numerous times. In 1987, Gates became a billionaire when the stock hit $90.75 a share. Since then, Gates has been at the top, or at least near the top, of Forbes' annual list of the top 400 wealthiest people in America. In 1999, with stock prices at an all-time high and the stock splitting eight-fold since its IPO, Gates' wealth briefly topped $101 billion.
+
+Bill Gates’s Home
+
+In 1997, Gates and his family moved into a 55,000-square-foot, $54-million house on the shore of Lake Washington. Though the house serves as a business center, it is said to be very cozy for the couple and their three children.
+
+The Bill and Melinda Gates Foundation
+
+In 1994, Bill and Melinda established the William H. Gates Foundation, which was dedicated to supporting education, world health and investment in low-income communities around the world. The organization also tackles domestic issues, such as helping students in the United States become college-ready. 
+
+With Melinda's influence, Bill had taken an interest in becoming a civic leader in the footsteps of his mother, studying the philanthropic work of American industrial titans Andrew Carnegie and John D. Rockefeller. He realized that he had an obligation to give more of his wealth to charity. 
+
+
+In 2000, the couple combined several family foundations and made a $28 billion contribution to form the Bill & Melinda Gates Foundation. Over the next few years, Bill’s involvement with the Bill & Melinda Gates Foundation occupied much of his time and even more of his interest. 
+
+Since stepping down from Microsoft, Gates devotes much of his time and energy to the work of the Bill & Melinda Gates Foundation. In 2015, Gates spoke out in favor of national Common Core standards in grades K through 12 and charter schools. Gates also proved to be a groundbreaking employer when, around this time, the foundation announced that it would give its employees a year's paid leave after the birth or adoption of a child.
+
+In 2017, the foundation launched the first of what was to become its annual "Goalkeepers" report, an examination of progress made in several important areas related to public health, including child mortality, malnutrition and HIV. At the time, Gates identified infectious and chronic disease as the two biggest public health concerns that needed to be addressed over the coming decade.
+
+In April 2018, Gates announced that he was teaming with Google co-founder Larry Page to provide $12 million in funding for a universal flu vaccine. He said the funds would be awarded in grants of up to $2 million for individual efforts that are "bold and innovative," aiming to begin clinical trials by 2021. Although some questioned whether $12 million would be enough to spark any real medical breakthrough, others praised the intentions behind the investment, while Gates indicated that there could be more to come.
+
+
+Bill Gates and Alzheimer's Research
+
+Gates revealed in November 2017 that he was investing $50 million of his own money into the Dementia Discovery Fund. He would follow with another $50 million toward start-up ventures working in Alzheimer’s research. It was said to be a personal matter for Gates, who has seen the devastating effects of the disease on his own family members.
+
+"Any type of treatment would be a huge advance from where we are today," he told CNN, adding, "the long-term goal has got to be cure."
+
+Building a 'Smart City' in Arizona
+
+In 2017, it was revealed that one of Gates's firms had invested $80 million into the development of a "smart city" near Phoenix, Arizona. The proposed city, named Belmont, will "create a forward-thinking community with a communication and infrastructure spine that embraces cutting-edge technology, designed around high-speed digital networks, data centers, new manufacturing technologies and distribution models, autonomous vehicles and autonomous logistics hubs," according to the Belmont Partners real estate investment group.
+
+
+Of the nearly 25,000 acres of land designated for the site; it was reported that 3,800 acres will go toward office, commercial and retail space. Another 470 acres will be used for public schools, leaving room for 80,000 residential units.
+
+Awards
+
+Gates has received numerous awards for philanthropic work. Time magazine named Gates one of the most influential people of the 20th century. The magazine also named Gates and his wife Melinda, along with rock band U2's lead singer, Bono, as the 2005 Persons of the Year.
+
+Gates holds several honorary doctorates from universities throughout the world. He was knighted as an honorary Knight Commander of the Order of the British Empire bestowed by Queen Elizabeth II in 2005.
+
+In 2006, Gates and his wife were awarded the Order of the Aztec Eagle by the Mexican government for their philanthropic work throughout the world in the areas of health and education.
+
+In 2016, the couple were again recognized for their philanthropic work when they were named recipients of the Presidential Medal of Freedom by President Barack Obama.

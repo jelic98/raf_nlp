@@ -1,9 +1,12 @@
+#!/bin/bash
+
 # Declare path constants
-readonly QA=out/segmented_questions_and_answers
-readonly Q=out/questions
-readonly A=out/answers
-readonly V=out/vocab.tsv
-readonly W=out/weights-ih.tsv
+readonly DIR=./out
+readonly QA=$DIR/segmented_questions_and_answers
+readonly Q=$DIR/questions
+readonly A=$DIR/answers
+readonly V=$DIR/vocab.tsv
+readonly W=$DIR/weights-ih.tsv
 
 echo "[PIPELINE] Decmopress questions and answers"
 xz -dkf -T0 $QA.xz

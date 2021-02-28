@@ -78,7 +78,7 @@
 #define CORPUS_PATH arg_path
 #define TEST_PATH arg_path
 #define SENT_IN_PATH arg_path
-#define STOP_PATH "res/misc/stop_nltk.txt"
+#define STOP_PATH "res/misc/nltk_stop_words.txt"
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
