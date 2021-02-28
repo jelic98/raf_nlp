@@ -933,7 +933,7 @@ static void initialize_corpus() {
 	clock_gettime(CLOCK_MONOTONIC, &time_start);
 #endif
 
-	FILE* fin = fopen(CORPUS_PATH, "r");
+	FILE* fin = fopen(TRAIN_PATH, "r");
 	FILE* fstop = fopen(STOP_PATH, "r");
 
 	if(!fin || !fstop) {
@@ -1848,12 +1848,12 @@ void sentences_encode() {
 	echo("Started sentences encoding");
 #endif
 
-	FILE* fsentin = fopen(SENT_IN_PATH, "r");
+	FILE* fsentin = fopen(TRAIN_PATH, "r");
 
 #ifdef FLAG_BINARY_OUTPUT
-	FILE* fsentout = fopen(SENT_OUT_PATH, "wb");
+	FILE* fsentout = fopen(SENT_PATH, "wb");
 #else
-	FILE* fsentout = fopen(SENT_OUT_PATH, "w");
+	FILE* fsentout = fopen(SENT_PATH, "w");
 #endif
 
 	if(!fsentin || !fsentout) {
@@ -1910,12 +1910,12 @@ void sentences_similarity() {
 	echo("Started sentence similarity testing");
 #endif
 
-	FILE* fsentin = fopen(SENT_IN_PATH, "r");
+	FILE* fsentin = fopen(TRAIN_PATH, "r");
 
 #ifdef FLAG_BINARY_OUTPUT
-	FILE* fsentout = fopen(SENT_OUT_PATH, "rb");
+	FILE* fsentout = fopen(SENT_PATH, "rb");
 #else
-	FILE* fsentout = fopen(SENT_OUT_PATH, "r");
+	FILE* fsentout = fopen(SENT_PATH, "r");
 #endif
 
 	if(!fsentin || !fsentout) {

@@ -75,14 +75,13 @@
 #endif
 
 // Paths
-#define CORPUS_PATH arg_path
-#define TEST_PATH arg_path
-#define SENT_IN_PATH arg_path
-#define STOP_PATH "res/misc/nltk_stop_words.txt"
+#define TRAIN_PATH arg_train
+#define TEST_PATH arg_test
+#define STOP_PATH arg_stop
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
-#define SENT_OUT_PATH "out/sent.tsv"
+#define SENT_PATH "out/sent.tsv"
 #define FILTER_PATH "out/filter.tsv"
 #define LOG_PATH "out/log.txt"
 
@@ -172,7 +171,9 @@ void sentences_encode();
 void sentences_similarity();
 
 // Command line arguments
-extern dt_char arg_path[PATH_CHARACTER_MAX];
+extern dt_char arg_train[PATH_CHARACTER_MAX];
+extern dt_char arg_test[PATH_CHARACTER_MAX];
+extern dt_char arg_stop[PATH_CHARACTER_MAX];
 
 // Dependencies
 #ifdef FLAG_STEM

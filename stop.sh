@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Declare path constants
-readonly DIR=./res
+readonly DIR=./data
 readonly S=$DIR/nltk_stop_words.txt
 
 echo "[STOP] Download NLTK stop words"
