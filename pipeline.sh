@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # Declare path constants
-readonly DIR=./out
-readonly QA=$DIR/segmented_questions_and_answers
-readonly Q=$DIR/questions
-readonly A=$DIR/answers
-readonly V=$DIR/vocab.tsv
-readonly W=$DIR/weights-ih.tsv
+readonly DDIR=./data
+readonly ODIR=./out
+readonly QA=$DDIR/xz/small_segmented_questions_and_answers
+readonly Q=$DDIR/questions
+readonly A=$DDIR/answers
+readonly S=$DDIR/nltk_stop_words.txt
+readonly V=$ODIR/vocab.tsv
+readonly W=$ODIR/weights-ih.tsv
 
 echo "[PIPELINE] Decmopress questions and answers"
 xz -dkf -T0 $QA.xz
@@ -24,12 +26,13 @@ perl -pi -e 's/=~=~> //g' $A
 rm $QA
 
 echo "[PIPELINE] Filter questions"
+pip3 install np
 python3 filter.py $Q $A $Q.fil $A.fil 3 5
 mv $Q.fil $Q
 mv $A.fil $A
 
 echo "[PIPELINE] Embed questions"
-make
+make ARG_TRAIN="$Q" ARG_STOP="$S"
 
 echo "[PIPELINE] Encode questions"
 python3 encoder.py $Q $A $QA.enc $V $W

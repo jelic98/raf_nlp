@@ -5,6 +5,7 @@ readonly DIR=./data
 readonly S=$DIR/nltk_stop_words.txt
 
 echo "[STOP] Download NLTK stop words"
+pip3 install nltk
 python3 stop.py $S
 sed 's/[^a-z]//g' $S > $S.sed
 sort $S.sed > $S

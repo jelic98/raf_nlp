@@ -1,6 +1,9 @@
 import argparse
+import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+
+nltk.download('punkt')
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('file_q_in')

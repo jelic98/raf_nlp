@@ -5,9 +5,9 @@ CFLAGS = -Wall
 LFLAGS = -lm -lpthread
 IFLAGS = -I. -I./include
 
-export ARG_TRAIN=out/questions
+export ARG_TRAIN=/dev/null
 export ARG_TEST=/dev/null
-export ARG_STOP=data/nltk_stop_words.txt
+export ARG_STOP=/dev/null
 
 .SILENT all: clean build run
 
