@@ -1,22 +1,23 @@
 ## Usage
 
-1. Grant execution privilege to a dataset donwload script
+1. Grant execution privilege to helper scripts
 ```bash
-chmod +x res.sh
+chmod +x data.sh pipeline.sh
 ```
 
 2. Download dataset
 ```bash
-./res.sh
+./data.sh
 ```
+
 3. Configure hyperparameters
 ```bash
 vim include/nn.h
 ```
 
-4. Start embedder training
+4. Start training pipeline
 ```bash
-make
+./pipeline.sh
 ```
 
 ## Links

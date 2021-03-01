@@ -10,7 +10,7 @@ readonly URL=https://drive.google.com/uc?id=1EP6A8k4pOssRP4bNKmrrT3dGQnPBhfdf
 echo "[DATA] Download dataset"
 pip3 install gdown
 python3 data.py $URL $D
-unzip $D && rm $D && rm -rf __MACOSX/
+unzip $D && rm $D .DS_Store && rm -rf __MACOSX/
 
 echo "[DATA] Download NLTK stop words"
 pip3 install nltk
