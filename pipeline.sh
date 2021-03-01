@@ -36,6 +36,7 @@ make ARG_TRAIN="$Q" ARG_STOP="$S"
 
 echo "[PIPELINE] Encode questions"
 python3 encoder.py $Q $A $QA.enc $V $W
+rm $Q $A
 
 echo "[PIPELINE] Compress encoded questions and answers"
-xz -zkf -T0 -0 $QA.enc
+xz -zf -T0 -0 $QA.enc
