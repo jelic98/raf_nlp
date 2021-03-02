@@ -661,7 +661,7 @@ static void initialize_corpus() {
 	dt_int c, success, sent_end;
 	const dt_char* sep = WORD_DELIMITERS;
 	dt_char* tok;
-	xWord* corpus;
+	xWord* corpus = NULL;
 	xWord* window[WINDOW_MAX] = { 0 };
 
 #ifdef FLAG_LOG
