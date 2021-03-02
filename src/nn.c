@@ -50,6 +50,7 @@ static sem_t* sem_epoch_1;
 static sem_t* sem_epoch_2;
 static dt_int count_epoch;
 
+// Print debug backtrace
 static void sigget(dt_int sig) {
 	void* ptrs[BACKTRACE_DEPTH];
 	size_t size = backtrace(ptrs, BACKTRACE_DEPTH);
@@ -65,6 +66,7 @@ static void sigget(dt_int sig) {
 	exit(1);
 }
 
+// Normalize vector to length of 1
 static void vector_normalize(dt_float* vector, dt_int size) {
 	dt_float sum;
 	dt_int q;
@@ -79,6 +81,7 @@ static void vector_normalize(dt_float* vector, dt_int size) {
 }
 
 #if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
+// Apply softmax function to every vector component
 static void vector_softmax(dt_float* vector, dt_int size) {
 	dt_int k;
 	dt_float sum, vector_exp[size];
@@ -93,6 +96,7 @@ static void vector_softmax(dt_float* vector, dt_int size) {
 }
 #endif
 
+// Calculate Euclidean distance between two vectors
 static void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* dist) {
 	dt_int k;
 	dt_float sum;
@@ -122,11 +126,13 @@ static void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* d
 #endif
 }
 
+// Compare two integers
 static dt_int cmp_int(const void* a, const void* b) {
 	return *(dt_int*) a - *(dt_int*) b;
 }
 
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
+// Compare two words by their frequency
 static dt_int cmp_freq(const void* a, const void* b) {
 	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
 
@@ -137,6 +143,7 @@ static dt_int cmp_freq(const void* a, const void* b) {
 #ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
+// Compare two words by their normalized frequency
 static dt_int cmp_freq_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
 
@@ -147,6 +154,7 @@ static dt_int cmp_freq_dist(const void* a, const void* b) {
 #endif
 
 #ifdef FLAG_TEST_SIMILARITY
+// Compare two predicted words by their distance to target word
 static dt_int cmp_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
 
@@ -155,6 +163,7 @@ static dt_int cmp_dist(const void* a, const void* b) {
 #endif
 
 #ifdef FLAG_TEST_CONTEXT
+// Compare two predicted words by their probability at output layer
 static dt_int cmp_prob(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
 
@@ -162,6 +171,7 @@ static dt_int cmp_prob(const void* a, const void* b) {
 }
 #endif
 
+// Compare two sentences by their distance to target sentence
 static dt_int cmp_sent_dist(const void* a, const void* b) {
 	dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
 
@@ -169,6 +179,7 @@ static dt_int cmp_sent_dist(const void* a, const void* b) {
 }
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+// Filter vocabulary by word frequency
 static void vocab_filter(xWord* corpus) {
 	xWord** vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
@@ -229,6 +240,7 @@ static void vocab_filter(xWord* corpus) {
 #endif
 
 #ifdef FLAG_BACKUP_VOCABULARY
+// Save vocabulary to file
 static void vocab_save(xWord** vocab) {
 	FILE* fvoc = fopen(VOCABULARY_PATH, "w");
 
@@ -276,6 +288,7 @@ static void vocab_save(xWord** vocab) {
 }
 #endif
 
+// Convert vocabulary BST to hash map
 static void vocab_map(xWord** vocab) {
 	dt_int p;
 
@@ -286,6 +299,7 @@ static void vocab_map(xWord** vocab) {
 	}
 }
 
+// Create target words at output layer
 static void vocab_target(xWord** vocab) {
 	dt_int p;
 
@@ -301,6 +315,7 @@ static void vocab_target(xWord** vocab) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+// Get sum and maximum frequency in vocabulary 
 static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 	dt_int p;
 
@@ -311,6 +326,7 @@ static void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
 }
 
 #ifndef FLAG_MONTE_CARLO
+// Create array from which negative samples will be picked
 static void vocab_sample(xWord** vocab) {
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
 	samples = (xWord**) calloc(corpus_freq_sum, sizeof(xWord*));
@@ -347,10 +363,12 @@ static void vocab_sample(xWord** vocab) {
 #endif
 #endif
 
+// Get word by vocabulary index
 static xWord* index_to_word(xWord** vocab, dt_int index) {
 	return vocab[index];
 }
 
+// Check if vocabulary index is valid
 static dt_int index_valid(dt_int index) {
 	dt_int valid = index >= 0 && index < input_max;
 
@@ -373,6 +391,7 @@ static dt_int index_valid(dt_int index) {
 }
 
 #ifdef FLAG_PRINT_INDEX_ERRORS
+// Print all invalid indices referenced during training
 static void invalid_index_print() {
 	if(invalid_index_last > 0) {
 		dt_int i;
@@ -390,6 +409,7 @@ static void invalid_index_print() {
 }
 #endif
 
+// Get vocabulary index by word hash
 static dt_int word_to_index(xWord** vocab, const dt_char* word) {
 	xWord** ptr = map_get(vocab, &vocab_hash, word);
 
@@ -410,6 +430,7 @@ static dt_int word_to_index(xWord** vocab, const dt_char* word) {
 	return -1;
 }
 
+// Convert word to lowercase
 static void word_lower(dt_char* word) {
 	while(*word) {
 		*word = tolower(*word);
@@ -417,6 +438,7 @@ static void word_lower(dt_char* word) {
 	}
 }
 
+// Strip whitespaces from word
 static void word_clean(dt_char* word, dt_int* sent_end) {
 	word_lower(word);
 
@@ -434,6 +456,7 @@ static void word_clean(dt_char* word, dt_int* sent_end) {
 }
 
 #ifdef FLAG_FILTER_VOCABULARY_STOP
+// Check if word is stop words
 static dt_int word_stop(const dt_char* word) {
 	if(strlen(word) < 3) {
 		return 1;
@@ -447,6 +470,7 @@ static dt_int word_stop(const dt_char* word) {
 }
 #endif
 
+// Calculate frequency distribution for manual analytics
 static void calculate_distribution() {
 #ifdef FLAG_LOG
 	echo("Calculating distribution");
@@ -480,6 +504,7 @@ static void calculate_distribution() {
 #endif
 }
 
+// Allocate auxiliary structures
 static void resources_allocate() {
 #ifdef FLAG_LOG
 	echo("Allocating resources");
@@ -567,6 +592,7 @@ static void resources_allocate() {
 }
 
 #ifdef FLAG_FREE_MEMORY
+// Release allocaed auxiliary structures
 static void resources_release() {
 	dt_int p, i, k;
 
@@ -625,6 +651,7 @@ static void resources_release() {
 }
 #endif
 
+// Initialize vocabulary BST by reading corpus file
 static void initialize_corpus() {
 #ifdef FLAG_LOG
 	echo("Initializing corpus");
@@ -820,6 +847,7 @@ static void initialize_corpus() {
 #endif
 }
 
+// Initialize weights between layers
 static void initialize_weights() {
 #ifdef FLAG_LOG
 	echo("Initializing weights");
@@ -849,6 +877,7 @@ static void initialize_weights() {
 #endif
 }
 
+// Initialize parameters for new training epoch
 static void initialize_epoch(dt_int epoch) {
 	dt_int p;
 
@@ -866,6 +895,7 @@ static void initialize_epoch(dt_int epoch) {
 }
 
 #if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
+// Forward propagate word through network
 static void forward_propagate_input(dt_int index, dt_float* layer) {
 	dt_int j, k;
 
@@ -884,10 +914,12 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
+// Calculate sigmoid function
 static dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
 }
 
+// Perform negative sampling
 static void negative_sampling(xThread* t) {
 	dt_int c, j, k, ck;
 	dt_float e, delta_ih[hidden_max], delta_ho;
@@ -944,6 +976,7 @@ static void negative_sampling(xThread* t) {
 }
 #else
 #ifdef FLAG_CALCULATE_LOSS
+// Calculate loss function at output layer
 static void calculate_loss(xThread* t) {
 	dt_int k, c;
 	dt_float sum;
@@ -961,6 +994,7 @@ static void calculate_loss(xThread* t) {
 	loss += t->center->context_max * log(sum);
 }
 #endif
+// Backward propagate error through network
 static void backward_propagate_error(xThread* t) {
 	dt_int j, k, c;
 	dt_float l;
@@ -982,6 +1016,7 @@ static void backward_propagate_error(xThread* t) {
 }
 #endif
 
+// Initialize everything
 void nn_start() {
 	static dt_int done = 0;
 
@@ -1004,6 +1039,7 @@ void nn_start() {
 	initialize_weights();
 }
 
+// Clear everything
 void nn_finish() {
 	static dt_int done = 0;
 
@@ -1028,6 +1064,7 @@ void nn_finish() {
 #endif
 }
 
+// Thread function for training
 void* thread_training_run(void* args) {
 	xThread* t = (xThread*) args;
 	dt_int epoch, p1;
@@ -1121,6 +1158,7 @@ void* thread_training_run(void* args) {
 	return NULL;
 }
 
+// Run multithreaded training
 void training_run() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
@@ -1158,6 +1196,7 @@ void training_run() {
 }
 
 #ifdef FLAG_TEST_SIMILARITY
+// Perform similarity test for words in test file
 void test_similarity() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
@@ -1237,6 +1276,7 @@ void test_similarity() {
 #endif
 
 #ifdef FLAG_TEST_CONTEXT
+// Perform context test for words in test file
 void test_context() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
@@ -1356,6 +1396,7 @@ void test_context() {
 #endif
 
 #ifdef FLAG_TEST_ORTHANT
+// Perform orthant test for words in test file
 void test_orthant() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
@@ -1379,6 +1420,7 @@ void test_orthant() {
 }
 #endif
 
+// Run testing
 void testing_run() {
 #ifdef FLAG_TEST_SIMILARITY
 	test_similarity();
@@ -1393,6 +1435,7 @@ void testing_run() {
 #endif
 }
 
+// Save weights to file
 void weights_save() {
 #ifdef FLAG_LOG
 	echo("Started saving weights");
@@ -1453,6 +1496,7 @@ void weights_save() {
 #endif
 }
 
+// Load weights from file
 void weights_load() {
 #ifdef FLAG_LOG
 	echo("Started loading weights");
@@ -1509,6 +1553,7 @@ void weights_load() {
 #endif
 }
 
+// Encode single sentence using generated word embeddings
 static void sentence_encode(dt_char* sentence, dt_float* vector) {
 	memset(vector, 0, hidden_max * sizeof(dt_float));
 
@@ -1545,6 +1590,7 @@ static void sentence_encode(dt_char* sentence, dt_float* vector) {
 	vector_normalize(vector, hidden_max);
 }
 
+// Encode sentences from sentences file
 void sentences_encode() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
@@ -1612,6 +1658,7 @@ void sentences_encode() {
 #endif
 }
 
+// Perform similarity test for sentences in sentences file
 void sentences_similarity() {
 #ifdef FLAG_LOG
 	struct timespec time_local;
