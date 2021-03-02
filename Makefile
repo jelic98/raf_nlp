@@ -18,4 +18,4 @@ build: $(IN)
 	$(CC) -g -rdynamic $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)
-	./$(OUT) $(ARG_TRAIN) $(ARG_TEST) $(ARG_STOP) $(ARG_OUT)
+	./$(OUT) $(ARG_TRAIN) $(ARG_TEST) $(ARG_STOP)

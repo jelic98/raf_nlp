@@ -32,7 +32,8 @@ mv $Q.fil $Q
 mv $A.fil $A
 
 echo "[PIPELINE] Embed questions"
-make ARG_TRAIN="$Q" ARG_STOP="$S"
+make clean
+make ARG_TRAIN="$Q" ARG_TEST="/dev/null" ARG_STOP="$S"
 
 echo "[PIPELINE] Encode questions"
 python3 encoder.py $Q $A $QA.enc $V $W
