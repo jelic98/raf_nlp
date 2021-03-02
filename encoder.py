@@ -14,8 +14,8 @@ with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(ar
     vec_len = -1
 
     for line_vocab, line_weights in zip(file_vocab, file_weights):
-        word, _ = line_vocab.split('\t')
-        vocab[word] = np.fromstring(line_weights, dtype=float, sep='\t')
+        word, _ = line_vocab.strip().split('\t')
+        vocab[word] = np.fromstring(line_weights.strip(), dtype=float, sep='\t')
         if vec_len == -1:
             vec_len = vocab[word].shape[0]
         elif vec_len != vocab[word].shape[0]:
@@ -27,4 +27,4 @@ with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(ar
         for word in q.split():
             if word in vocab:
                 vec += vocab[word]
-        file_qa.write(f'{q} ({vec}) =~=~> {a}\n')
+        file_qa.write(f'{q.strip()} {list(vec)} =~=~> {a.strip()}\n')
