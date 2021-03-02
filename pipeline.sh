@@ -26,7 +26,6 @@ perl -pi -e 's/=~=~> //g' $A
 rm $QA
 
 echo "[PIPELINE] Filter questions"
-pip3 install np
 python3 filter.py $Q $A $Q.fil $A.fil 3 5
 mv $Q.fil $Q
 mv $A.fil $A
