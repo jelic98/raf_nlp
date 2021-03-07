@@ -489,11 +489,11 @@ static void calculate_distribution() {
 
 	dt_int buck, span = pattern_max / FREQ_BUCKETS;
 
-	for(p = 0; p <= FREQ_BUCKETS; p++) {
-		buck = p == FREQ_BUCKETS ? pattern_max : p * span + 1;
+	for(p = 1; p <= FREQ_BUCKETS; p++) {
+		buck = p == FREQ_BUCKETS ? pattern_max - 1 : (p - 1) * span;
 
 #ifdef FLAG_LOG
-		echo_info("Sample #%d (%d/%d): %d occurrences", p + 1, buck, pattern_max, freqs[buck]);
+		echo_info("Sample #%d (%d/%d): %d occurrences", p, buck + 1, pattern_max, freqs[buck]);
 #endif
 	}
 
@@ -1462,6 +1462,8 @@ void weights_save() {
 #endif
 
 	for(i = 0; i < input_max; i++) {
+		vector_normalize(w_ih[i], hidden_max);
+
 #ifdef FLAG_BINARY_OUTPUT
 		fwrite(w_ih[i], sizeof(dt_float), hidden_max, fwih);
 #else

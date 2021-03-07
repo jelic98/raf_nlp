@@ -4,7 +4,7 @@
 readonly DATE="date +'%d-%m-%Y %H:%M:%S'"
 readonly DDIR=./data
 readonly ODIR=./out
-readonly QA=$DDIR/xz/segmented_questions_and_answers
+readonly QA=$DDIR/xz/small_segmented_questions_and_answers
 readonly Q=$DDIR/questions
 readonly A=$DDIR/answers
 readonly S=$DDIR/nltk_stop_words.txt

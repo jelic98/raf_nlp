@@ -4,7 +4,7 @@
 #include "lib.h"
 
 // PRIMARY HYPERPARAMETERS
-#define THREAD_MAX 4
+#define THREAD_MAX 12
 #define EPOCH_MAX 10
 #define HIDDEN_MAX 128
 #define WINDOW_MAX 10
