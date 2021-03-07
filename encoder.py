@@ -28,5 +28,5 @@ with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(ar
             if word in vocab:
                 vec += vocab[word]
         if vec.any():
-            vec = vec / np.sqrt(np.sum(vec**2))
+            vec /= np.sqrt(np.sum(vec**2))
             file_qa.write(f'{q.strip()} {list(vec)} =~=~> {a.strip()}\n')
