@@ -27,9 +27,9 @@ perl -pi -e 's/=~=~> //g' $A
 rm $QA
 
 echo "[$(eval $DATE)] [PIPELINE] Filter questions"
-#python3 filter.py $Q $A $Q.fil $A.fil 3 5
-#mv $Q.fil $Q
-#mv $A.fil $A
+python3 filter.py $Q $A $Q.fil $A.fil 3 0.001
+mv $Q.fil $Q
+mv $A.fil $A
 
 echo "[$(eval $DATE)] [PIPELINE] Embed questions"
 make clean

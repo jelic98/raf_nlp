@@ -1115,8 +1115,7 @@ void* thread_training_run(void* args) {
 			t->center = index_to_word(vocab, t->p = patterns[p1]);
 			patterns[p1] = -1;
 
-			// TODO Should word vectors be normalized?
-			// vector_normalize(w_ih[t->p], hidden_max);
+			vector_normalize(w_ih[t->p], hidden_max);
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 			negative_sampling(t);
