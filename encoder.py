@@ -27,4 +27,5 @@ with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(ar
         for word in q.split():
             if word in vocab:
                 vec += vocab[word]
-        file_qa.write(f'{q.strip()} {list(vec)} =~=~> {a.strip()}\n')
+        if vec.any():
+            file_qa.write(f'{q.strip()} {list(vec)} =~=~> {a.strip()}\n')
