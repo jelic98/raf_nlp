@@ -1,5 +1,5 @@
-import numpy as np
 import argparse
+import numpy as np
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('file_q')
@@ -9,7 +9,7 @@ arg_parser.add_argument('file_vocab')
 arg_parser.add_argument('file_weights')
 args = arg_parser.parse_args()
 
-with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(args.file_qa, 'w') as file_qa, open(args.file_vocab, 'r') as file_vocab, open(args.file_weights, 'rb') as file_weights:
+with open(args.file_q, 'r') as file_q, open(args.file_a, 'r') as file_a, open(args.file_qa, 'w') as file_qa, open(args.file_vocab, 'r') as file_vocab, open(args.file_weights, 'r') as file_weights:
     vocab = {}
     vec_len = -1
 
