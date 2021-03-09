@@ -2,9 +2,10 @@
 source import.sh
 
 # Declare path constants
+readonly IN=segmented_questions_and_answers
 readonly DDIR=./data
 readonly ODIR=./out
-readonly QA=$DDIR/xz/segmented_questions_and_answers
+readonly QA=$DDIR/xz/$IN
 readonly Q=$DDIR/questions
 readonly A=$DDIR/answers
 readonly S=$DDIR/nltk_stop_words.txt
@@ -12,7 +13,7 @@ readonly V=$ODIR/vocab.tsv
 readonly W=$ODIR/weights-ih.tsv
 
 log "Clean workspace"
-rm -f $QA.enc.xz $QA.enc $QA.low $QA $Q.fil $Q $A $V $W
+rm -f $DDIR/enc/$IN.zip $QA.enc.xz $QA.enc $QA.low $QA $Q.fil $Q $A $V $W
 
 log "Decmopress questions and answers"
 xz -dkf -T0 $QA.xz
@@ -43,3 +44,7 @@ rm -f $Q $A
 
 log "Compress encoded questions and answers"
 xz -zf -T0 -0 $QA.enc
+
+log "Export data for indexing"
+mkdir -p $DDIR/enc
+zip $DDIR/enc/$IN.zip $QA.enc.xz $V $W
