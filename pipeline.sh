@@ -47,4 +47,9 @@ xz -zf -T0 -0 $QA.enc
 
 log "Export data for indexing"
 mkdir -p $DDIR/enc
-zip $DDIR/enc/$IN.zip $QA.enc.xz $V $W
+mkdir -p $IN
+cp $QA.enc.xz $IN/corpus.enc.xz
+cp $V $IN/vocab.tsv
+cp $W $IN/embed.tsv
+zip -q $DDIR/enc/$IN.zip $IN/corpus.enc.xz $IN/vocab.tsv $IN/embed.tsv
+rm -rf $IN
