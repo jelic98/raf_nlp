@@ -5,6 +5,7 @@ CFLAGS = -Wall
 LFLAGS = -lm -lpthread
 IFLAGS = -I. -I./include
 
+export ARG_ACTIONS=TRAIN,SAVE
 export ARG_TRAIN=/dev/null
 export ARG_TEST=/dev/null
 export ARG_STOP=/dev/null
@@ -18,4 +19,4 @@ build: $(IN)
 	$(CC) -g -rdynamic $(IN) -o $(OUT) $(CFLAGS) $(LFLAGS) $(IFLAGS)
 
 run: $(OUT)
-	./$(OUT) $(ARG_TRAIN) $(ARG_TEST) $(ARG_STOP)
+	./$(OUT) $(ARG_ACTIONS) $(ARG_TRAIN) $(ARG_TEST) $(ARG_STOP)

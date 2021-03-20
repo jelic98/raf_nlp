@@ -1123,7 +1123,7 @@ void* thread_training_run(void* args) {
 			backward_propagate_error(t);
 #endif
 		}
-
+		
 		pthread_mutex_lock(&mtx_count_epoch);
 
 		if(++count_epoch == THREAD_MAX) {
@@ -1239,7 +1239,7 @@ void test_similarity() {
 		dt_int p, index = word_to_index(vocab, line);
 
 		if(!index_valid(index)) {
-			return;
+			continue;
 		}
 
 		xWord* dist[pattern_max];
@@ -1322,7 +1322,7 @@ void test_context() {
 		dt_int c, k, s, index = word_to_index(vocab, line);
 
 		if(!index_valid(index)) {
-			return;
+			continue;
 		}
 
 #ifdef FLAG_NEGATIVE_SAMPLING

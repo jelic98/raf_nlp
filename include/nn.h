@@ -58,10 +58,10 @@
 #define FLAG_FILTER_VOCABULARY_STOP
 #define FLAG_FILTER_VOCABULARY_LOW
 #define FLAG_FILTER_VOCABULARY_HIGH
-//#define FLAG_TEST_SIMILARITY
+#define FLAG_TEST_SIMILARITY
 //#define FLAG_TEST_CONTEXT
 //#define FLAG_TEST_ORTHANT
-//#define FLAT_DISTANCE_COSINE
+#define FLAT_DISTANCE_COSINE
 //#define FLAG_STEM
 //#define FLAG_MONTE_CARLO
 #define FLAG_FIXED_LEARNING_RATE
@@ -118,6 +118,8 @@ typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eCol
 #else
 #define memcheck(ptr)
 #endif
+#define DEF_LINE(x) static dt_int (x) = __LINE__
+#define ARGS_COUNT (__ARGS_END__ - __ARGS_START__)
 
 // Internal data limits
 #define DT_FLOAT_MIN DBL_MIN
@@ -177,9 +179,12 @@ void sentences_encode();
 void sentences_similarity();
 
 // Command line arguments
+DEF_LINE(__ARGS_START__);
+extern dt_char arg_actions[PATH_CHARACTER_MAX];
 extern dt_char arg_train[PATH_CHARACTER_MAX];
 extern dt_char arg_test[PATH_CHARACTER_MAX];
 extern dt_char arg_stop[PATH_CHARACTER_MAX];
+DEF_LINE(__ARGS_END__);
 
 // Dependencies
 #ifdef FLAG_LOG

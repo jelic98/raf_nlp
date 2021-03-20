@@ -32,7 +32,7 @@ rm -f $QA
 
 log "Embed questions"
 make clean
-make ARG_TRAIN="$Q" ARG_TEST="/dev/null" ARG_STOP="$S"
+make ARG_TRAIN="$Q" ARG_STOP="$S"
 
 log "Encode questions"
 python3 encoder.py $Q $A $QA.enc $V $W
