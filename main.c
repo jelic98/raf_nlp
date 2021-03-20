@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 			weights_save();
 		}
 
-		action = strtok(arg_actions, NULL);
+		action = strtok(NULL, ",");
 	}
 
 	nn_finish();
