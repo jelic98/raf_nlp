@@ -129,9 +129,7 @@ static dt_int cmp_int(const void* a, const void* b) {
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 // Compare two words by their frequency
 static dt_int cmp_freq(const void* a, const void* b) {
-	dt_int diff = (*(xWord**) b)->freq - (*(xWord**) a)->freq;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+	return (*(xWord**) a)->freq - (*(xWord**) b)->freq;
 }
 #endif
 
@@ -140,9 +138,8 @@ static dt_int cmp_freq(const void* a, const void* b) {
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
 // Compare two words by their normalized frequency
 static dt_int cmp_freq_dist(const void* a, const void* b) {
-	dt_float diff = (*(xWord**) b)->freq_dist - (*(xWord**) a)->freq_dist;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+	dt_float diff = (*(xWord**) a)->freq_dist - (*(xWord**) b)->freq_dist;
+	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif
 #endif
@@ -151,8 +148,11 @@ static dt_int cmp_freq_dist(const void* a, const void* b) {
 #ifdef FLAG_TEST_SIMILARITY
 // Compare two predicted words by their distance to target word
 static dt_int cmp_dist(const void* a, const void* b) {
-	dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
-
+	#ifdef FLAT_DISTANCE_COSINE
+		dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
+	#else
+		dt_float diff = (*(xWord**) a)->dist - (*(xWord**) b)->dist;
+	#endif
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif
@@ -160,17 +160,19 @@ static dt_int cmp_dist(const void* a, const void* b) {
 #ifdef FLAG_TEST_CONTEXT
 // Compare two predicted words by their probability at output layer
 static dt_int cmp_prob(const void* a, const void* b) {
-	dt_float diff = (*(xWord**) a)->prob - (*(xWord**) b)->prob;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+	dt_float diff = (*(xWord**) b)->prob - (*(xWord**) a)->prob;
+	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif
 
 // Compare two sentences by their distance to target sentence
 static dt_int cmp_sent_dist(const void* a, const void* b) {
-	dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
-
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+	#ifdef FLAT_DISTANCE_COSINE
+		dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
+	#else
+		dt_float diff = (*(xSent**) a)->dist - (*(xSent**) b)->dist;
+	#endif
+	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
@@ -258,7 +260,7 @@ static void vocab_save(xWord** vocab) {
 #endif
 	}
 
-#if defined(FLAG_FILTER_VOCABULARY_STOP) || defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 	FILE* ffil = fopen(FILTER_PATH, "w");
 
 	if(!ffil) {
