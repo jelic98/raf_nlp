@@ -4,10 +4,13 @@
 
 #include "lib.h"
 
+struct timespec time_start;
+
 #ifdef FLAG_LOG_FILE
 FILE* flog;
 #endif
 
+void sigget(dt_int);
 dt_int time_get(struct timespec);
 void timestamp();
 void echo_color(eColor, dt_int, const dt_char*, ...);
@@ -15,6 +18,22 @@ void color_set(eColor);
 void memcheck_log(void*, const dt_char*, const dt_char*, dt_int);
 
 #ifdef H_LOG_IMPLEMENT
+// Print debug backtrace
+void sigget(dt_int sig) {
+	void* ptrs[BACKTRACE_DEPTH];
+	size_t size = backtrace(ptrs, BACKTRACE_DEPTH);
+	dt_char** stack = backtrace_symbols(ptrs, size);
+	dt_int i;
+	for(i = 0; i < size; i++) {
+		stack[i][strchr(stack[i] + 4, ' ') - stack[i]] = '\0';
+#ifdef FLAG_LOG
+		echo_fail("%s @ %s", stack[i] + 4, stack[i] + 40);
+#endif
+	}
+	free(stack);
+	exit(1);
+}
+
 dt_int time_get(struct timespec start) {
 	struct timespec finish;
 	clock_gettime(CLOCK_MONOTONIC, &finish);

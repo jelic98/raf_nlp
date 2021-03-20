@@ -1,5 +1,8 @@
-#define H_COL_IMPLEMENT
 #define H_LOG_IMPLEMENT
+#define H_MAT_IMPLEMENT
+#define H_COL_IMPLEMENT
+#define H_VOC_IMPLEMENT
+#define H_SENT_IMPLEMENT
 #define H_STMR_IMPLEMENT
 #include "nn.h"
 

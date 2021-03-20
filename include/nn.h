@@ -62,6 +62,7 @@
 //#define FLAG_TEST_CONTEXT
 #define FLAG_TEST_ORTHANT
 #define FLAT_DISTANCE_COSINE
+#define FLAG_SENT
 //#define FLAG_STEM
 //#define FLAG_MONTE_CARLO
 #define FLAG_FIXED_LEARNING_RATE
@@ -85,9 +86,9 @@
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
+#define LOG_PATH "out/log.txt"
 #define SENT_PATH "out/sent.tsv"
 #define FILTER_PATH "out/filter.tsv"
-#define LOG_PATH "out/log.txt"
 
 // Messages
 #define ERROR_FILE "File error occurred"
@@ -186,12 +187,21 @@ extern dt_char arg_test[PATH_CHARACTER_MAX];
 extern dt_char arg_stop[PATH_CHARACTER_MAX];
 DEF_LINE(__ARGS_END__);
 
+// Global variables
+dt_int pattern_max, input_max, hidden_max, output_max;
+
 // Dependencies
 #ifdef FLAG_LOG
 #include "log.h"
 #endif
 
+#include "mat.h"
 #include "col.h"
+#include "voc.h"
+
+#ifdef FLAG_SENT
+#include "sent.h"
+#endif
 
 #ifdef FLAG_STEM
 #include "stmr.h"
