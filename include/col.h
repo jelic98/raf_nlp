@@ -3,12 +3,21 @@
 
 #include "lib.h"
 
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
+xWord** filter;
+dt_int filter_max;
+#endif
+
 void map_init(xWord**, dt_int**, dt_int);
 xWord** map_get(xWord**, dt_int**, const dt_char*);
 xWord* list_insert(xWord*, xWord**);
 xContext* context_insert(xContext*, xWord*, dt_int*);
 void context_flatten(xContext*, xWord**, dt_int*);
+
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 dt_int filter_contains(xWord**, const dt_char*);
+#endif
+
 void list_release(xWord*);
 dt_int list_contains(xWord*, const dt_char*);
 void context_release(xContext*);
@@ -125,7 +134,6 @@ void context_flatten(xContext* root, xWord** arr, dt_int* index) {
 	}
 }
 
-#if defined(FLAG_TEST_SIMILARITY) || defined(FLAG_TEST_CONTEXT)
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 dt_int filter_contains(xWord** filter, const dt_char* word) {
 	dt_int p;
@@ -138,7 +146,6 @@ dt_int filter_contains(xWord** filter, const dt_char* word) {
 
 	return 0;
 }
-#endif
 #endif
 
 #ifdef FLAG_FILTER_VOCABULARY_STOP

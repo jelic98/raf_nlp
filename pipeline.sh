@@ -2,7 +2,7 @@
 source import.sh
 
 # Declare path constants
-readonly IN=segmented_questions_and_answers
+readonly IN=small_segmented_questions_and_answers
 readonly DDIR=./data
 readonly ODIR=./out
 readonly QA=$DDIR/xz/$IN
@@ -29,10 +29,6 @@ perl -pi -e 's/ =~=~>//g' $Q
 grep -E -o '=~=~>.*$' $QA > $A
 perl -pi -e 's/=~=~> //g' $A
 rm -f $QA
-
-log "Filter questions"
-python3 filter.py $Q $Q.fil 3 0.001
-mv $Q.fil $Q
 
 log "Embed questions"
 make clean

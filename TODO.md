@@ -1,6 +1,5 @@
 ## TODO
 
-- multithread row col collision
 - implement cbowi
 - fast filtering in filter.py  
 - create tests like those in word2vec

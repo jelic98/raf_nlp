@@ -28,11 +28,6 @@ static xWord* stops;
 static xWord** vocab;
 static dt_int* vocab_hash;
 
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-static xWord** filter;
-static dt_int filter_max;
-#endif
-
 static dt_int invalid_index[INVALID_INDEX_MAX];
 static dt_int invalid_index_last;
 
