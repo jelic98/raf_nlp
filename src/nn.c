@@ -153,7 +153,7 @@ static dt_int cmp_freq_dist(const void* a, const void* b) {
 static dt_int cmp_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
 
-	return diff < 0 ? 1 : diff > 0 ? -1 : 0;
+	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif
 
