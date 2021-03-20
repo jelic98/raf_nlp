@@ -390,7 +390,13 @@ static void initialize_weights() {
 
 	for(k = 0; k < output_max; k++) {
 		for(j = 0; j < hidden_max; j++) {
-			w_ho[k][j] = 0.0;
+#ifdef FLAG_FIXED_INITIAL_WEIGHTS
+			w_ho[k][j] = INITIAL_WEIGHT_FIX;
+#else
+			w_ho[k][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
+#endif
+			w_ho[k][j] /= index_to_word(vocab, k)->freq;
+
 		}
 	}
 
