@@ -886,7 +886,7 @@ void weights_load() {
 	}
 
 	dt_int i, k;
-#ifndef FLAG_BINARY_OUTPUT
+#ifndef FLAG_BINARY_INPUT
 	dt_int j;
 #endif
 
