@@ -84,7 +84,7 @@ dt_float sigmoid(dt_float x) {
 
 // Calculate normalized Xavier weight initiazation value
 dt_float xavier(dt_int n, dt_int m) {
-	return random_unif(-1.0, 1.0) * sqrt(6.0 / (n + m));
+	return random_unif(-1.0, 1.0) * sqrt(2.0 / (n + m));
 }
 #endif
 #endif
