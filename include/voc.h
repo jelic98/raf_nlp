@@ -11,9 +11,8 @@ dt_ull invalid_index_last;
 dt_ull corpus_freq_sum, corpus_freq_max;
 xWord** samples;
 
-dt_int cmp_int(const void*, const void*);
+dt_int cmp_ull(const void*, const void*);
 dt_int cmp_freq(const void*, const void*);
-dt_int cmp_freq_dist(const void*, const void*);
 dt_ull word_to_index(xWord**, const dt_char*);
 void word_lower(dt_char*);
 void word_clean(dt_char*, dt_int*);
@@ -31,22 +30,18 @@ void calculate_distribution();
 
 #ifdef H_VOC_IMPLEMENT
 // Compare two integers
-dt_int cmp_int(const void* a, const void* b) {
-	return *(dt_int*) a - *(dt_int*) b;
+dt_int cmp_ull(const void* a, const void* b) {
+	dt_ull ulla = (*(dt_ull*) a);
+	dt_ull ullb = (*(dt_ull*) b);
+	dt_int ra = ulla > ullb;
+	dt_int rb = ulla < ullb;
+	return ra - rb;
 }
 
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 // Compare two words by their frequency
 dt_int cmp_freq(const void* a, const void* b) {
 	return (*(xWord**) a)->freq - (*(xWord**) b)->freq;
-}
-#endif
-
-#ifndef FLAG_UNIGRAM_DISTRIBUTION
-// Compare two words by their normalized frequency
-dt_int cmp_freq_dist(const void* a, const void* b) {
-	dt_float diff = (*(xWord**) a)->freq_dist - (*(xWord**) b)->freq_dist;
-	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif
 
@@ -144,7 +139,7 @@ void vocab_filter(xWord* corpus) {
 
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
-
+	
 	dt_int old_pattern_max1 = pattern_max;
 	pattern_max = input_max = output_max -= filter_high;
 
@@ -272,15 +267,14 @@ void vocab_sample(xWord** vocab) {
 	dt_int p, ck;
 
 	for(p = 0; p < pattern_max; p++) {
-		vocab[p]->freq_dist = pow(vocab[p]->freq, 0.75) / pow(corpus_freq_sum, 0.75);
 		copies[p] = vocab[p];
 	}
 
-	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq_dist);
+	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
 
 	for(p = 0; p < pattern_max; p++) {
 		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
-		samples[ck] = copies[p];
+		samples[ck] = copies[pattern_max - p - 1];
 	}
 
 	free(copies);
@@ -345,8 +339,8 @@ void calculate_distribution() {
 	for(p = 0; p < pattern_max; p++) {
 		freqs[p] = vocab[p]->freq;
 	}
-
-	qsort(freqs, pattern_max, sizeof(dt_int), cmp_int);
+	
+	qsort(freqs, pattern_max, sizeof(dt_ull), cmp_ull);
 
 	dt_int buck, span = pattern_max / FREQ_BUCKETS;
 
@@ -354,7 +348,7 @@ void calculate_distribution() {
 		buck = p == FREQ_BUCKETS ? pattern_max - 1 : (p - 1) * span;
 
 #ifdef FLAG_LOG
-		echo_info("Sample #%d (%d/%llu): %llu occurrences", p, buck + 1, pattern_max, freqs[buck]);
+		echo_info("Sample #%d (%d/%d): %llu occurrences", p, buck + 1, pattern_max, freqs[buck]);
 #endif
 	}
 

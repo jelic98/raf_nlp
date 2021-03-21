@@ -42,7 +42,7 @@
 // Flags
 #define FLAG_DEBUG
 #define FLAG_LOG
-#define FLAG_UNIGRAM_DISTRIBUTION
+//#define FLAG_UNIGRAM_DISTRIBUTION
 #define FLAG_FILTER_VOCABULARY_STOP
 #define FLAG_FILTER_VOCABULARY_LOW
 #define FLAG_FILTER_VOCABULARY_HIGH
@@ -122,7 +122,6 @@ typedef struct xWord {
 	dt_int index;
 	dt_ull context_max;
 	dt_ull freq;
-	dt_float freq_dist;
 	dt_float prob;
 	dt_float dist;
 	dt_ull* target_freq;
