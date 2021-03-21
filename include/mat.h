@@ -49,7 +49,6 @@ void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* dist) {
 	dt_int k;
 	dt_float sum;
 
-#ifdef FLAT_DISTANCE_COSINE
 	dt_float sum1, sum2;
 
 	for(sum = sum1 = sum2 = k = 0; k < size; k++) {
@@ -62,26 +61,12 @@ void vector_distance(dt_float* v1, dt_float* v2, dt_int size, dt_float* dist) {
 	sum2 = sqrt(sum2);
 
 	*dist = sum / (sum1 * sum2);
-#else
-	dt_float diff;
-
-	for(sum = k = 0; k < size; k++) {
-		diff = v1[k] - v2[k];
-		sum += diff * diff;
-	}
-
-	*dist = sqrt(sum);
-#endif
 }
 
 #ifdef FLAG_TEST_SIMILARITY
 // Compare two predicted words by their distance to target word
 dt_int cmp_dist(const void* a, const void* b) {
-	#ifdef FLAT_DISTANCE_COSINE
-		dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
-	#else
-		dt_float diff = (*(xWord**) a)->dist - (*(xWord**) b)->dist;
-	#endif
+	dt_float diff = (*(xWord**) b)->dist - (*(xWord**) a)->dist;
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 #endif

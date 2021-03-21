@@ -11,11 +11,7 @@ void sentences_similarity(dt_int);
 #ifdef H_SENT_IMPLEMENT
 // Compare two sentences by their distance to target sentence
 dt_int cmp_sent_dist(const void* a, const void* b) {
-	#ifdef FLAT_DISTANCE_COSINE
-		dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
-	#else
-		dt_float diff = (*(xSent**) a)->dist - (*(xSent**) b)->dist;
-	#endif
+	dt_float diff = (*(xSent**) b)->dist - (*(xSent**) a)->dist;
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
 

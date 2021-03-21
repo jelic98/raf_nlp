@@ -51,15 +51,11 @@ void timestamp() {
 void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
 	va_list args;
 	va_start(args, format);
-#ifdef FLAG_COLOR_LOG
 	color_set(GRAY);
-#endif
 	if(!replace) {
 		timestamp();
 	}
-#ifdef FLAG_COLOR_LOG
 	color_set(color);
-#endif
 	dt_char* f = (dt_char*) calloc(strlen(format) + 1, sizeof(dt_char));
 	if(replace) {
 		strcat(f, "\r");
@@ -69,19 +65,15 @@ void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
 		strcat(f, "\n");
 	}
 	vfprintf(flog, f, args);
-#ifdef FLAG_COLOR_LOG
 	color_set(NONE);
-#endif
 	va_end(args);
 }
 
-#ifdef FLAG_COLOR_LOG
 void color_set(eColor color) {
 #ifdef FLAG_DEBUG
 	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
 #endif
 }
-#endif
 
 void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt_int line) {
 	if(!ptr) {

@@ -11,9 +11,7 @@ dt_ull invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
 dt_ull corpus_freq_sum, corpus_freq_max;
-#ifndef FLAG_MONTE_CARLO
 xWord** samples;
-#endif
 #endif
 
 dt_int cmp_int(const void*, const void*);
@@ -48,14 +46,12 @@ dt_int cmp_freq(const void* a, const void* b) {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-#ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
 // Compare two words by their normalized frequency
 dt_int cmp_freq_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->freq_dist - (*(xWord**) b)->freq_dist;
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
-#endif
 #endif
 #endif
 
@@ -72,9 +68,7 @@ dt_ull word_to_index(xWord** vocab, const dt_char* word) {
 	}
 
 #ifdef FLAG_LOG
-#ifdef FLAG_PRINT_WORD_ERRORS
 	echo_fail("%s not found in corpus", word);
-#endif
 #endif
 
 	return -1;
@@ -181,7 +175,6 @@ void vocab_filter(xWord* corpus) {
 }
 #endif
 
-#ifdef FLAG_BACKUP_VOCABULARY
 // Save vocabulary to file
 void vocab_save(xWord** vocab) {
 	FILE* fvoc = fopen(VOCABULARY_PATH, "w");
@@ -228,7 +221,6 @@ void vocab_save(xWord** vocab) {
 	}
 #endif
 }
-#endif
 
 // Convert vocabulary BST to hash map
 void vocab_map(xWord** vocab) {
@@ -269,7 +261,6 @@ void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 	}
 }
 
-#ifndef FLAG_MONTE_CARLO
 // Create array from which negative samples will be picked
 void vocab_sample(xWord** vocab) {
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
@@ -305,7 +296,6 @@ void vocab_sample(xWord** vocab) {
 #endif
 }
 #endif
-#endif
 
 // Get word by vocabulary index
 xWord* index_to_word(xWord** vocab, dt_ull index) {
@@ -334,7 +324,6 @@ dt_int index_valid(dt_ull index) {
 	return valid;
 }
 
-#ifdef FLAG_PRINT_INDEX_ERRORS
 // Print all invalid indices referenced during training
 void invalid_index_print() {
 	if(invalid_index_last > 0) {
@@ -351,7 +340,6 @@ void invalid_index_print() {
 #endif
 	}
 }
-#endif
 
 // Calculate frequency distribution for manual analytics
 void calculate_distribution() {

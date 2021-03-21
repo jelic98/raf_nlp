@@ -73,13 +73,11 @@ static void resources_allocate() {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-#ifndef FLAG_MONTE_CARLO
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
 	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(samples);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "samples", 1, pattern_max);
-#endif
 #endif
 #endif
 	output = (dt_float*) calloc(THREAD_MAX, sizeof(dt_float));
@@ -151,10 +149,8 @@ static void resources_release() {
 	w_ho = NULL;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-#ifndef FLAG_MONTE_CARLO
 	free(samples);
 	samples = NULL;
-#endif
 #else
 	dt_int t;
 
@@ -300,7 +296,6 @@ static void initialize_corpus() {
 	echo_succ("Done flattening corpus");
 #endif
 
-#ifdef FLAG_BACKUP_VOCABULARY
 #ifdef FLAG_LOG
 	echo("Saving vocabulary");
 #endif
@@ -309,7 +304,6 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 	echo_succ("Done saving vocabulary");
-#endif
 #endif
 
 	calculate_distribution();
@@ -345,7 +339,6 @@ static void initialize_corpus() {
 	echo_succ("Done calculating word frequency");
 #endif
 
-#ifndef FLAG_MONTE_CARLO
 #ifdef FLAG_LOG
 	echo("Creating sampling distribution");
 #endif
@@ -354,7 +347,6 @@ static void initialize_corpus() {
 
 #ifdef FLAG_LOG
 	echo_succ("Done creating sampling distribution");
-#endif
 #endif
 #endif
 
@@ -379,22 +371,14 @@ static void initialize_weights() {
 
 	for(i = 0; i < input_max; i++) {
 		for(j = 0; j < hidden_max; j++) {
-#ifdef FLAG_FIXED_INITIAL_WEIGHTS
-			w_ih[i][j] = INITIAL_WEIGHT_FIX;
-#else
 			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
-#endif
 			w_ih[i][j] /= index_to_word(vocab, i)->freq;
 		}
 	}
 
 	for(k = 0; k < output_max; k++) {
 		for(j = 0; j < hidden_max; j++) {
-#ifdef FLAG_FIXED_INITIAL_WEIGHTS
-			w_ho[k][j] = INITIAL_WEIGHT_FIX;
-#else
 			w_ho[k][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
-#endif
 			w_ho[k][j] /= index_to_word(vocab, k)->freq;
 		}
 	}
@@ -412,13 +396,11 @@ static void initialize_epoch(dt_int epoch) {
 		patterns[p] = p;
 	}
 
+#ifdef FLAG_CALCULATE_LOSS
 	loss = 0;
-
-#ifdef FLAG_FIXED_LEARNING_RATE
-	alpha = LEARNING_RATE_FIX;
-#else
-	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
 #endif
+
+	alpha = max(LEARNING_RATE_MIN, LEARNING_RATE_MAX * (1 - (dt_float) epoch / EPOCH_MAX));
 }
 
 #if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
@@ -428,7 +410,7 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 
 	for(k = 0; k < output_max; k++) {
 #ifdef FLAG_DROPOUT
-		if(random(0, 1) < DROPOUT_RATE_MAX) {
+		if(random(0, 1) < DROPOUT_RATE) {
 			continue;
 		}
 #endif
@@ -445,32 +427,16 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 static void negative_sampling(xThread* t) {
 	dt_int c, j, k, ck, tf;
 	dt_float e, delta_ih[hidden_max], delta_ho;
-#ifdef FLAG_MONTE_CARLO
-	dt_int exit;
-	dt_float f, r, max_freq = ((dt_float) corpus_freq_max / corpus_freq_sum);
-#endif
 	for(c = 0; c < t->center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
 		for(tf = 0; tf < t->center->target_freq[c]; tf++) {
 			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
 				if(ck) {
-#ifdef FLAG_MONTE_CARLO
-					for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-						k = random_int(0, pattern_max - 1);
-						f = 1.0 * index_to_word(vocab, k)->freq / corpus_freq_sum;
-						r = random(0, 1) * max_freq;
-
-						if(k != t->center->target[c]->index && r > f) {
-							break;
-						}
-					}
-#else
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
 					k = samples[random_int(0, corpus_freq_sum - 1)]->index;
 #else
 					k = samples[random_int(0, pattern_max - 1)]->index;
-#endif
 #endif
 				} else {
 					k = t->center->target[c]->index;
@@ -571,9 +537,7 @@ void nn_finish() {
 		return;
 	}
 
-#ifdef FLAG_PRINT_INDEX_ERRORS
 	invalid_index_print();
-#endif
 
 #ifdef FLAG_FREE_MEMORY
 	resources_release();
@@ -666,9 +630,7 @@ void* thread_training_run(void* args) {
 		sem_post(sem_epoch_1);
 
 		if(!t->id) {
-#ifdef FLAG_BACKUP_WEIGHTS
 			weights_save();
-#endif
 
 #ifdef FLAG_LOG
 			echo_succ("Finished epoch %d/%d (%d sec)", epoch + 1, EPOCH_MAX, time_get(time_start));
