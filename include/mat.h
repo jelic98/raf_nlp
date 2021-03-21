@@ -9,6 +9,7 @@ void vector_distance(dt_float*, dt_float*, dt_int, dt_float*);
 dt_int cmp_dist(const void*, const void*);
 dt_int cmp_prob(const void*, const void*);
 dt_float sigmoid(dt_float);
+dt_float xavier(dt_int, dt_int);
 
 #ifdef H_MAT_IMPLEMENT
 // Normalize vector to length of 1
@@ -79,6 +80,11 @@ dt_int cmp_prob(const void* a, const void* b) {
 // Calculate sigmoid function
 dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
+}
+
+// Calculate normalized Xavier weight initiazation value
+dt_float xavier(dt_int n, dt_int m) {
+	return random_unif(-1.0, 1.0) * sqrt(6.0 / (n + m));
 }
 #endif
 #endif

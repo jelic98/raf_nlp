@@ -323,19 +323,12 @@ static void initialize_weights() {
 	echo("Initializing weights");
 #endif
 
-	dt_int i, j, k;
+	dt_int p, j;
 
-	for(i = 0; i < input_max; i++) {
+	for(p = 0; p < pattern_max; p++) {
 		for(j = 0; j < hidden_max; j++) {
-			w_ih[i][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
-			w_ih[i][j] /= index_to_word(vocab, i)->freq;
-		}
-	}
-
-	for(k = 0; k < output_max; k++) {
-		for(j = 0; j < hidden_max; j++) {
-			w_ho[k][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
-			w_ho[k][j] /= index_to_word(vocab, k)->freq;
+			w_ih[p][j] = xavier(pattern_max, pattern_max);
+			w_ho[p][j] = xavier(pattern_max, pattern_max);
 		}
 	}
 
@@ -372,10 +365,11 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 static void negative_sampling(xThread* t) {
 	dt_int c, j, k, ck, tf;
 	dt_float e, delta_ih[hidden_max], delta_ho;
-	for(c = 0; c < t->center->context_max; c++) {
-		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
+	for(c = 0; c < t->center->context_max; c++) {
 		for(tf = 0; tf < t->center->target_freq[c]; tf++) {
+			memset(delta_ih, 0, hidden_max * sizeof(dt_float));
+			
 			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
