@@ -8,11 +8,13 @@ xWord** filter;
 dt_int filter_max;
 #endif
 
-void map_init(xWord**, dt_int**, dt_int);
-xWord** map_get(xWord**, dt_int**, const dt_char*);
+extern dt_int index_valid(dt_ull);
+
+void map_init(xWord**, dt_ull**, dt_ull);
+xWord** map_get(xWord**, dt_ull**, const dt_char*);
 xWord* list_insert(xWord*, xWord**);
 xContext* context_insert(xContext*, xWord*, dt_int*);
-void context_flatten(xContext*, xWord**, dt_int*, dt_int*);
+void context_flatten(xContext*, xWord**, dt_ull*, dt_int*);
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 dt_int filter_contains(xWord**, const dt_char*);
@@ -29,7 +31,7 @@ void node_context_release(xContext*);
 void node_release(xWord*);
 
 #ifdef H_COL_IMPLEMENT
-static dt_uint hash_get(const dt_char* word) {
+static dt_ull hash_get(const dt_char* word) {
 	dt_ull i, h;
 
 	for(h = i = 0; word[i]; i++) {
@@ -39,8 +41,8 @@ static dt_uint hash_get(const dt_char* word) {
 	return h % VOCABULARY_HASH_MAX;
 }
 
-void map_init(xWord** vocab, dt_int** vocab_hash, dt_int size) {
-	dt_uint p, h;
+void map_init(xWord** vocab, dt_ull** vocab_hash, dt_ull size) {
+	dt_ull p, h;
 
 	for(h = 0; h < VOCABULARY_HASH_MAX; h++) {
 		(*vocab_hash)[h] = -1;
@@ -57,8 +59,8 @@ void map_init(xWord** vocab, dt_int** vocab_hash, dt_int size) {
 	}
 }
 
-xWord** map_get(xWord** vocab, dt_int** vocab_hash, const dt_char* word) {
-	dt_uint h = hash_get(word);
+xWord** map_get(xWord** vocab, dt_ull** vocab_hash, const dt_char* word) {
+	dt_ull h = hash_get(word);
 
 	while(1) {
 		if((*vocab_hash)[h] == -1) {
@@ -120,18 +122,14 @@ xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 	return node_context_create(word);
 }
 
-void context_flatten(xContext* root, xWord** arr, dt_int* arr_freq, dt_int* index) {
+void context_flatten(xContext* root, xWord** arr, dt_ull* arr_freq, dt_int* index) {
 	if(root) {
 		context_flatten(root->left, arr, arr_freq, index);
 
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		if(root->word->freq > 0) {
-#endif
+		if(root->word->index >= 0) {
 			arr[(*index)++] = root->word;
 			arr_freq[(*index) - 1] = root->freq;
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		}
-#endif
 
 		context_flatten(root->right, arr, arr_freq, index);
 	}
@@ -213,13 +211,9 @@ void bst_flatten(xWord* root, xWord** arr, dt_int* index) {
 	if(root) {
 		bst_flatten(root->left, arr, index);
 
-#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-		if(root->freq > 0) {
+		if(root->index >= 0) {
 			arr[root->index = (*index)++] = root;
 		}
-#else
-		arr[root->index = (*index)++] = root;
-#endif
 
 		bst_flatten(root->right, arr, index);
 	}

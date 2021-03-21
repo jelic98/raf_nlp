@@ -40,7 +40,7 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
 #endif
 
-	vocab_hash = (dt_int*) calloc(VOCABULARY_HASH_MAX, sizeof(dt_int));
+	vocab_hash = (dt_ull*) calloc(VOCABULARY_HASH_MAX, sizeof(dt_ull));
 	memcheck(vocab_hash);
 #ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "vocab_hash", 1, VOCABULARY_HASH_MAX);
@@ -491,10 +491,10 @@ static void negative_sampling(xThread* t) {
 					w_ho[k][j] -= delta_ho * w_ih[t->p][j];
 				}
 			}
-		}
 
-		for(j = 0; j < hidden_max; j++) {
-			w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
+			for(j = 0; j < hidden_max; j++) {
+				w_ih[t->p][j] -= delta_ih[j] / (1.0 * t->center->context_max);
+			}
 		}
 	}
 }

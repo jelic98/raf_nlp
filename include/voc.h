@@ -5,12 +5,12 @@
 
 xWord* stops;
 xWord** vocab;
-dt_int* vocab_hash;
-dt_int invalid_index[INVALID_INDEX_MAX];
-dt_int invalid_index_last;
+dt_ull* vocab_hash;
+dt_ull invalid_index[INVALID_INDEX_MAX];
+dt_ull invalid_index_last;
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-dt_int corpus_freq_sum, corpus_freq_max;
+dt_ull corpus_freq_sum, corpus_freq_max;
 #ifndef FLAG_MONTE_CARLO
 xWord** samples;
 #endif
@@ -19,7 +19,7 @@ xWord** samples;
 dt_int cmp_int(const void*, const void*);
 dt_int cmp_freq(const void*, const void*);
 dt_int cmp_freq_dist(const void*, const void*);
-dt_int word_to_index(xWord**, const dt_char*);
+dt_ull word_to_index(xWord**, const dt_char*);
 void word_lower(dt_char*);
 void word_clean(dt_char*, dt_int*);
 dt_int word_stop(const dt_char*);
@@ -27,10 +27,10 @@ void vocab_filter(xWord*);
 void vocab_save(xWord**);
 void vocab_map(xWord**);
 void vocab_target(xWord**);
-void vocab_freq(xWord**, dt_int*, dt_int*);
+void vocab_freq(xWord**, dt_ull*, dt_ull*);
 void vocab_sample(xWord**);
-xWord* index_to_word(xWord**, dt_int);
-dt_int index_valid(dt_int);
+xWord* index_to_word(xWord**, dt_ull);
+dt_int index_valid(dt_ull);
 void invalid_index_print();
 void calculate_distribution();
 
@@ -60,7 +60,7 @@ dt_int cmp_freq_dist(const void* a, const void* b) {
 #endif
 
 // Get vocabulary index by word hash
-dt_int word_to_index(xWord** vocab, const dt_char* word) {
+dt_ull word_to_index(xWord** vocab, const dt_char* word) {
 	xWord** ptr = map_get(vocab, &vocab_hash, word);
 
 	if(ptr) {
@@ -160,7 +160,7 @@ void vocab_filter(xWord* corpus) {
 	pattern_max = input_max = output_max -= filter_high;
 
 	for(p = pattern_max; p < old_pattern_max1; p++) {
-		vocab[p]->freq *= -1;
+		vocab[p]->index = -1;
 		filter[index++] = vocab[p];
 	}
 #endif
@@ -171,7 +171,7 @@ void vocab_filter(xWord* corpus) {
 
 	for(p = 0; p < old_pattern_max2; p++) {
 		if(vocab[p]->freq < FILTER_LOW_BOUND) {
-			vocab[p]->freq *= -1;
+			vocab[p]->index = -1;
 			filter[index++] = vocab[p];
 		}
 	}
@@ -196,7 +196,7 @@ void vocab_save(xWord** vocab) {
 	dt_int p;
 
 	for(p = 0; p < pattern_max; p++) {
-		fprintf(fvoc, "%s\t%d\n", vocab[p]->word, vocab[p]->freq);
+		fprintf(fvoc, "%s\t%llu\n", vocab[p]->word, vocab[p]->freq);
 	}
 
 	if(fclose(fvoc) == EOF) {
@@ -218,7 +218,7 @@ void vocab_save(xWord** vocab) {
 	dt_int f;
 
 	for(f = 0; f < filter_max; f++) {
-		fprintf(ffil, "%s\t%d\n", filter[f]->word, -filter[f]->freq);
+		fprintf(ffil, "%s\t%llu\n", filter[f]->word, filter[f]->freq);
 	}
 
 	if(fclose(ffil) == EOF) {
@@ -248,7 +248,7 @@ void vocab_target(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->target = (xWord**) calloc(vocab[p]->context_max, sizeof(xWord*));
 		memcheck(vocab[p]->target);
-		vocab[p]->target_freq = (dt_int*) calloc(vocab[p]->context_max, sizeof(dt_int));
+		vocab[p]->target_freq = (dt_ull*) calloc(vocab[p]->context_max, sizeof(dt_ull));
 		memcheck(vocab[p]->target_freq);
 		dt_int index = 0;
 		context_flatten(vocab[p]->context, vocab[p]->target, vocab[p]->target_freq, &index);
@@ -259,8 +259,8 @@ void vocab_target(xWord** vocab) {
 }
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-// Get sum and maximum frequency in vocabulary 
-void vocab_freq(xWord** vocab, dt_int* sum, dt_int* max) {
+// Get sum and maximum frequency in vocabulary
+void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 	dt_int p;
 
 	for(*sum = *max = p = 0; p < pattern_max; p++) {
@@ -308,13 +308,13 @@ void vocab_sample(xWord** vocab) {
 #endif
 
 // Get word by vocabulary index
-xWord* index_to_word(xWord** vocab, dt_int index) {
+xWord* index_to_word(xWord** vocab, dt_ull index) {
 	return vocab[index];
 }
 
 // Check if vocabulary index is valid
-dt_int index_valid(dt_int index) {
-	dt_int valid = index >= 0 && index < input_max;
+dt_int index_valid(dt_ull index) {
+	dt_int valid = index >= 0 && index < pattern_max;
 
 	if(!valid) {
 		dt_int i, found = 0;
@@ -338,7 +338,7 @@ dt_int index_valid(dt_int index) {
 // Print all invalid indices referenced during training
 void invalid_index_print() {
 	if(invalid_index_last > 0) {
-		dt_int i;
+		dt_ull i;
 
 		for(i = 0; i < invalid_index_last; i++) {
 #ifdef FLAG_LOG
@@ -359,7 +359,7 @@ void calculate_distribution() {
 	echo("Calculating distribution");
 #endif
 
-	dt_int* freqs = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	dt_ull* freqs = (dt_ull*) calloc(pattern_max, sizeof(dt_ull));
 	memcheck(freqs);
 
 	dt_int p;
@@ -376,7 +376,7 @@ void calculate_distribution() {
 		buck = p == FREQ_BUCKETS ? pattern_max - 1 : (p - 1) * span;
 
 #ifdef FLAG_LOG
-		echo_info("Sample #%d (%d/%d): %d occurrences", p, buck + 1, pattern_max, freqs[buck]);
+		echo_info("Sample #%d (%d/%llu): %llu occurrences", p, buck + 1, pattern_max, freqs[buck]);
 #endif
 	}
 

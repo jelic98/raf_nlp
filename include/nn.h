@@ -4,9 +4,9 @@
 #include "lib.h"
 
 // PRIMARY HYPERPARAMETERS
-#define THREAD_MAX 32
-#define EPOCH_MAX 15
-#define HIDDEN_MAX 200
+#define THREAD_MAX 4
+#define EPOCH_MAX 10
+#define HIDDEN_MAX 10
 #define WINDOW_MAX 10
 #define NEGATIVE_SAMPLES_MAX 25
 #define LEARNING_RATE_FIX 0.05
@@ -15,7 +15,7 @@
 #define INITIAL_WEIGHT_FIX 0.5
 #define INITIAL_WEIGHT_MIN -1.0
 #define INITIAL_WEIGHT_MAX 1.0
-#define FILTER_LOW_BOUND 10
+#define FILTER_LOW_BOUND 3
 #define FILTER_HIGH_RATIO 0.0001
 
 // SECONDARY HYPERPARAMETERS
@@ -135,12 +135,12 @@ typedef double dt_float;
 typedef struct xWord {
 	dt_char* word;
 	dt_int index;
-	dt_uint context_max;
-	dt_int freq;
+	dt_ull context_max;
+	dt_ull freq;
 	dt_float freq_dist;
 	dt_float prob;
 	dt_float dist;
-	dt_int* target_freq;
+	dt_ull* target_freq;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;
@@ -150,7 +150,7 @@ typedef struct xWord {
 
 typedef struct xContext {
 	xWord* word;
-	dt_int freq;
+	dt_ull freq;
 	struct xContext* left;
 	struct xContext* right;
 } xContext;
@@ -160,10 +160,6 @@ typedef struct xSent {
 	dt_float* vec;
 	dt_float dist;
 } xSent;
-
-typedef union xBit {
-	dt_uint on : 1;
-} xBit;
 
 typedef struct xThread {
 	dt_uint id;
