@@ -8,10 +8,7 @@ void vector_softmax(dt_float*, dt_int);
 void vector_distance(dt_float*, dt_float*, dt_int, dt_float*);
 dt_int cmp_dist(const void*, const void*);
 dt_int cmp_prob(const void*, const void*);
-
-#ifdef FLAG_NEGATIVE_SAMPLING
 dt_float sigmoid(dt_float);
-#endif
 
 #ifdef H_MAT_IMPLEMENT
 // Normalize vector to length of 1
@@ -28,7 +25,7 @@ void vector_normalize(dt_float* vector, dt_int size) {
 	}
 }
 
-#if defined(FLAG_TEST_CONTEXT) || !defined(FLAG_NEGATIVE_SAMPLING)
+#ifdef FLAG_TEST_CONTEXT
 // Apply softmax function to every vector component
 void vector_softmax(dt_float* vector, dt_int size) {
 	dt_int k;
@@ -79,11 +76,9 @@ dt_int cmp_prob(const void* a, const void* b) {
 }
 #endif
 
-#ifdef FLAG_NEGATIVE_SAMPLING
 // Calculate sigmoid function
 dt_float sigmoid(dt_float x) {
 	return 1.0 / (1.0 + exp(-x));
 }
-#endif
 #endif
 #endif

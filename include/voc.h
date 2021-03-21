@@ -8,11 +8,8 @@ xWord** vocab;
 dt_ull* vocab_hash;
 dt_ull invalid_index[INVALID_INDEX_MAX];
 dt_ull invalid_index_last;
-
-#ifdef FLAG_NEGATIVE_SAMPLING
 dt_ull corpus_freq_sum, corpus_freq_max;
 xWord** samples;
-#endif
 
 dt_int cmp_int(const void*, const void*);
 dt_int cmp_freq(const void*, const void*);
@@ -45,14 +42,12 @@ dt_int cmp_freq(const void* a, const void* b) {
 }
 #endif
 
-#ifdef FLAG_NEGATIVE_SAMPLING
 #ifndef FLAG_UNIGRAM_DISTRIBUTION
 // Compare two words by their normalized frequency
 dt_int cmp_freq_dist(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) a)->freq_dist - (*(xWord**) b)->freq_dist;
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
 }
-#endif
 #endif
 
 // Get vocabulary index by word hash
@@ -250,7 +245,6 @@ void vocab_target(xWord** vocab) {
 	}
 }
 
-#ifdef FLAG_NEGATIVE_SAMPLING
 // Get sum and maximum frequency in vocabulary
 void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 	dt_int p;
@@ -264,9 +258,6 @@ void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 // Create array from which negative samples will be picked
 void vocab_sample(xWord** vocab) {
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
-	samples = (xWord**) calloc(corpus_freq_sum, sizeof(xWord*));
-	memcheck(samples);
-
 	dt_int p, c, tmp;
 
 	for(tmp = p = 0; p < pattern_max; p++) {
@@ -295,7 +286,6 @@ void vocab_sample(xWord** vocab) {
 	free(copies);
 #endif
 }
-#endif
 
 // Get word by vocabulary index
 xWord* index_to_word(xWord** vocab, dt_ull index) {
