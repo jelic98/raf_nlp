@@ -163,8 +163,6 @@ void training_run();
 void testing_run();
 void weights_save();
 void weights_load();
-void sentences_encode();
-void sentences_similarity();
 
 // Command line arguments
 DEF_LINE(__ARGS_START__);
@@ -193,5 +191,4 @@ dt_int pattern_max, input_max, hidden_max, output_max;
 #ifdef FLAG_STEM
 #include "stmr.h"
 #endif
-
 #endif
