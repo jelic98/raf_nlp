@@ -409,12 +409,6 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 	dt_int j, k;
 
 	for(k = 0; k < output_max; k++) {
-#ifdef FLAG_DROPOUT
-		if(random(0, 1) < DROPOUT_RATE) {
-			continue;
-		}
-#endif
-
 		for(layer[k] = j = 0; j < hidden_max; j++) {
 			layer[k] += w_ih[index][j] * w_ho[k][j];
 		}
