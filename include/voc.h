@@ -248,8 +248,10 @@ void vocab_target(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
 		vocab[p]->target = (xWord**) calloc(vocab[p]->context_max, sizeof(xWord*));
 		memcheck(vocab[p]->target);
+		vocab[p]->target_freq = (dt_int*) calloc(vocab[p]->context_max, sizeof(dt_int));
+		memcheck(vocab[p]->target_freq);
 		dt_int index = 0;
-		context_flatten(vocab[p]->context, vocab[p]->target, &index);
+		context_flatten(vocab[p]->context, vocab[p]->target, vocab[p]->target_freq, &index);
 		context_release(vocab[p]->context);
 		vocab[p]->context = NULL;
 		vocab[p]->context_max = index;

@@ -12,7 +12,7 @@ void map_init(xWord**, dt_int**, dt_int);
 xWord** map_get(xWord**, dt_int**, const dt_char*);
 xWord* list_insert(xWord*, xWord**);
 xContext* context_insert(xContext*, xWord*, dt_int*);
-void context_flatten(xContext*, xWord**, dt_int*);
+void context_flatten(xContext*, xWord**, dt_int*, dt_int*);
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 dt_int filter_contains(xWord**, const dt_char*);
@@ -109,6 +109,8 @@ xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 			root->left = context_insert(root->left, word, success);
 		} else if(cmp < 0) {
 			root->right = context_insert(root->right, word, success);
+		} else {
+			root->freq++;
 		}
 
 		return root;
@@ -118,19 +120,20 @@ xContext* context_insert(xContext* root, xWord* word, dt_int* success) {
 	return node_context_create(word);
 }
 
-void context_flatten(xContext* root, xWord** arr, dt_int* index) {
+void context_flatten(xContext* root, xWord** arr, dt_int* arr_freq, dt_int* index) {
 	if(root) {
-		context_flatten(root->left, arr, index);
+		context_flatten(root->left, arr, arr_freq, index);
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		if(root->word->freq > 0) {
+#endif
 			arr[(*index)++] = root->word;
+			arr_freq[(*index) - 1] = root->freq;
+#if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 		}
-#else
-		arr[(*index)++] = root->word;
 #endif
 
-		context_flatten(root->right, arr, index);
+		context_flatten(root->right, arr, arr_freq, index);
 	}
 }
 
@@ -233,6 +236,7 @@ xWord* node_create(const dt_char* word) {
 	node->left = node->right = node->next = NULL;
 	node->context = NULL;
 	node->target = NULL;
+	node->target_freq = NULL;
 	return node;
 }
 
@@ -240,6 +244,7 @@ xContext* node_context_create(xWord* word) {
 	xContext* node = (xContext*) calloc(1, sizeof(xContext));
 	memcheck(node);
 	node->word = word;
+	node->freq = 1;
 	return node;
 }
 
@@ -252,6 +257,11 @@ void node_release(xWord* root) {
 	if(root->target) {
 		free(root->target);
 		root->target = NULL;
+	}
+
+	if(root->target_freq) {
+		free(root->target_freq);
+		root->target_freq = NULL;
 	}
 
 	root->left = root->right = root->next = NULL;

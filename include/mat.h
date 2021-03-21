@@ -9,6 +9,10 @@ void vector_distance(dt_float*, dt_float*, dt_int, dt_float*);
 dt_int cmp_dist(const void*, const void*);
 dt_int cmp_prob(const void*, const void*);
 
+#ifdef FLAG_NEGATIVE_SAMPLING
+dt_float sigmoid(dt_float);
+#endif
+
 #ifdef H_MAT_IMPLEMENT
 // Normalize vector to length of 1
 void vector_normalize(dt_float* vector, dt_int size) {
@@ -87,6 +91,13 @@ dt_int cmp_dist(const void* a, const void* b) {
 dt_int cmp_prob(const void* a, const void* b) {
 	dt_float diff = (*(xWord**) b)->prob - (*(xWord**) a)->prob;
 	return diff > 0 ? 1 : diff < 0 ? -1 : 0;
+}
+#endif
+
+#ifdef FLAG_NEGATIVE_SAMPLING
+// Calculate sigmoid function
+dt_float sigmoid(dt_float x) {
+	return 1.0 / (1.0 + exp(-x));
 }
 #endif
 #endif

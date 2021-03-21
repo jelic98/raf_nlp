@@ -4,10 +4,10 @@
 #include "lib.h"
 
 // PRIMARY HYPERPARAMETERS
-#define THREAD_MAX 32
-#define EPOCH_MAX 20
-#define HIDDEN_MAX 200
-#define WINDOW_MAX 10
+#define THREAD_MAX 4
+#define EPOCH_MAX 10
+#define HIDDEN_MAX 10
+#define WINDOW_MAX 5
 #define NEGATIVE_SAMPLES_MAX 25
 #define LEARNING_RATE_FIX 0.05
 #define LEARNING_RATE_MAX 0.025
@@ -140,6 +140,7 @@ typedef struct xWord {
 	dt_float freq_dist;
 	dt_float prob;
 	dt_float dist;
+	dt_int* target_freq;
 	struct xWord* left;
 	struct xWord* right;
 	struct xWord* next;
@@ -149,6 +150,7 @@ typedef struct xWord {
 
 typedef struct xContext {
 	xWord* word;
+	dt_int freq;
 	struct xContext* left;
 	struct xContext* right;
 } xContext;

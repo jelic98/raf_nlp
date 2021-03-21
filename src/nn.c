@@ -396,7 +396,6 @@ static void initialize_weights() {
 			w_ho[k][j] = random(INITIAL_WEIGHT_MIN, INITIAL_WEIGHT_MAX);
 #endif
 			w_ho[k][j] /= index_to_word(vocab, k)->freq;
-
 		}
 	}
 
@@ -442,14 +441,9 @@ static void forward_propagate_input(dt_int index, dt_float* layer) {
 #endif
 
 #ifdef FLAG_NEGATIVE_SAMPLING
-// Calculate sigmoid function
-static dt_float sigmoid(dt_float x) {
-	return 1.0 / (1.0 + exp(-x));
-}
-
 // Perform negative sampling
 static void negative_sampling(xThread* t) {
-	dt_int c, j, k, ck;
+	dt_int c, j, k, ck, tf;
 	dt_float e, delta_ih[hidden_max], delta_ho;
 #ifdef FLAG_MONTE_CARLO
 	dt_int exit;
@@ -458,42 +452,44 @@ static void negative_sampling(xThread* t) {
 	for(c = 0; c < t->center->context_max; c++) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
-		for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
-			if(ck) {
+		for(tf = 0; tf < t->center->target_freq[c]; tf++) {
+			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+				if(ck) {
 #ifdef FLAG_MONTE_CARLO
-				for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
-					k = random_int(0, pattern_max - 1);
-					f = 1.0 * index_to_word(vocab, k)->freq / corpus_freq_sum;
-					r = random(0, 1) * max_freq;
+					for(exit = 0; exit < MONTE_CARLO_EMERGENCY; exit++) {
+						k = random_int(0, pattern_max - 1);
+						f = 1.0 * index_to_word(vocab, k)->freq / corpus_freq_sum;
+						r = random(0, 1) * max_freq;
 
-					if(k != t->center->target[c]->index && r > f) {
-						break;
+						if(k != t->center->target[c]->index && r > f) {
+							break;
+						}
 					}
-				}
 #else
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
-				k = samples[random_int(0, corpus_freq_sum - 1)]->index;
+					k = samples[random_int(0, corpus_freq_sum - 1)]->index;
 #else
-				k = samples[random_int(0, pattern_max - 1)]->index;
+					k = samples[random_int(0, pattern_max - 1)]->index;
 #endif
 #endif
-			} else {
-				k = t->center->target[c]->index;
-			}
+				} else {
+					k = t->center->target[c]->index;
+				}
 
-			for(e = j = 0; j < hidden_max; j++) {
-				e += w_ih[t->p][j] * w_ho[k][j];
-			}
+				for(e = j = 0; j < hidden_max; j++) {
+					e += w_ih[t->p][j] * w_ho[k][j];
+				}
 
 #ifdef FLAG_CALCULATE_LOSS
-			loss -= log(sigmoid(ck ? -e : e));
+				loss -= log(sigmoid(ck ? -e : e));
 #endif
 
-			delta_ho = alpha * (sigmoid(e) - !ck);
+				delta_ho = alpha * (sigmoid(e) - !ck);
 
-			for(j = 0; j < hidden_max; j++) {
-				delta_ih[j] += delta_ho * w_ho[k][j];
-				w_ho[k][j] -= delta_ho * w_ih[t->p][j];
+				for(j = 0; j < hidden_max; j++) {
+					delta_ih[j] += delta_ho * w_ho[k][j];
+					w_ho[k][j] -= delta_ho * w_ih[t->p][j];
+				}
 			}
 		}
 
@@ -656,7 +652,7 @@ void* thread_training_run(void* args) {
 			backward_propagate_error(t);
 #endif
 		}
-		
+
 		pthread_mutex_lock(&mtx_count_epoch);
 
 		if(++count_epoch == THREAD_MAX) {
