@@ -376,7 +376,7 @@ static void negative_sampling(xThread* t) {
 		memset(delta_ih, 0, hidden_max * sizeof(dt_float));
 
 		for(tf = 0; tf < t->center->target_freq[c]; tf++) {
-			for(ck = 0; ck < NEGATIVE_SAMPLES_MAX; ck++) {
+			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
 #ifdef FLAG_UNIGRAM_DISTRIBUTION
 					k = samples[random_int(0, corpus_freq_sum - 1)]->index;
