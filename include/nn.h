@@ -62,7 +62,7 @@
 //#define FLAG_TEST_CONTEXT
 #define FLAG_TEST_ORTHANT
 #define FLAT_DISTANCE_COSINE
-#define FLAG_SENT
+//#define FLAG_SENT
 //#define FLAG_STEM
 //#define FLAG_MONTE_CARLO
 #define FLAG_FIXED_LEARNING_RATE
