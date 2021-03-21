@@ -63,11 +63,7 @@ static void resources_allocate() {
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
 #endif
 
-#ifndef FLAG_UNIGRAM_DISTRIBUTION
-	samples = (xWord**) calloc(corpus_freq_sum, sizeof(xWord*));
-#else
 	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
-#endif
 	memcheck(samples);
 
 #ifdef FLAG_LOG
@@ -372,11 +368,7 @@ static void negative_sampling(xThread* t) {
 			
 			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
-#ifdef FLAG_UNIGRAM_DISTRIBUTION
-					k = samples[random_int(0, corpus_freq_sum - 1)]->index;
-#else
 					k = samples[random_int(0, pattern_max - 1)]->index;
-#endif
 				} else {
 					k = t->center->target[c]->index;
 				}

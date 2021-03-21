@@ -252,15 +252,6 @@ void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 
 // Create array from which negative samples will be picked
 void vocab_sample(xWord** vocab) {
-#ifdef FLAG_UNIGRAM_DISTRIBUTION
-	dt_int p, c, tmp;
-
-	for(tmp = p = 0; p < pattern_max; p++) {
-		for(c = 0; c < vocab[p]->freq; c++) {
-			samples[tmp++] = vocab[p];
-		}
-	}
-#else
 	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(copies);
 
@@ -278,7 +269,6 @@ void vocab_sample(xWord** vocab) {
 	}
 
 	free(copies);
-#endif
 }
 
 // Get word by vocabulary index
