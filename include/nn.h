@@ -81,7 +81,6 @@
 // Shortcuts
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
-// TODO Add LICENSE (which?)
 // TODO Why returning m when outside the bounds?
 #define limit_norm(x, a, b, m, s) ({dt_float _x = (x) * (s) + (m); _x > a && _x < b ? _x : m;})
 #define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
