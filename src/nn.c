@@ -368,7 +368,7 @@ static void negative_sampling(xThread* t) {
 			
 			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
-					k = samples[random_int(0, pattern_max - 1)]->index;
+					k = samples[sample_tdnd(0, pattern_max - 1)]->index;
 				} else {
 					k = t->center->target[c]->index;
 				}
