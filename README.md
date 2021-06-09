@@ -17,7 +17,12 @@ chmod +x data.sh pipeline.sh
 vim include/nn.h
 ```
 
-4. Start training pipeline
+4a. Start training
+```bash
+./run.sh
+```
+
+4b. Start training inside pipeline
 ```bash
 ./pipeline.sh
 ```
