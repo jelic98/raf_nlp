@@ -201,7 +201,7 @@ static void initialize_corpus() {
 	dt_int index = 0;
 	bst_flatten(corpus, vocab, &index);
 	echo_succ("Done flattening corpus");
-	
+
 	echo("Saving vocabulary");
 	vocab_save(vocab);
 	echo_succ("Done saving vocabulary");
@@ -219,7 +219,7 @@ static void initialize_corpus() {
 	echo("Calculating word frequency");
 	vocab_freq(vocab, &corpus_freq_sum, &corpus_freq_max);
 	echo_succ("Done calculating word frequency");
-	
+
 	echo("Creating sampling distribution");
 	vocab_sample(vocab);
 	echo_succ("Done creating sampling distribution");
@@ -245,6 +245,36 @@ static void initialize_weights() {
 	}
 
 	echo_succ("Done initializing weights");
+}
+
+// Initialize loss to keep track of training progress
+static void initialize_loss() {
+	dt_int p, c, j, k, ck, tf;
+	dt_float e;
+
+	for(loss = p = 0; p < pattern_max; p++) {
+		for(c = 0; c < vocab[p]->context_max; c++) {
+			for(tf = 0; tf < vocab[p]->target_freq[c]; tf++) {
+				for(ck = 0; ck < SAMPLE_MAX; ck++) {
+					if(ck) {
+#ifdef FLAG_UNIGRAM_SAMPLING
+						k = samples[(dt_int) random(0, pattern_max - 1)];
+#else
+						k = samples[sample_tdnd(0, pattern_max - 1)];
+#endif
+					} else {
+						k = vocab[p]->target[c]->index;
+					}
+
+					for(e = j = 0; j < hidden_max; j++) {
+						e += w_ih[p][j] * w_ho[k][j];
+					}
+
+					loss -= log(sigmoid(ck ? -e : e));
+				}
+			}
+		}
+	}
 }
 
 // Initialize parameters for new training epoch
@@ -283,7 +313,7 @@ static void negative_sampling(xThread* t) {
 			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
 #ifdef FLAG_UNIGRAM_SAMPLING
-					k = samples[(dt_int) random_unif(0, pattern_max - 1)];
+					k = samples[(dt_int) random(0, pattern_max - 1)];
 #else
 					k = samples[sample_tdnd(0, pattern_max - 1)];
 #endif
@@ -328,6 +358,7 @@ void nn_start() {
 
 	initialize_corpus();
 	initialize_weights();
+	initialize_loss();
 }
 
 // Clear everything

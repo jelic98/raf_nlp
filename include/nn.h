@@ -68,18 +68,7 @@
 #define ERROR_CMDARGS "Command line arguments error occurred"
 
 // Shortcuts
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
-#define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
-typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
-#define echo(...) echo_color(NONE, 0, __VA_ARGS__)
-#define echo_info(...) echo_color(YELLOW, 0, "INFO: " __VA_ARGS__)
-#define echo_succ(...) echo_color(GREEN, 0, "SUCCESS: " __VA_ARGS__)
-#define echo_fail(...) echo_color(RED, 0, "FAIL: " __VA_ARGS__)
-#define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
-#define echo_repl(...) echo_color(NONE, 1, __VA_ARGS__)
-#define DEF_LINE(x) static dt_int (x) = __LINE__
+#define DEF_LINE(x) static dt_int(x) = __LINE__
 #define ARGS_COUNT (__ARGS_END__ - __ARGS_START__)
 
 // Internal data limits

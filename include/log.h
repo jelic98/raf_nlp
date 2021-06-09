@@ -3,6 +3,15 @@
 
 #include "lib.h"
 
+typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
+#define echo(...) echo_color(NONE, 0, __VA_ARGS__)
+#define echo_info(...) echo_color(YELLOW, 0, "INFO: " __VA_ARGS__)
+#define echo_succ(...) echo_color(GREEN, 0, "SUCCESS: " __VA_ARGS__)
+#define echo_fail(...) echo_color(RED, 0, "FAIL: " __VA_ARGS__)
+#define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
+#define echo_repl(...) echo_color(NONE, 1, __VA_ARGS__)
+#define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
+
 struct timespec time_start;
 
 void sigget(dt_int);

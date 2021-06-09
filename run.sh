@@ -6,7 +6,7 @@ readonly LOG=out/log.txt
 rm -f "$LOG"
 make clean
 make	ARG_ACTIONS="TRAIN,SAVE,TEST" \
-		ARG_TRAIN="data/train/$CORPUS" \
-		ARG_TEST="data/test/$CORPUS" \
-		ARG_STOP="data/nltk_stop_words.txt" >> "$LOG"
+		ARG_TRAIN="res/train/$CORPUS" \
+		ARG_TEST="res/test/$CORPUS" \
+		ARG_STOP="res/nltk_stop_words.txt" >> "$LOG"
 grep Loss "$LOG"

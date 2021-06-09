@@ -249,7 +249,7 @@ void vocab_sample(xWord** vocab) {
 	for(p = 0; p < pattern_max; p++) {
 		tmp += vocab[p]->freq;
 	}
-	
+
 	samples = (dt_int*) calloc(tmp, sizeof(dt_int));
 	memcheck(samples);
 
@@ -261,7 +261,7 @@ void vocab_sample(xWord** vocab) {
 #else
 	samples = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 	memcheck(samples);
-	
+
 	dt_ull* freqs = (dt_ull*) calloc(pattern_max, sizeof(dt_ull));
 	memcheck(freqs);
 
@@ -271,30 +271,30 @@ void vocab_sample(xWord** vocab) {
 
 	qsort(freqs, pattern_max, sizeof(dt_ull), cmp_ull);
 
-    dt_int center = pattern_max / 2 + pattern_max % 2 - 1;
-    dt_int offset = 0;
-    dt_int right = 1;
-	
+	dt_int center = pattern_max / 2 + pattern_max % 2 - 1;
+	dt_int offset = 0;
+	dt_int right = 1;
+
 	for(p = 0; p < pattern_max; p++) {
-        q = center;
+		q = center;
 
-        if(right) {
-            q += offset;
-            samples[q] = freqs[p];
-            offset += 1;
-        }else {
-            q -= offset;
+		if(right) {
+			q += offset;
+			samples[q] = freqs[p];
+			offset += 1;
+		} else {
+			q -= offset;
 
-            if(q < 0) {
-                q += pattern_max;
+			if(q < 0) {
+				q += pattern_max;
 			}
 
-            samples[q] = freqs[p];
+			samples[q] = freqs[p];
 		}
 
-        right = !right;
+		right = !right;
 	}
-	
+
 	free(freqs);
 #endif
 }

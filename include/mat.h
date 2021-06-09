@@ -3,6 +3,10 @@
 
 #include "lib.h"
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define random(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
+
 void vector_normalize(dt_float*, dt_int);
 void vector_softmax(dt_float*, dt_int);
 void vector_distance(dt_float*, dt_float*, dt_int, dt_float*);
@@ -85,16 +89,16 @@ dt_float sigmoid(dt_float x) {
 
 // Calculate normalized Xavier weight initiazation value
 dt_float xavier(dt_int n, dt_int m) {
-	return random_unif(-1.0, 1.0) * sqrt(2.0 / (n + m));
+	return random(-1.0, 1.0) * sqrt(2.0 / (n + m));
 }
 
 // Sample random integer from truncated discrete normal distribution
 dt_int sample_tdnd(a, b) {
-    dt_float x1 = random_unif(0, 1);
-    dt_float x2 = random_unif(0, 1);
-    dt_float y = sqrt(-2 * log(x1)) * cos(2 * M_PI * x2);
-    dt_int sample = round(a + (1 + y * 0.25) * 0.5 * (b - a));
-	return sample < a || sample > b ? random_unif(a, b) : sample;
+	dt_float x1 = random(0, 1);
+	dt_float x2 = random(0, 1);
+	dt_float y = sqrt(-2 * log(x1)) * cos(2 * M_PI * x2);
+	dt_int sample = round(a + (1 + y * 0.25) * 0.5 * (b - a));
+	return sample < a || sample > b ? random(a, b) : sample;
 }
 #endif
 #endif
