@@ -4,15 +4,15 @@
 #include "lib.h"
 
 // PRIMARY HYPERPARAMETERS
-#define THREAD_MAX 32
-#define HIDDEN_MAX 200
-#define EPOCH_MAX 15
-#define WINDOW_MAX 8
+#define THREAD_MAX 2
+#define HIDDEN_MAX 50
+#define EPOCH_MAX 5
+#define WINDOW_MAX 10
 #define SAMPLE_MAX 25
 #define LEARNING_RATE_MAX 0.05
 #define LEARNING_RATE_MIN 0.0001
-#define FILTER_LOW_BOUND 10
-#define FILTER_HIGH_RATIO 0.0001
+#define FILTER_LOW_BOUND 3
+#define FILTER_HIGH_RATIO 0.05
 
 // SECONDARY HYPERPARAMETERS
 #define LOG_PERIOD_PASS 1000
@@ -38,28 +38,18 @@
 #define SENTENCE_THRESHOLD 128
 
 // Flags
-#define FLAG_DEBUG
-#define FLAG_LOG
 #define FLAG_FILTER_VOCABULARY_STOP
 #define FLAG_FILTER_VOCABULARY_LOW
 #define FLAG_FILTER_VOCABULARY_HIGH
+#define FLAG_UNIGRAM_SAMPLING
 #define FLAG_TEST_SIMILARITY
-#define FLAG_TEST_ORTHANT
-//#define FLAG_TEST_CONTEXT
+//#define FLAG_TEST_ORTHANT
+#define FLAG_TEST_CONTEXT
 //#define FLAG_BINARY_INPUT
 //#define FLAG_BINARY_OUTPUT
 //#define FLAG_SENT
 //#define FLAG_STEM
 //#define FLAG_FREE_MEMORY
-
-#ifdef FLAG_LOG
-#define FLAG_LOG_FILE
-#endif
-
-#ifdef FLAG_DEBUG
-#undef FLAG_LOG_FILE
-#define flog stdout
-#endif
 
 // Paths
 #define TRAIN_PATH arg_train
@@ -68,7 +58,6 @@
 #define VOCABULARY_PATH "out/vocab.tsv"
 #define WEIGHTS_IH_PATH "out/weights-ih.tsv"
 #define WEIGHTS_HO_PATH "out/weights-ho.tsv"
-#define LOG_PATH "out/log.txt"
 #define SENT_PATH "out/sent.tsv"
 #define FILTER_PATH "out/filter.tsv"
 
@@ -82,7 +71,6 @@
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define random_unif(a, b) ((rand() / (dt_float) RAND_MAX) * (b - a) + a)
-#ifdef FLAG_LOG
 #define memcheck(ptr) memcheck_log(ptr, __FILE__, __func__, __LINE__)
 typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eColor;
 #define echo(...) echo_color(NONE, 0, __VA_ARGS__)
@@ -91,12 +79,6 @@ typedef enum eColor { GRAY, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, NONE } eCol
 #define echo_fail(...) echo_color(RED, 0, "FAIL: " __VA_ARGS__)
 #define echo_cond(ok, ...) (ok ? echo_succ(__VA_ARGS__) : echo_fail(__VA_ARGS__))
 #define echo_repl(...) echo_color(NONE, 1, __VA_ARGS__)
-#ifdef FLAG_DEBUG
-#define debug(...) echo_color(MAGENTA, 0, "DEBUG: " __VA_ARGS__)
-#endif
-#else
-#define memcheck(ptr)
-#endif
 #define DEF_LINE(x) static dt_int (x) = __LINE__
 #define ARGS_COUNT (__ARGS_END__ - __ARGS_START__)
 
@@ -164,10 +146,7 @@ DEF_LINE(__ARGS_END__);
 dt_int pattern_max, input_max, hidden_max, output_max;
 
 // Dependencies
-#ifdef FLAG_LOG
 #include "log.h"
-#endif
-
 #include "mat.h"
 #include "col.h"
 #include "voc.h"

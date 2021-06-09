@@ -54,11 +54,9 @@ void sentence_encode(dt_char* sentence, dt_float* vector, dt_int vec_len, xWord*
 
 // Encode sentences from sentences file
 void sentences_encode(dt_int vec_len, xWord** vocab, dt_float** vectors) {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started sentences encoding");
-#endif
 
 	FILE* fsentin = fopen(TRAIN_PATH, "r");
 
@@ -69,9 +67,7 @@ void sentences_encode(dt_int vec_len, xWord** vocab, dt_float** vectors) {
 #endif
 
 	if(!fsentin || !fsentout) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -79,9 +75,7 @@ void sentences_encode(dt_int vec_len, xWord** vocab, dt_float** vectors) {
 	dt_int sent_end;
 	dt_float vec[vec_len];
 
-#ifdef FLAG_LOG
 	dt_int index = 0;
-#endif
 
 #ifndef FLAG_BINARY_OUTPUT
 	dt_int j;
@@ -92,11 +86,9 @@ void sentences_encode(dt_int vec_len, xWord** vocab, dt_float** vectors) {
 		word_clean(line, &sent_end);
 		sentence_encode(line, vec, vec_len, vocab, vectors);
 
-#ifdef FLAG_LOG
 		if(!(++index % LOG_PERIOD_SENT)) {
 			echo("Encoded sentences: %d", index);
 		}
-#endif
 
 #ifdef FLAG_BINARY_OUTPUT
 		fwrite(vec, sizeof(dt_float), vec_len, fsentout);
@@ -110,23 +102,17 @@ void sentences_encode(dt_int vec_len, xWord** vocab, dt_float** vectors) {
 	}
 
 	if(fclose(fsentin) == EOF || fclose(fsentout) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished sentences encoding (%d sec)", time_get(time_local));
-#endif
 }
 
 // Perform similarity test for sentences in sentences file
 void sentences_similarity(dt_int vec_len) {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started sentence similarity testing");
-#endif
 
 	FILE* fsentin = fopen(TRAIN_PATH, "r");
 
@@ -137,9 +123,7 @@ void sentences_similarity(dt_int vec_len) {
 #endif
 
 	if(!fsentin || !fsentout) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -175,9 +159,7 @@ void sentences_similarity(dt_int vec_len) {
 	prediction_max = min(index - 1, PREDICTION_MAX);
 
 	for(sentences_max = index, index = 0; index < sentences_max; index++) {
-#ifdef FLAG_LOG
 		echo_info("Sentence: %s", sent[index]->sent);
-#endif
 
 		for(s = 0; s < sentences_max; s++) {
 			vector_distance(sent[s]->vec, sent[index]->vec, vec_len, &sent[index]->dist);
@@ -186,21 +168,15 @@ void sentences_similarity(dt_int vec_len) {
 		qsort(dist, sentences_max, sizeof(xSent*), cmp_sent_dist);
 
 		for(s = 1; s <= prediction_max; s++) {
-#ifdef FLAG_LOG
 			echo("#%d\t%lf\t%s", s, dist[s]->dist, dist[s]->sent);
-#endif
 		}
 	}
 
 	if(fclose(fsentin) == EOF || fclose(fsentout) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished sentence similarity testing (%d sec)", time_get(time_local));
-#endif
 }
 #endif
 #endif

@@ -1,14 +1,9 @@
-#ifdef FLAG_LOG
 #ifndef H_LOG_INCLUDE
 #define H_LOG_INCLUDE
 
 #include "lib.h"
 
 struct timespec time_start;
-
-#ifdef FLAG_LOG_FILE
-FILE* flog;
-#endif
 
 void sigget(dt_int);
 dt_int time_get(struct timespec);
@@ -26,9 +21,7 @@ void sigget(dt_int sig) {
 	dt_int i;
 	for(i = 0; i < size; i++) {
 		stack[i][strchr(stack[i] + 4, ' ') - stack[i]] = '\0';
-#ifdef FLAG_LOG
 		echo_fail("%s @ %s", stack[i] + 4, stack[i] + 40);
-#endif
 	}
 	free(stack);
 	exit(1);
@@ -45,7 +38,7 @@ void timestamp() {
 	dt_char s[20];
 	gettimeofday(&tv, NULL);
 	strftime(s, sizeof(s) / sizeof(*s), "%d-%m-%Y %H:%M:%S", gmtime(&tv.tv_sec));
-	fprintf(flog, "[%s.%03d] ", s, (dt_int) tv.tv_usec / 1000);
+	printf("[%s.%03d] ", s, (dt_int) tv.tv_usec / 1000);
 }
 
 void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
@@ -64,25 +57,22 @@ void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
 		strcpy(f, format);
 		strcat(f, "\n");
 	}
-	vfprintf(flog, f, args);
+	vprintf(f, args);
 	color_set(NONE);
 	va_end(args);
 }
 
 void color_set(eColor color) {
 #ifdef FLAG_DEBUG
-	color == NONE ? fprintf(flog, "\033[0m") : fprintf(flog, "\033[1;3%dm", color);
+	color == NONE ? printf("\033[0m") : printf("\033[1;3%dm", color);
 #endif
 }
 
 void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt_int line) {
 	if(!ptr) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_MEMORY " @ %s:%s:%d", file, func, line);
-#endif
 		exit(1);
 	}
 }
-#endif
 #endif
 #endif

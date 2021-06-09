@@ -4,6 +4,7 @@ static dt_ull token_max;
 
 static dt_float alpha;
 static dt_float loss;
+static dt_float init_loss;
 
 static dt_int* patterns;
 static dt_float** w_ih;
@@ -19,29 +20,21 @@ static dt_int count_epoch;
 
 // Allocate auxiliary structures
 static void resources_allocate() {
-#ifdef FLAG_LOG
 	echo("Allocating resources");
-#endif
 
 	dt_int i, k;
 
 	vocab = (xWord**) calloc(pattern_max, sizeof(xWord*));
 	memcheck(vocab);
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "vocab", 1, pattern_max);
-#endif
 
 	vocab_hash = (dt_ull*) calloc(VOCABULARY_HASH_MAX, sizeof(dt_ull));
 	memcheck(vocab_hash);
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "vocab_hash", 1, VOCABULARY_HASH_MAX);
-#endif
 
 	patterns = (dt_int*) calloc(pattern_max, sizeof(dt_int));
 	memcheck(patterns);
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "patterns", 1, pattern_max);
-#endif
 
 	w_ih = (dt_float**) calloc(input_max, sizeof(dt_float*));
 	memcheck(w_ih);
@@ -49,9 +42,7 @@ static void resources_allocate() {
 		w_ih[i] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 		memcheck(w_ih[i]);
 	}
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "w_ih", input_max, hidden_max);
-#endif
 
 	w_ho = (dt_float**) calloc(output_max, sizeof(dt_float*));
 	memcheck(w_ho);
@@ -59,26 +50,13 @@ static void resources_allocate() {
 		w_ho[k] = (dt_float*) calloc(hidden_max, sizeof(dt_float));
 		memcheck(w_ho[k]);
 	}
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "w_ho", hidden_max, output_max);
-#endif
-
-	samples = (xWord**) calloc(pattern_max, sizeof(xWord*));
-	memcheck(samples);
-
-#ifdef FLAG_LOG
-	echo_info("Dimension of %s: %dx%d", "samples", 1, pattern_max);
-#endif
 
 	output = (dt_float*) calloc(THREAD_MAX, sizeof(dt_float));
 	memcheck(output);
-#ifdef FLAG_LOG
 	echo_info("Dimension of %s: %dx%d", "output", 1, output_max);
-#endif
 
-#ifdef FLAG_LOG
 	echo_succ("Done allocating resources");
-#endif
 }
 
 #ifdef FLAG_FREE_MEMORY
@@ -125,24 +103,18 @@ static void resources_release() {
 
 // Initialize vocabulary BST by reading corpus file
 static void initialize_corpus() {
-#ifdef FLAG_LOG
 	echo("Initializing corpus");
 	clock_gettime(CLOCK_MONOTONIC, &time_start);
-#endif
 
 	FILE* fin = fopen(TRAIN_PATH, "r");
 	FILE* fstop = fopen(STOP_PATH, "r");
 
 	if(!fin || !fstop) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		exit(1);
 	}
 
-#ifdef FLAG_LOG
 	echo("Loading stop words");
-#endif
 
 	dt_char line[LINE_CHARACTER_MAX];
 	xWord* node;
@@ -153,9 +125,7 @@ static void initialize_corpus() {
 		stops = list_insert(stops, &node);
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Done loading stop words");
-#endif
 
 	dt_int c, success, sent_end;
 	const dt_char* sep = WORD_DELIMITERS;
@@ -163,9 +133,7 @@ static void initialize_corpus() {
 	xWord* corpus = NULL;
 	xWord* window[WINDOW_MAX] = { 0 };
 
-#ifdef FLAG_LOG
 	echo("Reading corpus file");
-#endif
 
 	while(fgets(line, LINE_CHARACTER_MAX, fin)) {
 		tok = strtok(line, sep);
@@ -183,11 +151,9 @@ static void initialize_corpus() {
 					pattern_max = input_max = ++output_max;
 					hidden_max = HIDDEN_MAX;
 
-#ifdef FLAG_LOG
 					if(!(pattern_max % LOG_PERIOD_CORPUS)) {
 						echo("Corpus grown to %d", pattern_max);
 					}
-#endif
 				}
 
 				window[WINDOW_MAX - 1] = node;
@@ -217,107 +183,57 @@ static void initialize_corpus() {
 		}
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Done reading corpus file");
 	echo_info("Corpus size: %d words", token_max);
 	echo_info("Vocabulary size: %d words", pattern_max);
 	echo_info("Average word frequency: %lf", 1.0 * token_max / pattern_max);
-#endif
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
-#ifdef FLAG_LOG
 	echo("Filtering vocabulary");
-#endif
-
 	vocab_filter(corpus);
-
-#ifdef FLAG_LOG
 	echo_succ("Done filtering vocabulary");
 	echo_info("Vocabulary size: %d words", pattern_max);
-#endif
 #endif
 
 	resources_allocate();
 
-#ifdef FLAG_LOG
 	echo("Flattening corpus");
-#endif
-
 	dt_int index = 0;
 	bst_flatten(corpus, vocab, &index);
-
-#ifdef FLAG_LOG
 	echo_succ("Done flattening corpus");
-#endif
-
-#ifdef FLAG_LOG
+	
 	echo("Saving vocabulary");
-#endif
-
 	vocab_save(vocab);
-
-#ifdef FLAG_LOG
 	echo_succ("Done saving vocabulary");
-#endif
 
 	calculate_distribution();
 
-#ifdef FLAG_LOG
 	echo("Creating corpus map");
-#endif
-
 	vocab_map(vocab);
-
-#ifdef FLAG_LOG
 	echo_succ("Done creating corpus map");
-#endif
 
-#ifdef FLAG_LOG
 	echo("Building word targets");
-#endif
-
 	vocab_target(vocab);
-
-#ifdef FLAG_LOG
 	echo_succ("Done building word targets");
-#endif
 
-#ifdef FLAG_LOG
 	echo("Calculating word frequency");
-#endif
-
 	vocab_freq(vocab, &corpus_freq_sum, &corpus_freq_max);
-
-#ifdef FLAG_LOG
 	echo_succ("Done calculating word frequency");
-#endif
-
-#ifdef FLAG_LOG
+	
 	echo("Creating sampling distribution");
-#endif
-
 	vocab_sample(vocab);
-
-#ifdef FLAG_LOG
 	echo_succ("Done creating sampling distribution");
-#endif
 
 	if(fclose(fin) == EOF || fclose(fstop) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Done initializing corpus (%d sec)", time_get(time_start));
-#endif
 }
 
 // Initialize weights between layers
 static void initialize_weights() {
-#ifdef FLAG_LOG
 	echo("Initializing weights");
-#endif
 
 	dt_int p, j;
 
@@ -328,9 +244,7 @@ static void initialize_weights() {
 		}
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Done initializing weights");
-#endif
 }
 
 // Initialize parameters for new training epoch
@@ -365,10 +279,14 @@ static void negative_sampling(xThread* t) {
 	for(c = 0; c < t->center->context_max; c++) {
 		for(tf = 0; tf < t->center->target_freq[c]; tf++) {
 			memset(delta_ih, 0, hidden_max * sizeof(dt_float));
-			
+
 			for(ck = 0; ck < SAMPLE_MAX; ck++) {
 				if(ck) {
-					k = samples[sample_tdnd(0, pattern_max - 1)]->index;
+#ifdef FLAG_UNIGRAM_SAMPLING
+					k = samples[(dt_int) random_unif(0, pattern_max - 1)];
+#else
+					k = samples[sample_tdnd(0, pattern_max - 1)];
+#endif
 				} else {
 					k = t->center->target[c]->index;
 				}
@@ -408,10 +326,6 @@ void nn_start() {
 
 	srand(0);
 
-#ifdef FLAG_LOG_FILE
-	flog = fopen(LOG_PATH, "w");
-#endif
-
 	initialize_corpus();
 	initialize_weights();
 }
@@ -429,14 +343,6 @@ void nn_finish() {
 #ifdef FLAG_FREE_MEMORY
 	resources_release();
 #endif
-
-#ifdef FLAG_LOG_FILE
-	if(fclose(flog) == EOF) {
-#ifdef FLAG_LOG
-		echo_fail(ERROR_FILE);
-#endif
-	}
-#endif
 }
 
 // Thread function for training
@@ -446,16 +352,12 @@ void* thread_training_run(void* args) {
 	dt_int from = t->id * pattern_max / THREAD_MAX;
 	dt_int to = t->id == THREAD_MAX - 1 ? pattern_max : from + pattern_max / THREAD_MAX;
 
-#ifdef FLAG_LOG
 	dt_int p2, progress;
-#endif
 
 	for(epoch = 0; epoch < EPOCH_MAX; epoch++) {
 		if(!t->id) {
-#ifdef FLAG_LOG
 			echo("Started epoch %d/%d", epoch + 1, EPOCH_MAX);
 			clock_gettime(CLOCK_MONOTONIC, &time_start);
-#endif
 
 			initialize_epoch(epoch);
 		}
@@ -475,7 +377,6 @@ void* thread_training_run(void* args) {
 		}
 
 		for(p1 = from; p1 < to; p1++) {
-#ifdef FLAG_LOG
 			if(!t->id) {
 				if(!((to - p1) % LOG_PERIOD_PASS)) {
 					for(progress = p2 = 0; p2 < pattern_max; p2++) {
@@ -485,7 +386,6 @@ void* thread_training_run(void* args) {
 					echo("Training %d/%d", progress, pattern_max);
 				}
 			}
-#endif
 
 			t->center = index_to_word(vocab, t->p = patterns[p1]);
 			patterns[p1] = -1;
@@ -509,10 +409,13 @@ void* thread_training_run(void* args) {
 		if(!t->id) {
 			weights_save();
 
-#ifdef FLAG_LOG
 			echo_succ("Finished epoch %d/%d (%d sec)", epoch + 1, EPOCH_MAX, time_get(time_start));
-			echo_info("Loss %lf", loss);
-#endif
+
+			if(!epoch) {
+				init_loss = loss;
+			}
+
+			echo_info("Loss %lf (%.1lf%%)", loss, loss / init_loss * 100);
 		}
 	}
 
@@ -521,11 +424,9 @@ void* thread_training_run(void* args) {
 
 // Run multithreaded training
 void training_run() {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started training");
-#endif
 
 	pthread_mutex_init(&mtx_count_epoch, NULL);
 
@@ -551,26 +452,20 @@ void training_run() {
 	sem_unlink("/sem_epoch_2");
 	sem_close(sem_epoch_2);
 
-#ifdef FLAG_LOG
 	echo_succ("Finished training (%d sec)", time_get(time_local));
-#endif
 }
 
 #ifdef FLAG_TEST_SIMILARITY
 // Perform similarity test for words in test file
 void test_similarity() {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started similarity testing");
-#endif
 
 	FILE* ftest = fopen(TEST_PATH, "r");
 
 	if(!ftest) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -592,15 +487,11 @@ void test_similarity() {
 #endif
 
 		if(skip) {
-#ifdef FLAG_LOG
 			echo_info("Skipping word: %s", line);
-#endif
 			continue;
 		}
 
-#ifdef FLAG_LOG
 		echo_info("Word: %s", line);
-#endif
 
 		dt_int p, index = word_to_index(vocab, line);
 
@@ -618,39 +509,29 @@ void test_similarity() {
 		qsort(dist, pattern_max, sizeof(xWord*), cmp_dist);
 
 		for(p = 1; p <= PREDICTION_MAX; p++) {
-#ifdef FLAG_LOG
 			echo("#%d\t%lf\t%s", p, dist[p]->dist, dist[p]->word);
-#endif
 		}
 	}
 
 	if(fclose(ftest) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished similarity testing (%d sec)", time_get(time_local));
-#endif
 }
 #endif
 
 #ifdef FLAG_TEST_CONTEXT
 // Perform context test for words in test file
 void test_context() {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started context testing");
-#endif
 
 	FILE* ftest = fopen(TEST_PATH, "r");
 
 	if(!ftest) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -672,18 +553,14 @@ void test_context() {
 #endif
 
 		if(skip) {
-#ifdef FLAG_LOG
 			echo_info("Skipping word: %s", line);
-#endif
 			continue;
 		}
 
 		dt_int count = PREDICTION_MAX;
 
-#ifdef FLAG_LOG
 		echo_info("Center: %s", line);
 		clock_gettime(CLOCK_MONOTONIC, &time_start);
-#endif
 
 		dt_int c, k, s, index = word_to_index(vocab, line);
 
@@ -722,39 +599,29 @@ void test_context() {
 				}
 			}
 
-#ifdef FLAG_LOG
 			echo("#%d\t%s\t%lf\t%s", index++, s ? "OK" : ".", pred[k]->prob, pred[k]->word);
-#endif
 		}
 
-#ifdef FLAG_LOG
 		echo_cond(success, "Prediction %scorrect (%d sec)", success ? "" : "not ", time_get(time_start));
-#endif
 		test_count++, tries_sum += success;
 	}
 
 	if(fclose(ftest) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	dt_float prec = 100.0 * tries_sum / test_count;
 	echo_cond(prec > 50.0, "Precision: %.1lf%%", prec);
 	echo_succ("Finished context testing (%d sec)", time_get(time_local));
-#endif
 }
 #endif
 
 #ifdef FLAG_TEST_ORTHANT
 // Perform orthant test for words in test file
 void test_orthant() {
-#ifdef FLAG_LOG
 	struct timespec time_local;
 	clock_gettime(CLOCK_MONOTONIC, &time_local);
 	echo("Started orthant testing");
-#endif
 
 	dt_int j, i, count;
 
@@ -766,9 +633,7 @@ void test_orthant() {
 		echo_info("Coordinate #%d: %d/%d", j + 1, count, pattern_max - count);
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished orthant testing (%d sec)", time_get(time_local));
-#endif
 }
 #endif
 
@@ -789,9 +654,7 @@ void testing_run() {
 
 // Save weights to file
 void weights_save() {
-#ifdef FLAG_LOG
 	echo("Started saving weights");
-#endif
 
 #ifdef FLAG_BINARY_OUTPUT
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "wb");
@@ -802,9 +665,7 @@ void weights_save() {
 #endif
 
 	if(!fwih || !fwho) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -840,21 +701,15 @@ void weights_save() {
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished saving weights");
-#endif
 }
 
 // Load weights from file
 void weights_load() {
-#ifdef FLAG_LOG
 	echo("Started loading weights");
-#endif
 
 #ifdef FLAG_BINARY_INPUT
 	FILE* fwih = fopen(WEIGHTS_IH_PATH, "rb");
@@ -865,9 +720,7 @@ void weights_load() {
 #endif
 
 	if(!fwih || !fwho) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -897,12 +750,8 @@ void weights_load() {
 	}
 
 	if(fclose(fwih) == EOF || fclose(fwho) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
-#ifdef FLAG_LOG
 	echo_succ("Finished loading weights");
-#endif
 }

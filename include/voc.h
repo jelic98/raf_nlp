@@ -9,10 +9,11 @@ dt_ull* vocab_hash;
 dt_ull invalid_index[INVALID_INDEX_MAX];
 dt_ull invalid_index_last;
 dt_ull corpus_freq_sum, corpus_freq_max;
-xWord** samples;
+dt_int* samples;
 
 dt_int cmp_ull(const void*, const void*);
 dt_int cmp_freq(const void*, const void*);
+dt_int cmp_int(const void*, const void*);
 dt_ull word_to_index(xWord**, const dt_char*);
 void word_lower(dt_char*);
 void word_clean(dt_char*, dt_int*);
@@ -35,15 +36,13 @@ dt_int cmp_ull(const void* a, const void* b) {
 	dt_ull ullb = (*(dt_ull*) b);
 	dt_int ra = ulla > ullb;
 	dt_int rb = ulla < ullb;
-	return ra - rb;
+	return rb - ra;
 }
 
-#ifdef FLAG_FILTER_VOCABULARY_HIGH
 // Compare two words by their frequency
 dt_int cmp_freq(const void* a, const void* b) {
 	return (*(xWord**) a)->freq - (*(xWord**) b)->freq;
 }
-#endif
 
 // Get vocabulary index by word hash
 dt_ull word_to_index(xWord** vocab, const dt_char* word) {
@@ -57,9 +56,7 @@ dt_ull word_to_index(xWord** vocab, const dt_char* word) {
 		}
 	}
 
-#ifdef FLAG_LOG
 	echo_fail("%s not found in corpus", word);
-#endif
 
 	return -1;
 }
@@ -139,7 +136,7 @@ void vocab_filter(xWord* corpus) {
 
 #ifdef FLAG_FILTER_VOCABULARY_HIGH
 	qsort(vocab, pattern_max, sizeof(xWord*), cmp_freq);
-	
+
 	dt_int old_pattern_max1 = pattern_max;
 	pattern_max = input_max = output_max -= filter_high;
 
@@ -170,9 +167,7 @@ void vocab_save(xWord** vocab) {
 	FILE* fvoc = fopen(VOCABULARY_PATH, "w");
 
 	if(!fvoc) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -183,18 +178,14 @@ void vocab_save(xWord** vocab) {
 	}
 
 	if(fclose(fvoc) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 
 #if defined(FLAG_FILTER_VOCABULARY_LOW) || defined(FLAG_FILTER_VOCABULARY_HIGH)
 	FILE* ffil = fopen(FILTER_PATH, "w");
 
 	if(!ffil) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 		return;
 	}
 
@@ -205,9 +196,7 @@ void vocab_save(xWord** vocab) {
 	}
 
 	if(fclose(ffil) == EOF) {
-#ifdef FLAG_LOG
 		echo_fail(ERROR_FILE);
-#endif
 	}
 #endif
 }
@@ -252,23 +241,62 @@ void vocab_freq(xWord** vocab, dt_ull* sum, dt_ull* max) {
 
 // Create array from which negative samples will be picked
 void vocab_sample(xWord** vocab) {
-	xWord** copies = (xWord**) calloc(pattern_max, sizeof(xWord*));
-	memcheck(copies);
+	dt_int p, q;
 
-	dt_int p, ck;
-
-	for(p = 0; p < pattern_max; p++) {
-		copies[p] = vocab[p];
-	}
-
-	qsort(copies, pattern_max, sizeof(xWord*), cmp_freq);
+#ifdef FLAG_UNIGRAM_SAMPLING
+	dt_int tmp = 0;
 
 	for(p = 0; p < pattern_max; p++) {
-		ck = pattern_max / 2 + (p > 0) * p / 2 * (1 + 2 * (p % 2 - 1)) + p % 2 - !(pattern_max % 2);
-		samples[ck] = copies[pattern_max - p - 1];
+		tmp += vocab[p]->freq;
+	}
+	
+	samples = (dt_int*) calloc(tmp, sizeof(dt_int));
+	memcheck(samples);
+
+	for(tmp = p = 0; p < pattern_max; p++) {
+		for(q = 0; q < vocab[p]->freq; q++) {
+			samples[tmp++] = q;
+		}
+	}
+#else
+	samples = (dt_int*) calloc(pattern_max, sizeof(dt_int));
+	memcheck(samples);
+	
+	dt_ull* freqs = (dt_ull*) calloc(pattern_max, sizeof(dt_ull));
+	memcheck(freqs);
+
+	for(p = 0; p < pattern_max; p++) {
+		freqs[p] = vocab[p]->freq;
 	}
 
-	free(copies);
+	qsort(freqs, pattern_max, sizeof(dt_ull), cmp_ull);
+
+    dt_int center = pattern_max / 2 + pattern_max % 2 - 1;
+    dt_int offset = 0;
+    dt_int right = 1;
+	
+	for(p = 0; p < pattern_max; p++) {
+        q = center;
+
+        if(right) {
+            q += offset;
+            samples[q] = freqs[p];
+            offset += 1;
+        }else {
+            q -= offset;
+
+            if(q < 0) {
+                q += pattern_max;
+			}
+
+            samples[q] = freqs[p];
+		}
+
+        right = !right;
+	}
+	
+	free(freqs);
+#endif
 }
 
 // Get word by vocabulary index
@@ -304,22 +332,16 @@ void invalid_index_print() {
 		dt_ull i;
 
 		for(i = 0; i < invalid_index_last; i++) {
-#ifdef FLAG_LOG
 			echo_fail("Invalid index %d:\t%d", i + 1, invalid_index[i]);
-#endif
 		}
 	} else {
-#ifdef FLAG_LOG
 		echo_succ("No invalid indices");
-#endif
 	}
 }
 
 // Calculate frequency distribution for manual analytics
 void calculate_distribution() {
-#ifdef FLAG_LOG
 	echo("Calculating distribution");
-#endif
 
 	dt_ull* freqs = (dt_ull*) calloc(pattern_max, sizeof(dt_ull));
 	memcheck(freqs);
@@ -329,24 +351,19 @@ void calculate_distribution() {
 	for(p = 0; p < pattern_max; p++) {
 		freqs[p] = vocab[p]->freq;
 	}
-	
+
 	qsort(freqs, pattern_max, sizeof(dt_ull), cmp_ull);
 
 	dt_int buck, span = pattern_max / FREQ_BUCKETS;
 
 	for(p = 1; p <= FREQ_BUCKETS; p++) {
 		buck = p == FREQ_BUCKETS ? pattern_max - 1 : (p - 1) * span;
-
-#ifdef FLAG_LOG
 		echo_info("Sample #%d (%d/%d): %llu occurrences", p, buck + 1, pattern_max, freqs[buck]);
-#endif
 	}
 
 	free(freqs);
 
-#ifdef FLAG_LOG
 	echo_succ("Done calculating distribution");
-#endif
 }
 #endif
 #endif
