@@ -68,13 +68,12 @@ void echo_color(eColor color, dt_int replace, const dt_char* format, ...) {
 	}
 	vprintf(f, args);
 	color_set(NONE);
+	fflush(stdout);
 	va_end(args);
 }
 
 void color_set(eColor color) {
-#ifdef FLAG_DEBUG
 	color == NONE ? printf("\033[0m") : printf("\033[1;3%dm", color);
-#endif
 }
 
 void memcheck_log(void* ptr, const dt_char* file, const dt_char* func, dt_int line) {

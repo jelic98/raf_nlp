@@ -7,7 +7,7 @@
 #define THREAD_MAX 2
 #define HIDDEN_MAX 50
 #define EPOCH_MAX 10
-#define WINDOW_MAX 10
+#define WINDOW_MAX 5
 #define SAMPLE_MAX 25
 #define LEARNING_RATE_MAX 0.05
 #define LEARNING_RATE_MIN 0.0001

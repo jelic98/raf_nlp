@@ -1,12 +1,9 @@
 #!/bin/bash
 
-readonly CORPUS=640k.txt
 readonly LOG=out/log.txt
 
-rm -f "$LOG"
-make clean
-make	ARG_ACTIONS="TRAIN,SAVE,TEST" \
-		ARG_TRAIN="res/train/$CORPUS" \
-		ARG_TEST="res/test/$CORPUS" \
-		ARG_STOP="res/nltk_stop_words.txt" >> "$LOG"
-grep Loss "$LOG"
+nohup sh build.sh 2>&1 > "$LOG" &
+watch -n 1 --color "cat $LOG | tail -n $(($(tput lines) - 2))"
+
+grep "Loss" "$LOG"
+grep "Finished training" "$LOG"
