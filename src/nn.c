@@ -252,7 +252,7 @@ static void initialize_loss() {
 	dt_int p, c, j, k, ck, tf;
 	dt_float e;
 
-	for(loss = p = 0; p < pattern_max; p++) {
+	for(init_loss = p = 0; p < pattern_max; p++) {
 		for(c = 0; c < vocab[p]->context_max; c++) {
 			for(tf = 0; tf < vocab[p]->target_freq[c]; tf++) {
 				for(ck = 0; ck < SAMPLE_MAX; ck++) {
@@ -270,11 +270,13 @@ static void initialize_loss() {
 						e += w_ih[p][j] * w_ho[k][j];
 					}
 
-					loss -= log(sigmoid(ck ? -e : e));
+					init_loss -= log(sigmoid(ck ? -e : e));
 				}
 			}
 		}
 	}
+	
+	echo_info("Loss %lf (%.1lf%%)", init_loss, 100.0);
 }
 
 // Initialize parameters for new training epoch
@@ -439,13 +441,7 @@ void* thread_training_run(void* args) {
 
 		if(!t->id) {
 			weights_save();
-
 			echo_succ("Finished epoch %d/%d (%d sec)", epoch + 1, EPOCH_MAX, time_get(time_start));
-
-			if(!epoch) {
-				init_loss = loss;
-			}
-
 			echo_info("Loss %lf (%.1lf%%)", loss, loss / init_loss * 100);
 		}
 	}
