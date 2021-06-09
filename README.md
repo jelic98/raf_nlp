@@ -12,9 +12,9 @@ chmod +x data.sh pipeline.sh
 ./data.sh
 ```
 
-3. Configure hyperparameters
+3. Configure hyperparameters and corpus path
 ```bash
-vim include/nn.h
+vim include/nn.h build.sh
 ```
 
 4a. Start training
